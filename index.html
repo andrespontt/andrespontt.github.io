@@ -13,14 +13,14 @@
     #inputField {
       padding: 10px;
       width: 300px;
-      margin-right: 10px;  /* Add consistent margin */
+      margin-right: 10px;
       box-sizing: border-box;
       height: 40px;
       vertical-align: middle;
     }
     button {
       padding: 10px 20px;
-      margin-right: 10px;  /* Keep consistent margin */
+      margin-right: 10px;
       background-color: #007BFF;
       color: white;
       border: none;
@@ -28,6 +28,7 @@
       width: 150px;
       height: 40px;
       vertical-align: middle;
+      transition: all 0.3s ease;
     }
     @keyframes pulse {
       0% {
@@ -49,6 +50,25 @@
     }
     #encodedText, #generatedUrl {
       font-weight: bold;
+    }
+    /* Add responsive design for mobile */
+    @media screen and (max-width: 768px) {
+      #inputField {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 10px;
+      }
+      
+      button {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 10px;
+      }
+
+      /* Remove margin from last button */
+      button:last-child {
+        margin-bottom: 0;
+      }
     }
   </style>
   <!-- Google tag (gtag.js) -->
