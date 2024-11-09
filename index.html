@@ -6,9 +6,9 @@
   <title>The Clipboard Tool</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #f0f0f0;
+      background-color: #1e1e1e;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     }
     #inputField {
       padding: 10px;
@@ -17,18 +17,40 @@
       box-sizing: border-box;
       height: 40px;
       vertical-align: middle;
+      background-color: #2d2d2d;
+      border: 1px solid #404040;
+      color: #ffffff;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+    }
+    #inputField:focus {
+      outline: none;
+      border-color: #0078d4;
+      box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
     }
     button {
       padding: 10px 20px;
       margin-right: 10px;
-      background-color: #007BFF;
+      background: linear-gradient(180deg, #0078d4 0%, #0066b5 100%);
       color: white;
       border: none;
       cursor: pointer;
       width: 150px;
       height: 40px;
       vertical-align: middle;
+      border-radius: 6px;
+      font-weight: 500;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
       transition: all 0.3s ease;
+    }
+    button:hover {
+      background: linear-gradient(180deg, #0086e7 0%, #0078d4 100%);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    button.copied {
+      background: linear-gradient(180deg, #28a745 0%, #208838 100%);
+      animation: pulse 0.5s ease;
     }
     @keyframes pulse {
       0% {
@@ -40,13 +62,6 @@
       100% {
         transform: scale(1);
       }
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    button.copied {
-      background-color: #28a745;
-      animation: pulse 0.5s ease;
     }
     #encodedText, #generatedUrl {
       font-weight: bold;
