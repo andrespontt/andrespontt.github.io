@@ -39,48 +39,9 @@
         <a href="bio.html">About Me</a>
     </nav>
     <h1>Music</h1>
-    <button id="generateButton">Generate Tune</button>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
-    <script>
-        const generateButton = document.getElementById('generateButton');
-
-        generateButton.addEventListener('click', async () => {
-            try {
-                // Create a synth
-                const synth = new Tone.Synth().toDestination();
-
-                // Define the notes in C major
-                const notes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
-
-                // Define a simple melody
-                const melody = [
-                    'C4', 'E4', 'G4', 'C5',
-                    'G4', 'E4', 'C4', null, // null for a rest
-                    'D4', 'F4', 'A4', 'D5',
-                    'A4', 'F4', 'D4', null
-                ];
-
-                // Create a sequence
-                const sequence = new Tone.Sequence((time, note) => {
-                    if (note) {
-                        synth.triggerAttackRelease(note, '8n', time);
-                    }
-                }, melody, '4n').start(0);
-
-                // Set the tempo
-                Tone.Transport.bpm.value = 120;
-
-                // Loop the sequence for 30 seconds
-                Tone.Transport.loop = true;
-                Tone.Transport.loopEnd = '30s';
-
-                // Start the transport
-                Tone.Transport.start();
-
-            } catch (error) {
-                console.error('Error generating tune:', error);
-            }
-        });
-    </script>
+     <audio controls>
+      <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+      Your browser does not support the audio element.
+    </audio>
 </body>
 </html>
