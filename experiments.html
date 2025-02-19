@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experiments</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+
+        nav {
+            background-color: #2d2d2d;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        nav a {
+            color: #ffffff;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: bold;
+            transition: color 0.3s ease;
+        }
+
+        nav a:hover {
+            color: #0078d4;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="experiments.html">Experiments</a>
+        <a href="bio.html">About Me</a>
+    </nav>
+    <h1>Experiments</h1>
+
+    <h2>Rotating Cube</h2>
+    <p>This experiment demonstrates a simple rotating cube using Three.js.</p>
+    <canvas id="glCanvas" width="640" height="480"></canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const canvas = document.getElementById('glCanvas');
+        const renderer = new THREE.WebGLRenderer({ canvas });
+
+        const fov = 75;
+        const aspect = 640 / 480;  // the canvas default
+        const near = 0.1;
+        const far = 5;
+        const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+        camera.position.z = 2;
+
+        const scene = new THREE.Scene();
+
+        const boxWidth = 1;
+        const boxHeight = 1;
+        const boxDepth = 1;
+        const geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
+
+        const material = new THREE.MeshPhongMaterial({ color: 0x44aa88 });
+
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        const color = 0xFFFFFF;
+        const intensity = 1;
+        const light = new THREE.DirectionalLight(color, intensity);
+        light.position.set(-1, 2, 4);
+        scene.add(light);
+
+        function render(time) {
+            time *= 0.001;  // convert time to seconds
+
+            cube.rotation.x = time;
+            cube.rotation.y = time;
+
+            renderer.render(scene, camera);
+
+            requestAnimationFrame(render);
+        }
+        requestAnimationFrame(render);
+    </script>
+
+    <h2>Experiment 2: Spinning Torus</h2>
+    <p>This experiment displays a spinning torus using Three.js.</p>
+    <canvas id="glCanvas2" width="640" height="480"></canvas>
+    <script>
+        const canvas2 = document.getElementById('glCanvas2');
+        const renderer2 = new THREE.WebGLRenderer({ canvas: canvas2 });
+
+        const fov2 = 75;
+        const aspect2 = 640 / 480;  // the canvas default
+        const near2 = 0.1;
+        const far2 = 5;
+        const camera2 = new THREE.PerspectiveCamera(fov2, aspect2, near2, far2);
+        camera2.position.z = 3;
+
+        const scene2 = new THREE.Scene();
+
+        const geometry2 = new THREE.TorusGeometry( 1, 0.4, 16, 100 );
+        const material2 = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+        const torus = new THREE.Mesh( geometry2, material2 );
+        scene2.add( torus );
+
+        function render2(time) {
+            time *= 0.001;  // convert time to seconds
+
+            torus.rotation.x = time;
+            torus.rotation.y = time;
+
+            renderer2.render(scene2, camera2);
+
+            requestAnimationFrame(render2);
+        }
+        requestAnimationFrame(render2);
+    </script>
+
+    <h2>Experiment 3: Moving Sphere</h2>
+    <p>This experiment displays a moving sphere using Three.js.</p>
+    <canvas id="glCanvas3" width="640" height="480"></canvas>
+    <script>
+        const canvas3 = document.getElementById('glCanvas3');
+        const renderer3 = new THREE.WebGLRenderer({ canvas: canvas3 });
+
+        const fov3 = 75;
+        const aspect3 = 640 / 480;  // the canvas default
+        const near3 = 0.1;
+        const far3 = 5;
+        const camera3 = new THREE.PerspectiveCamera(fov3, aspect3, near3, far3);
+        camera3.position.z = 3;
+
+        const scene3 = new THREE.Scene();
+
+        const geometry3 = new THREE.SphereGeometry( 1, 32, 32 );
+        const material3 = new THREE.MeshBasicMaterial( {color: 0xffff00} );
+        const sphere = new THREE.Mesh( geometry3, material3 );
+        scene3.add( sphere );
+
+        function render3(time) {
+            time *= 0.001;  // convert time to seconds
+
+            sphere.position.x = Math.sin(time) * 2;
+
+            renderer3.render(scene3, camera3);
+
+            requestAnimationFrame(render3);
+        }
+        requestAnimationFrame(render3);
+    </script>
+</body>
+</html>
