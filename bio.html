@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bio</title>
+  <style>
+    body {
+      background-color: #1e1e1e;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+    #inputField {
+      padding: 10px;
+      width: 300px;
+      margin-right: 10px;
+      box-sizing: border-box;
+      height: 40px;
+      vertical-align: middle;
+      background-color: #2d2d2d;
+      border: 1px solid #404040;
+      color: #ffffff;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+    }
+    #inputField:focus {
+      outline: none;
+      border-color: #0078d4;
+      box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+    }
+    button {
+      padding: 10px 20px;
+      margin-right: 10px;
+      background: linear-gradient(180deg, #0078d4 0%, #0066b5 100%);
+      color: white;
+      border: none;
+      cursor: pointer;
+      width: 150px;
+      height: 40px;
+      vertical-align: middle;
+      border-radius: 6px;
+      font-weight: 500;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      background: linear-gradient(180deg, #0086e7 0%, #0078d4 100%);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    button.copied {
+      background: linear-gradient(180deg, #28a745 0%, #208838 100%);
+      animation: pulse 0.5s ease;
+    }
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    nav {
+      background-color: #2d2d2d;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    nav a {
+      color: #ffffff;
+      text-decoration: none;
+      margin-right: 20px;
+      font-weight: bold;
+      transition: color 0.3s ease;
+    }
+
+    nav a:hover {
+      color: #0078d4;
+    }
+
+    #encodedText, #generatedUrl {
+      font-weight: bold;
+    }
+    /* Add responsive design for mobile */
+    @media screen and (max-width: 768px) {
+      #inputField {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 10px;
+      }
+      
+      button {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 10px;
+      }
+
+      /* Remove margin from last button */
+      button:last-child {
+        margin-bottom: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="bio.html">About Me</a>
+    </nav>
+    <h1>About Me</h1>
+    <p>Software Engineer with 15 years of experience specializing in Java APIs.</p>
+</body>
+</html>
