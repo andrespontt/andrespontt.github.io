@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+
+        nav {
+            background-color: #2d2d2d;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        nav a {
+            color: #ffffff;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: bold;
+            transition: color 0.3s ease;
+        }
+
+        nav a:hover {
+            color: #0078d4;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="experiments.html">Experiments</a>
+        <a href="music.html">Music</a>
+        <a href="bio.html">About Me</a>
+    </nav>
+    <h1>Music</h1>
+    <button id="generateButton">Generate Tune</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <script>
+        const generateButton = document.getElementById('generateButton');
+
+        generateButton.addEventListener('click', async () => {
+            // Start Tone.js
+            if (Tone.context.state !== 'running') {
+                await Tone.start();
+            }
+
+            // Create a synth
+            const synth = new Tone.Synth().toDestination();
+
+            // Define the notes and rhythm
+            const notes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
+            const rhythm = ['8n', '8n', '8n', '8n', '4n', '4n'];
+
+            // Create a sequence
+            const sequence = new Tone.Sequence((time, note) => {
+                synth.triggerAttackRelease(note, '8n', time);
+            }, notes, rhythm).start(0);
+
+            // Set the tempo
+            Tone.Transport.bpm.value = 120;
+
+            // Loop the sequence for 30 seconds
+            Tone.Transport.loop = true;
+            Tone.Transport.loopEnd = '30s';
+
+            // Start the transport
+            Tone.Transport.start();
+        });
+    </script>
+</body>
+</html>
