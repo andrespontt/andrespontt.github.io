@@ -43,40 +43,5 @@
       <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
       Your browser does not support the audio element.
     </audio>
-    <script>
-      const audio = document.querySelector('audio');
-      const body = document.querySelector('body');
-
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaElementSource(audio);
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-
-      analyser.fftSize = 256;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      function draw() {
-        requestAnimationFrame(draw);
-
-        analyser.getByteFrequencyData(dataArray);
-
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / bufferLength;
-
-        const hue = average;
-        body.style.backgroundColor = 'hsl(' + hue + ', 50%, 50%)';
-      }
-
-      audio.onplay = function() {
-        audioContext.resume().then(() => {
-          draw();
-        });
-      };
-    </script>
 </body>
 </html>
