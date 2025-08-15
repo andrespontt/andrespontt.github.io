@@ -1,48 +1,449 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Kids Typing Game (Ages 3–6)</title>
-<style>
-  /* existing styles remain */
-  .confetti { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kids Typing Game (Ages 3–6)</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --fg: #0f172a;
+      --accent: #6ee7b7;
+      --accent-2: #93c5fd;
+      --error: #fca5a5;
+      --ok: #86efac;
+      --muted: #64748b;
+      --card: #ffffff;
+      --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+    }
+    [data-contrast="high"] {
+      --bg: #ffffff;
+      --fg: #000000;
+      --accent: #00a651;
+      --accent-2: #005bbb;
+      --error: #ff2a2a;
+      --ok: #00d100;
+      --muted: #222;
+      --card: #ffffff;
+    }
+
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(180deg, var(--bg), #eef2ff 80%);
+      color: var(--fg);
+      display: grid;
+      place-items: center;
+    }
+
+    .app {
+      width: min(920px, 96vw);
+      min-height: 88vh;
+      background: var(--card);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: clamp(16px, 2.5vw, 28px);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: radial-gradient(circle at 30% 30%, var(--accent), var(--accent-2));
+      box-shadow: inset 0 0 0 3px rgba(255,255,255,.8), 0 6px 16px rgba(2,6,23,.15);
+    }
+    h1 { font-size: clamp(18px, 2.4vw, 28px); margin: 0; }
+
+    .controls {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    }
+    .btn, select {
+      appearance: none;
+      border: none; cursor: pointer;
+      background: var(--fg); color: #fff;
+      padding: 10px 14px; border-radius: 14px;
+      font-weight: 700; letter-spacing: .2px;
+      box-shadow: var(--shadow);
+    }
+    select { background: var(--accent-2); color: #0b1020; font-weight: 800; }
+    .btn.secondary { background: #0b1020; }
+    .btn.ghost { background: #e2e8f0; color: #0b1020; }
+    .toggle { background: #e2e8f0; color: #0b1020; }
+
+    main { display: grid; place-items: center; text-align: center; gap: 16px; }
+
+    .card {
+      background: linear-gradient(180deg,#fff, #f8fafc);
+      border-radius: 24px; padding: clamp(16px, 3vw, 28px);
+      box-shadow: var(--shadow);
+      width: min(760px, 96%);
+    }
+
+    .word-display {
+      font-size: clamp(40px, 8vw, 76px);
+      font-weight: 900;
+      letter-spacing: 2px;
+      display: flex; gap: .2em; justify-content: center; align-items: center; flex-wrap: wrap;
+    }
+    .letter { display: inline-block; padding: 0 .05em; border-radius: 10px; }
+    .letter.correct { color: #065f46; background: var(--ok); }
+    .letter.next { outline: 4px solid var(--accent); outline-offset: 6px; }
+
+    .input-row { display: flex; justify-content: center; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .type-box {
+      font-size: clamp(20px, 3.5vw, 28px);
+      padding: 12px 16px; border-radius: 14px; border: 3px solid #cbd5e1;
+      width: min(460px, 80vw);
+    }
+
+    .feedback { min-height: 28px; font-weight: 800; color: var(--muted); }
+    .feedback.good { color: #065f46; }
+    .feedback.bad { color: #7f1d1d; }
+
+    .scorebar {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 6px;
+    }
+    .pill {
+      background: #eef2ff; border-radius: 999px; padding: 10px 14px; font-weight: 800;
+    }
+
+    .shake { animation: shake .25s; }
+    @keyframes shake { 25%{transform: translateX(-6px);} 50%{transform: translateX(6px);} 75%{transform: translateX(-4px);} }
+
+    .confetti { position: fixed; inset: 0; pointer-events: none; }
+
+    footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .small { font-size: 12px; color: var(--muted); }
+
+    /* Large tap targets on mobile */
+    @media (max-width: 480px) {
+      .btn, select { padding: 12px 16px; }
+    }
+  </style>
 </head>
 <body>
-<!-- existing body content remains -->
-<script>
-  /* existing JS remains, with updated celebrate() */
-  function celebrate(){
-    const ctx = els.confetti.getContext('2d');
-    els.confetti.style.zIndex = '1'; // show above background
-    const {width, height} = els.confetti;
-    ctx.clearRect(0,0,width,height);
-    const pieces = Array.from({length: 80}, ()=>({
-      x: Math.random()*width,
-      y: Math.random()*height*0.3 + height*0.2,
-      r: Math.random()*7+3,
-      vx: (Math.random()-0.5)*4,
-      vy: -Math.random()*4-2,
-      color: `hsl(${Math.floor(Math.random()*360)},80%,60%)`,
-      life: 60
-    }));
-    function tick(){
-      ctx.clearRect(0,0,width,height);
-      let alive = false;
-      for (const p of pieces){
-        p.vy += 0.12; p.x += p.vx; p.y += p.vy; p.life--;
-        if (p.life > 0){
-          alive = true;
-          ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+  <div class="app" role="application" aria-label="Kids typing game">
+    <header>
+      <div class="brand" aria-label="Game title">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>Type & Shine</h1>
+      </div>
+      <div class="controls">
+        <label for="level" class="sr" aria-hidden="true">Level</label>
+        <select id="level" title="Choose age level" aria-label="Choose age level">
+          <option value="3">Age 3 (3-letter)</option>
+          <option value="4">Age 4 (4-letter)</option>
+          <option value="5">Age 5 (5-letter)</option>
+          <option value="6">Age 6 (6-letter)</option>
+        </select>
+        <button id="mute" class="btn toggle" aria-pressed="false" title="Toggle sound">🔊 Sound On</button>
+        <button id="contrast" class="btn ghost" title="Toggle high contrast">🌓 Contrast</button>
+        <button id="resetProgress" class="btn secondary" title="Reset saved progress">♻️ Reset</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="card" aria-live="polite" aria-atomic="true">
+        <div id="word" class="word-display" role="group" aria-label="Word to type"></div>
+        <div class="input-row">
+          <input id="input" class="type-box" inputmode="latin" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Type here…" aria-label="Type the word here" />
+          <button id="say" class="btn" title="Hear phonics for this word">🔈 Say</button>
+          <button id="next" class="btn" title="Next word">➡️ Next</button>
+        </div>
+        <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+        <div class="scorebar">
+          <div class="pill" id="scorePill">Score: <span id="score">0</span></div>
+          <div class="pill">Streak: <span id="streak">0</span> (Best <span id="best">0</span>)</div>
+          <div class="pill">Done: <span id="done">0</span>/<span id="total">0</span></div>
+          <div class="pill">Level: <span id="levelLabel">3</span></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="small">Tip: press <strong>Tab</strong> then <strong>Enter</strong> to navigate buttons. Your progress is saved in a cookie.</div>
+      <button id="restart" class="btn">🔁 Restart</button>
+    </footer>
+  </div>
+
+  <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
+
+  <script>
+    // ======= Word Lists (editable) =======
+    const WORDS = {
+      3: ["cat","dog","sun","bus","hat","bat","cup","bug","bed","jam","map","fox","pen","pig","web","yam"],
+      4: ["frog","ship","milk","duck","fish","tree","star","book","moon","ball","door","hand","nest","ring","cake","kite"],
+      5: ["apple","chair","bread","plant","grape","train","smile","brick","heart","light","sweet","proud","crash","slide","prize"],
+      6: ["planet","rocket","basket","button","kitten","purple","silver","garden","puzzle","little","winter","castle","napkin"]
+    };
+
+    // ======= Simple Cookie Helpers =======
+    function setCookie(name, value, days = 365) {
+      const d = new Date();
+      d.setTime(d.getTime() + days*24*60*60*1000);
+      document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+    }
+    function getCookie(name) {
+      const cookies = document.cookie.split(';').map(c => c.trim());
+      for (const c of cookies) {
+        if (c.startsWith(name + '=')) {
+          return decodeURIComponent(c.substring(name.length + 1));
         }
       }
-      if (alive) requestAnimationFrame(tick);
-      else els.confetti.style.zIndex = '-1'; // hide when done
+      return null;
     }
-    successChime();
-    requestAnimationFrame(tick);
-  }
-</script>
+    function deleteCookie(name) { setCookie(name, '', -1); }
+
+    const SAVE_KEY = 'type_shine_state_v1';
+
+    // ======= Audio Engine (Mobile-safe stubs) =======
+    let audioCtx = null; // created on first gesture
+    let muted = false;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+    function tone(freq = 600, dur = 0.12, type = 'sine', vol = 0.2) {
+      if (muted) return;
+      ensureAudio();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type; o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(vol, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      o.start(now); o.stop(now + dur + 0.02);
+    }
+    function okSound(){ tone(700, 0.12, 'triangle'); tone(900, 0.12, 'triangle'); }
+    function errorSound(){ tone(220, 0.18, 'sawtooth', 0.15); }
+    function successChime(){ tone(523.25,0.1); setTimeout(()=>tone(659.25,0.12),120); setTimeout(()=>tone(783.99,0.14),260); }
+
+    // Phonics stub: map letters to friendly short beeps of varying pitch
+    const LETTER_FREQ = {
+      a: 440, b: 493.9, c: 523.3, d: 587.3, e: 659.3, f: 698.5, g: 784,
+      h: 415.3, i: 554.4, j: 622.3, k: 740, l: 831, m: 880,
+      n: 466.2, o: 392, p: 349.2, q: 329.6, r: 277.2, s: 261.6,
+      t: 493.9, u: 415.3, v: 370, w: 415.3, x: 523.3, y: 587.3, z: 659.3
+    };
+    async function speakWordPhonics(word){
+      for (const ch of word) { tone(LETTER_FREQ[ch]||500, 0.12, 'sine'); await wait(140); }
+      await wait(120);
+      successChime();
+    }
+
+    function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
+
+    // ======= Game State =======
+    const els = {
+      word: document.getElementById('word'),
+      input: document.getElementById('input'),
+      feedback: document.getElementById('feedback'),
+      score: document.getElementById('score'),
+      streak: document.getElementById('streak'),
+      best: document.getElementById('best'),
+      done: document.getElementById('done'),
+      total: document.getElementById('total'),
+      level: document.getElementById('level'),
+      levelLabel: document.getElementById('levelLabel'),
+      mute: document.getElementById('mute'),
+      restart: document.getElementById('restart'),
+      next: document.getElementById('next'),
+      say: document.getElementById('say'),
+      contrast: document.getElementById('contrast'),
+      resetProgress: document.getElementById('resetProgress'),
+      confetti: document.getElementById('confetti')
+    };
+
+    let state = {
+      level: 3,
+      idx: 0,
+      order: [],
+      score: 0,
+      streak: 0,
+      best: 0,
+      done: 0,
+      muted: false,
+      contrast: false,
+    };
+
+    function save(){
+      try { setCookie(SAVE_KEY, JSON.stringify(state)); } catch(e){}
+    }
+    function load(){
+      try {
+        const raw = getCookie(SAVE_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        state = { ...state, ...s };
+      } catch(e){}
+    }
+
+    // ======= Utils =======
+    function shuffle(a){ for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+    function setLevel(lvl){
+      state.level = Number(lvl);
+      state.order = shuffle([...WORDS[state.level]]);
+      state.idx = 0;
+      state.done = 0;
+      els.total.textContent = state.order.length;
+      els.levelLabel.textContent = state.level;
+      els.level.value = String(state.level);
+      pickWord();
+      save();
+    }
+
+    function pickWord(){
+      const current = state.order[state.idx] || '';
+      renderWord(current, 0);
+      els.input.value = '';
+      els.input.focus();
+      updateHud();
+    }
+
+    function renderWord(word, correctCount){
+      els.word.innerHTML = '';
+      [...word].forEach((ch, i)=>{
+        const span = document.createElement('span');
+        span.className = 'letter' + (i < correctCount ? ' correct' : i === correctCount ? ' next' : '');
+        span.textContent = ch;
+        els.word.appendChild(span);
+      });
+      els.word.setAttribute('data-text', word);
+    }
+
+    function updateHud(){
+      els.score.textContent = state.score;
+      els.streak.textContent = state.streak;
+      els.best.textContent = state.best;
+      els.done.textContent = state.done;
+      els.total.textContent = state.order.length;
+      els.mute.textContent = state.muted ? '🔇 Sound Off' : '🔊 Sound On';
+      els.mute.setAttribute('aria-pressed', String(state.muted));
+      muted = state.muted;
+      document.documentElement.dataset.contrast = state.contrast ? 'high' : '';
+    }
+
+    function gentleShake(){
+      els.word.classList.remove('shake');
+      // force reflow
+      void els.word.offsetWidth;
+      els.word.classList.add('shake');
+    }
+
+    function celebrate(){
+      // Light confetti burst
+      const ctx = els.confetti.getContext('2d');
+      const {width, height} = els.confetti;
+      ctx.clearRect(0,0,width,height);
+      const pieces = Array.from({length: 80}, ()=>({
+        x: Math.random()*width,
+        y: Math.random()*height*0.3 + height*0.2,
+        r: Math.random()*7+3,
+        vx: (Math.random()-0.5)*4,
+        vy: -Math.random()*4-2,
+        color: `hsl(${Math.floor(Math.random()*360)},80%,60%)`
+      }));
+      let t = 0;
+      function tick(){
+        ctx.clearRect(0,0,width,height);
+        for (const p of pieces){
+          p.vy += 0.12; p.x += p.vx; p.y += p.vy;  
+          ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+        }
+        if (t++ < 60) requestAnimationFrame(tick);
+      }
+      successChime();
+      requestAnimationFrame(tick);
+    }
+
+    function onInput(){
+      const word = state.order[state.idx];
+      const typed = els.input.value.toLowerCase();
+      let correct = 0;
+      for (let i=0;i<typed.length;i++){
+        if (typed[i] === word[i]) correct++; else break;
+      }
+      renderWord(word, correct);
+
+      if (typed.length === 0) { els.feedback.textContent = ''; return; }
+
+      if (typed === word){
+        els.feedback.textContent = 'Great job!';
+        els.feedback.className = 'feedback good';
+        state.score += 10; state.streak += 1; state.best = Math.max(state.best, state.streak);
+        state.done += 1; save();
+        okSound();
+        celebrate();
+        setTimeout(()=> nextWord(), 1200);
+      } else if (!word.startsWith(typed)){
+        els.feedback.textContent = 'Try again';
+        els.feedback.className = 'feedback bad';
+        state.streak = 0; save();
+        errorSound();
+        gentleShake();
+      } else {
+        els.feedback.textContent = 'Keep going…';
+        els.feedback.className = 'feedback';
+        okSound();
+      }
+    }
+
+    function nextWord(){
+      state.idx = (state.idx + 1) % state.order.length;
+      pickWord(); save();
+    }
+
+    // ======= Event Listeners =======
+    els.input.addEventListener('input', onInput);
+
+    // Unlock audio context on first user gesture
+    ['click','touchstart','keydown'].forEach(evt => {
+      window.addEventListener(evt, () => { try{ ensureAudio(); }catch(e){} }, { once: true });
+    });
+
+    els.mute.addEventListener('click', ()=>{ state.muted = !state.muted; updateHud(); save(); });
+    els.restart.addEventListener('click', ()=>{ setLevel(state.level); state.score = 0; state.streak = 0; save(); updateHud(); });
+    els.next.addEventListener('click', nextWord);
+    els.say.addEventListener('click', ()=>{ const w = state.order[state.idx]; speakWordPhonics(w); });
+    els.level.addEventListener('change', e=>{ setLevel(e.target.value); });
+    els.contrast.addEventListener('click', ()=>{ state.contrast = !state.contrast; updateHud(); save(); });
+
+    els.resetProgress.addEventListener('click', ()=>{
+      deleteCookie(SAVE_KEY);
+      state.score = 0; state.streak = 0; state.best = 0; state.done = 0; save(); updateHud();
+      els.feedback.textContent = 'Progress cleared';
+      setTimeout(()=> els.feedback.textContent = '', 1500);
+    });
+
+    // Resize canvas to window
+    function sizeCanvas(){ els.confetti.width = window.innerWidth; els.confetti.height = window.innerHeight; }
+    window.addEventListener('resize', sizeCanvas); sizeCanvas();
+
+    // ======= Init =======
+    load();
+    setLevel(state.level || 3);
+    els.input.setAttribute('aria-describedby','feedback');
+    updateHud();
+  </script>
 </body>
-</html>
+</htm>
