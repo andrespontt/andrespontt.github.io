@@ -57,9 +57,7 @@
       justify-content: space-between;
     }
 
-    .brand {
-      display: flex; align-items: center; gap: 10px;
-    }
+    .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 40px; height: 40px; border-radius: 12px;
       background: radial-gradient(circle at 30% 30%, var(--accent), var(--accent-2));
@@ -123,10 +121,31 @@
     .shake { animation: shake .25s; }
     @keyframes shake { 25%{transform: translateX(-6px);} 50%{transform: translateX(6px);} 75%{transform: translateX(-4px);} }
 
-    .confetti { position: fixed; inset: 0; pointer-events: none; }
+    /* Confetti canvas fades out after the burst */
+    .confetti {
+      position: fixed; inset: 0; pointer-events: none;
+      opacity: 0; transition: opacity .45s ease;
+    }
+
+    /* Win (cat gif) popup overlay */
+    .win {
+      position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none;
+      opacity: 0; transform: scale(.96); transition: opacity .25s ease, transform .25s ease;
+    }
+    .win.show { opacity: 1; transform: scale(1); }
+    .win-card {
+      background: rgba(255,255,255,.92);
+      border-radius: 20px; padding: 12px;
+      box-shadow: 0 20px 40px rgba(2,6,23,.25);
+      max-width: min(320px, 80vw);
+    }
+    .win-card img { width: 100%; height: auto; border-radius: 14px; display: block; }
 
     footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     .small { font-size: 12px; color: var(--muted); }
+
+    /* Screen-reader only utility */
+    .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 
     /* Large tap targets on mobile */
     @media (max-width: 480px) {
@@ -179,7 +198,15 @@
     </footer>
   </div>
 
+  <!-- Confetti canvas (auto-clears + fades out) -->
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
+
+  <!-- Win popup (cat gif) -->
+  <div class="win" id="win" aria-hidden="true">
+    <div class="win-card">
+      <img id="winImg" alt="Cute cat celebrating" src="" />
+    </div>
+  </div>
 
   <script>
     // ======= Word Lists (editable) =======
@@ -189,6 +216,15 @@
       5: ["apple","chair","bread","plant","grape","train","smile","brick","heart","light","sweet","proud","crash","slide","prize"],
       6: ["planet","rocket","basket","button","kitten","purple","silver","garden","puzzle","little","winter","castle","napkin"]
     };
+
+    // ======= Cat GIFs (feel free to swap/extend) =======
+    const CAT_GIFS = [
+      "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif",   // typing cat classic
+      "https://media.giphy.com/media/mlvseq9yvZhba/giphy.gif",   // excited cat
+      "https://media.giphy.com/media/12PA1eI8FBqEBa/giphy.gif",  // confetti cat
+      "https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif" // party cat
+    ];
+    function randomCat(){ return CAT_GIFS[Math.floor(Math.random()*CAT_GIFS.length)]; }
 
     // ======= Simple Cookie Helpers =======
     function setCookie(name, value, days = 365) {
@@ -270,7 +306,9 @@
       say: document.getElementById('say'),
       contrast: document.getElementById('contrast'),
       resetProgress: document.getElementById('resetProgress'),
-      confetti: document.getElementById('confetti')
+      confetti: document.getElementById('confetti'),
+      win: document.getElementById('win'),
+      winImg: document.getElementById('winImg'),
     };
 
     let state = {
@@ -324,7 +362,9 @@
       els.word.innerHTML = '';
       [...word].forEach((ch, i)=>{
         const span = document.createElement('span');
-        span.className = 'letter' + (i < correctCount ? ' correct' : i === correctCount ? ' next' : '');
+        const isNext = i === correctCount;
+        span.className = 'letter' + (i < correctCount ? ' correct' : isNext ? ' next' : '');
+        if (isNext) span.setAttribute('aria-current','true');
         span.textContent = ch;
         els.word.appendChild(span);
       });
@@ -345,17 +385,24 @@
 
     function gentleShake(){
       els.word.classList.remove('shake');
-      // force reflow
-      void els.word.offsetWidth;
+      void els.word.offsetWidth; // reflow
       els.word.classList.add('shake');
     }
 
+    // ======= Win visuals (confetti + cat gif) =======
+    let confettiAnimId = null;
+    let confettiEndTimer = null;
+
     function celebrate(){
-      // Light confetti burst
       const ctx = els.confetti.getContext('2d');
       const {width, height} = els.confetti;
       ctx.clearRect(0,0,width,height);
-      const pieces = Array.from({length: 80}, ()=>({
+
+      // Show canvas
+      els.confetti.style.opacity = '1';
+
+      // Confetti pieces
+      const pieces = Array.from({length: 80}, () => ({
         x: Math.random()*width,
         y: Math.random()*height*0.3 + height*0.2,
         r: Math.random()*7+3,
@@ -363,17 +410,43 @@
         vy: -Math.random()*4-2,
         color: `hsl(${Math.floor(Math.random()*360)},80%,60%)`
       }));
-      let t = 0;
+
+      let frames = 0;
       function tick(){
         ctx.clearRect(0,0,width,height);
         for (const p of pieces){
-          p.vy += 0.12; p.x += p.vx; p.y += p.vy;  
+          p.vy += 0.12; p.x += p.vx; p.y += p.vy;
           ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
         }
-        if (t++ < 60) requestAnimationFrame(tick);
+        frames++;
+        if (frames < 70) {
+          confettiAnimId = requestAnimationFrame(tick);
+        } else {
+          // Fade out and hard-clear
+          els.confetti.style.opacity = '0';
+          if (confettiEndTimer) clearTimeout(confettiEndTimer);
+          confettiEndTimer = setTimeout(()=>{
+            ctx.clearRect(0,0,width,height);
+          }, 500); // after fade completes
+        }
       }
+      if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
       successChime();
-      requestAnimationFrame(tick);
+      confettiAnimId = requestAnimationFrame(tick);
+    }
+
+    let winHideTimer = null;
+    function showCatWin(duration = 1500){
+      els.winImg.src = randomCat();
+      els.win.classList.add('show');
+      els.win.setAttribute('aria-hidden','false');
+      if (winHideTimer) clearTimeout(winHideTimer);
+      winHideTimer = setTimeout(()=>{
+        els.win.classList.remove('show');
+        els.win.setAttribute('aria-hidden','true');
+        // clear the image to avoid network thrash if shown rapidly:
+        setTimeout(()=>{ els.winImg.removeAttribute('src'); }, 250);
+      }, duration);
     }
 
     function onInput(){
@@ -394,6 +467,7 @@
         state.done += 1; save();
         okSound();
         celebrate();
+        showCatWin();          // << show cat gif on success
         setTimeout(()=> nextWord(), 1200);
       } else if (!word.startsWith(typed)){
         els.feedback.textContent = 'Try again';
@@ -416,6 +490,14 @@
     // ======= Event Listeners =======
     els.input.addEventListener('input', onInput);
 
+    // Prevent overshoot typing (optional but nice for kids)
+    els.input.addEventListener('beforeinput', e=>{
+      const word = state.order[state.idx] || '';
+      const incoming = (e.data ?? '');
+      const nextLen = (els.input.value + incoming).length;
+      if (e.inputType.startsWith('insert') && nextLen > word.length) e.preventDefault();
+    });
+
     // Unlock audio context on first user gesture
     ['click','touchstart','keydown'].forEach(evt => {
       window.addEventListener(evt, () => { try{ ensureAudio(); }catch(e){} }, { once: true });
@@ -435,9 +517,16 @@
       setTimeout(()=> els.feedback.textContent = '', 1500);
     });
 
+    // Keep input focused
+    document.addEventListener('click', (e)=>{
+      if (!els.input.contains(e.target)) els.input.focus();
+    });
+
     // Resize canvas to window
     function sizeCanvas(){ els.confetti.width = window.innerWidth; els.confetti.height = window.innerHeight; }
-    window.addEventListener('resize', sizeCanvas); sizeCanvas();
+    window.addEventListener('resize', sizeCanvas);
+    window.addEventListener('orientationchange', sizeCanvas);
+    sizeCanvas();
 
     // ======= Init =======
     load();
@@ -446,4 +535,4 @@
     updateHud();
   </script>
 </body>
-</htm>
+</html>
