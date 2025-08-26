@@ -90,6 +90,23 @@
       width: min(760px, 96%);
     }
 
+    /* celebration row ABOVE the word */
+    .celebrate-row {
+      min-height: 160px; /* keeps layout stable so the word never hides */
+      display: grid; place-items: center;
+      margin-bottom: 8px;
+    }
+    .celebrate-row img {
+      max-width: min(320px, 80%);
+      height: auto;
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(2,6,23,.18);
+      opacity: 0; transform: translateY(6px) scale(.98);
+      transition: opacity .25s ease, transform .25s ease;
+      pointer-events: none; /* kids can’t accidentally click it */
+    }
+    .celebrate-row.show img { opacity: 1; transform: translateY(0) scale(1); }
+
     .word-display {
       font-size: clamp(40px, 8vw, 76px);
       font-weight: 900;
@@ -127,20 +144,6 @@
       opacity: 0; transition: opacity .45s ease;
     }
 
-    /* Win (cat gif) popup overlay */
-    .win {
-      position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none;
-      opacity: 0; transform: scale(.96); transition: opacity .25s ease, transform .25s ease;
-    }
-    .win.show { opacity: 1; transform: scale(1); }
-    .win-card {
-      background: rgba(255,255,255,.92);
-      border-radius: 20px; padding: 12px;
-      box-shadow: 0 20px 40px rgba(2,6,23,.25);
-      max-width: min(320px, 80vw);
-    }
-    .win-card img { width: 100%; height: auto; border-radius: 14px; display: block; }
-
     footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     .small { font-size: 12px; color: var(--muted); }
 
@@ -150,6 +153,7 @@
     /* Large tap targets on mobile */
     @media (max-width: 480px) {
       .btn, select { padding: 12px 16px; }
+      .celebrate-row { min-height: 140px; }
     }
   </style>
 </head>
@@ -176,7 +180,13 @@
 
     <main>
       <section class="card" aria-live="polite" aria-atomic="true">
+        <!-- celebration image row (above the word) -->
+        <div id="celebrateRow" class="celebrate-row" aria-live="polite">
+          <img id="winImg" alt="Cute cat celebrating" />
+        </div>
+
         <div id="word" class="word-display" role="group" aria-label="Word to type"></div>
+
         <div class="input-row">
           <input id="input" class="type-box" inputmode="latin" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Type here…" aria-label="Type the word here" />
           <button id="say" class="btn" title="Hear phonics for this word">🔈 Say</button>
@@ -201,13 +211,6 @@
   <!-- Confetti canvas (auto-clears + fades out) -->
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 
-  <!-- Win popup (cat gif) -->
-  <div class="win" id="win" aria-hidden="true">
-    <div class="win-card">
-      <img id="winImg" alt="Cute cat celebrating" src="" />
-    </div>
-  </div>
-
   <script>
     // ======= Word Lists (editable) =======
     const WORDS = {
@@ -217,16 +220,24 @@
       6: ["planet","rocket","basket","button","kitten","purple","silver","garden","puzzle","little","winter","castle","napkin"]
     };
 
-    // ======= Cat GIFs (feel free to swap/extend) =======
+    // ======= Cat GIFs (expanded list) =======
     const CAT_GIFS = [
-      "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif",   // typing cat classic
-      "https://media.giphy.com/media/mlvseq9yvZhba/giphy.gif",   // excited cat
-      "https://media.giphy.com/media/12PA1eI8FBqEBa/giphy.gif",  // confetti cat
-      "https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif" // party cat
+      "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif",
+      "https://media.giphy.com/media/mlvseq9yvZhba/giphy.gif",
+      "https://media.giphy.com/media/12PA1eI8FBqEBa/giphy.gif",
+      "https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif",
+      "https://media.giphy.com/media/MDJ9IbxxvDUQM/giphy.gif",
+      "https://media.giphy.com/media/5xaOcLGvzHxDKjufnLW/giphy.gif",
+      "https://media.giphy.com/media/13borq7Zo2kulO/giphy.gif",
+      "https://media.giphy.com/media/3oz8xKaR836UJOYeOc/giphy.gif",
+      "https://media.giphy.com/media/11s7Ke7jcNxCHS/giphy.gif",
+      "https://media.giphy.com/media/l1J9EdzfOSgfyueLm/giphy.gif",
+      "https://media.giphy.com/media/26xBwdIuRJiAIqHwA/giphy.gif",
+      "https://media.giphy.com/media/3o7aCTfyhYawdOXcFW/giphy.gif"
     ];
     function randomCat(){ return CAT_GIFS[Math.floor(Math.random()*CAT_GIFS.length)]; }
 
-    // ======= Simple Cookie Helpers =======
+    // ======= Cookie Helpers =======
     function setCookie(name, value, days = 365) {
       const d = new Date();
       d.setTime(d.getTime() + days*24*60*60*1000);
@@ -245,17 +256,13 @@
 
     const SAVE_KEY = 'type_shine_state_v1';
 
-    // ======= Audio Engine (Mobile-safe stubs) =======
-    let audioCtx = null; // created on first gesture
+    // ======= Audio =======
+    let audioCtx = null;
     let muted = false;
 
     function ensureAudio() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
     }
     function tone(freq = 600, dur = 0.12, type = 'sine', vol = 0.2) {
       if (muted) return;
@@ -273,19 +280,12 @@
     function errorSound(){ tone(220, 0.18, 'sawtooth', 0.15); }
     function successChime(){ tone(523.25,0.1); setTimeout(()=>tone(659.25,0.12),120); setTimeout(()=>tone(783.99,0.14),260); }
 
-    // Phonics stub: map letters to friendly short beeps of varying pitch
-    const LETTER_FREQ = {
-      a: 440, b: 493.9, c: 523.3, d: 587.3, e: 659.3, f: 698.5, g: 784,
-      h: 415.3, i: 554.4, j: 622.3, k: 740, l: 831, m: 880,
-      n: 466.2, o: 392, p: 349.2, q: 329.6, r: 277.2, s: 261.6,
-      t: 493.9, u: 415.3, v: 370, w: 415.3, x: 523.3, y: 587.3, z: 659.3
-    };
+    // Phonics stub
+    const LETTER_FREQ = { a:440,b:493.9,c:523.3,d:587.3,e:659.3,f:698.5,g:784,h:415.3,i:554.4,j:622.3,k:740,l:831,m:880,n:466.2,o:392,p:349.2,q:329.6,r:277.2,s:261.6,t:493.9,u:415.3,v:370,w:415.3,x:523.3,y:587.3,z:659.3 };
     async function speakWordPhonics(word){
       for (const ch of word) { tone(LETTER_FREQ[ch]||500, 0.12, 'sine'); await wait(140); }
-      await wait(120);
-      successChime();
+      await wait(120); successChime();
     }
-
     function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
 
     // ======= Game State =======
@@ -307,7 +307,7 @@
       contrast: document.getElementById('contrast'),
       resetProgress: document.getElementById('resetProgress'),
       confetti: document.getElementById('confetti'),
-      win: document.getElementById('win'),
+      celebrateRow: document.getElementById('celebrateRow'),
       winImg: document.getElementById('winImg'),
     };
 
@@ -323,15 +323,11 @@
       contrast: false,
     };
 
-    function save(){
-      try { setCookie(SAVE_KEY, JSON.stringify(state)); } catch(e){}
-    }
+    function save(){ try { setCookie(SAVE_KEY, JSON.stringify(state)); } catch(e){} }
     function load(){
       try {
         const raw = getCookie(SAVE_KEY);
-        if (!raw) return;
-        const s = JSON.parse(raw);
-        state = { ...state, ...s };
+        if (raw) state = { ...state, ...JSON.parse(raw) };
       } catch(e){}
     }
 
@@ -384,24 +380,18 @@
     }
 
     function gentleShake(){
-      els.word.classList.remove('shake');
-      void els.word.offsetWidth; // reflow
-      els.word.classList.add('shake');
+      els.word.classList.remove('shake'); void els.word.offsetWidth; els.word.classList.add('shake');
     }
 
-    // ======= Win visuals (confetti + cat gif) =======
+    // ======= Confetti (non-blocking, fades out + clears) =======
     let confettiAnimId = null;
     let confettiEndTimer = null;
-
     function celebrate(){
       const ctx = els.confetti.getContext('2d');
       const {width, height} = els.confetti;
       ctx.clearRect(0,0,width,height);
-
-      // Show canvas
       els.confetti.style.opacity = '1';
 
-      // Confetti pieces
       const pieces = Array.from({length: 80}, () => ({
         x: Math.random()*width,
         y: Math.random()*height*0.3 + height*0.2,
@@ -422,12 +412,9 @@
         if (frames < 70) {
           confettiAnimId = requestAnimationFrame(tick);
         } else {
-          // Fade out and hard-clear
           els.confetti.style.opacity = '0';
           if (confettiEndTimer) clearTimeout(confettiEndTimer);
-          confettiEndTimer = setTimeout(()=>{
-            ctx.clearRect(0,0,width,height);
-          }, 500); // after fade completes
+          confettiEndTimer = setTimeout(()=>{ ctx.clearRect(0,0,width,height); }, 500);
         }
       }
       if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
@@ -435,20 +422,20 @@
       confettiAnimId = requestAnimationFrame(tick);
     }
 
+    // ======= Inline cat celebration (above word) =======
     let winHideTimer = null;
     function showCatWin(duration = 1500){
       els.winImg.src = randomCat();
-      els.win.classList.add('show');
-      els.win.setAttribute('aria-hidden','false');
+      els.celebrateRow.classList.add('show');
       if (winHideTimer) clearTimeout(winHideTimer);
       winHideTimer = setTimeout(()=>{
-        els.win.classList.remove('show');
-        els.win.setAttribute('aria-hidden','true');
-        // clear the image to avoid network thrash if shown rapidly:
-        setTimeout(()=>{ els.winImg.removeAttribute('src'); }, 250);
+        els.celebrateRow.classList.remove('show');
+        // blank src to free up memory / avoid network thrash
+        setTimeout(()=>{ els.winImg.removeAttribute('src'); }, 200);
       }, duration);
     }
 
+    // ======= Input handling =======
     function onInput(){
       const word = state.order[state.idx];
       const typed = els.input.value.toLowerCase();
@@ -466,8 +453,8 @@
         state.score += 10; state.streak += 1; state.best = Math.max(state.best, state.streak);
         state.done += 1; save();
         okSound();
-        celebrate();
-        showCatWin();          // << show cat gif on success
+        celebrate();      // confetti (non-blocking)
+        showCatWin();     // cat above word (word stays visible)
         setTimeout(()=> nextWord(), 1200);
       } else if (!word.startsWith(typed)){
         els.feedback.textContent = 'Try again';
@@ -490,7 +477,7 @@
     // ======= Event Listeners =======
     els.input.addEventListener('input', onInput);
 
-    // Prevent overshoot typing (optional but nice for kids)
+    // prevent overshoot typing
     els.input.addEventListener('beforeinput', e=>{
       const word = state.order[state.idx] || '';
       const incoming = (e.data ?? '');
@@ -498,7 +485,7 @@
       if (e.inputType.startsWith('insert') && nextLen > word.length) e.preventDefault();
     });
 
-    // Unlock audio context on first user gesture
+    // unlock audio on first gesture
     ['click','touchstart','keydown'].forEach(evt => {
       window.addEventListener(evt, () => { try{ ensureAudio(); }catch(e){} }, { once: true });
     });
@@ -517,18 +504,18 @@
       setTimeout(()=> els.feedback.textContent = '', 1500);
     });
 
-    // Keep input focused
+    // keep input focused
     document.addEventListener('click', (e)=>{
       if (!els.input.contains(e.target)) els.input.focus();
     });
 
-    // Resize canvas to window
+    // canvas sizing
     function sizeCanvas(){ els.confetti.width = window.innerWidth; els.confetti.height = window.innerHeight; }
     window.addEventListener('resize', sizeCanvas);
     window.addEventListener('orientationchange', sizeCanvas);
     sizeCanvas();
 
-    // ======= Init =======
+    // init
     load();
     setLevel(state.level || 3);
     els.input.setAttribute('aria-describedby','feedback');
