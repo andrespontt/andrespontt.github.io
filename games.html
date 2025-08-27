@@ -341,7 +341,12 @@
       state.done = 0;
       els.total.textContent = state.order.length;
       els.levelLabel.textContent = state.level;
-      els.level.value = String(state.level);
+      
+      // Safely update the select element value
+      if (els.level && els.level.value !== String(state.level)) {
+        els.level.value = String(state.level);
+      }
+      
       pickWord();
       save();
     }
@@ -494,7 +499,26 @@
     els.restart.addEventListener('click', ()=>{ setLevel(state.level); state.score = 0; state.streak = 0; save(); updateHud(); });
     els.next.addEventListener('click', nextWord);
     els.say.addEventListener('click', ()=>{ const w = state.order[state.idx]; speakWordPhonics(w); });
-    els.level.addEventListener('change', e=>{ setLevel(e.target.value); });
+    els.level.addEventListener('change', e=>{ 
+      const newLevel = parseInt(e.target.value);
+      console.log('Level changed to:', newLevel);
+      if (newLevel >= 3 && newLevel <= 6) {
+        setLevel(newLevel);
+      } else {
+        console.warn('Invalid level:', newLevel);
+        // Reset to valid level
+        els.level.value = String(state.level);
+      }
+    });
+    
+    // Debug: Test if select element can be clicked
+    els.level.addEventListener('click', e => {
+      console.log('Select element clicked');
+    });
+    
+    els.level.addEventListener('mousedown', e => {
+      console.log('Select element mousedown');
+    });
     els.contrast.addEventListener('click', ()=>{ state.contrast = !state.contrast; updateHud(); save(); });
 
     els.resetProgress.addEventListener('click', ()=>{
@@ -504,9 +528,15 @@
       setTimeout(()=> els.feedback.textContent = '', 1500);
     });
 
-    // keep input focused
+    // keep input focused, but don't interfere with controls
     document.addEventListener('click', (e)=>{
-      if (!els.input.contains(e.target)) els.input.focus();
+      // Don't refocus if clicking on controls or the select element
+      if (!els.input.contains(e.target) && 
+          !e.target.closest('.controls') && 
+          !e.target.closest('select') &&
+          !e.target.closest('button')) {
+        els.input.focus();
+      }
     });
 
     // canvas sizing
@@ -517,9 +547,25 @@
 
     // init
     load();
-    setLevel(state.level || 3);
+    
+    // Ensure level is valid and initialize
+    if (!state.level || state.level < 3 || state.level > 6) {
+      state.level = 3;
+    }
+    
+    // Debug: Check if select element is properly initialized
+    console.log('Select element:', els.level);
+    console.log('Initial level:', state.level);
+    
+    setLevel(state.level);
     els.input.setAttribute('aria-describedby','feedback');
     updateHud();
+    
+    // Test select element functionality
+    if (els.level) {
+      console.log('Select element value:', els.level.value);
+      console.log('Select element options:', els.level.options.length);
+    }
   </script>
 </body>
 </html>

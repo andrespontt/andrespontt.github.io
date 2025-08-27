@@ -3,118 +3,156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bio</title>
+  <title>About Me - Andres Pontt</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      background-color: #1e1e1e;
+      background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 50%, #1e1e1e 100%);
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
     }
-    #inputField {
-      padding: 10px;
-      width: 300px;
-      margin-right: 10px;
-      box-sizing: border-box;
-      height: 40px;
-      vertical-align: middle;
-      background-color: #2d2d2d;
-      border: 1px solid #404040;
-      color: #ffffff;
-      border-radius: 6px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-      transition: all 0.2s ease;
-    }
-    #inputField:focus {
-      outline: none;
-      border-color: #0078d4;
-      box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
-    }
-    button {
-      padding: 10px 20px;
-      margin-right: 10px;
-      background: linear-gradient(180deg, #0078d4 0%, #0066b5 100%);
-      color: white;
-      border: none;
-      cursor: pointer;
-      width: 150px;
-      height: 40px;
-      vertical-align: middle;
-      border-radius: 6px;
-      font-weight: 500;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-      transition: all 0.3s ease;
-    }
-    button:hover {
-      background: linear-gradient(180deg, #0086e7 0%, #0078d4 100%);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    }
-    button.copied {
-      background: linear-gradient(180deg, #28a745 0%, #208838 100%);
-      animation: pulse 0.5s ease;
-    }
-    @keyframes pulse {
-      0% {
-        transform: scale(1);
-      }
-      50% {
-        transform: scale(1.05);
-      }
-      100% {
-        transform: scale(1);
-      }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 20px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     nav {
-      background-color: #2d2d2d;
-      padding: 10px;
-      border-radius: 6px;
-      margin-bottom: 20px;
+      background: rgba(45, 45, 45, 0.9);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 16px;
+      margin: 20px 0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
     }
 
     nav a {
       color: #ffffff;
       text-decoration: none;
-      margin-right: 20px;
-      font-weight: bold;
-      transition: color 0.3s ease;
+      font-weight: 600;
+      font-size: 18px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
     }
 
     nav a:hover {
       color: #0078d4;
+      background: rgba(0, 120, 212, 0.1);
+      border-color: rgba(0, 120, 212, 0.3);
+      transform: translateY(-2px);
     }
 
-    #encodedText, #generatedUrl {
-      font-weight: bold;
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 40px 0;
     }
-    /* Add responsive design for mobile */
-    @media screen and (max-width: 768px) {
-      #inputField {
-        width: 100%;
-        margin-right: 0;
-        margin-bottom: 10px;
+
+    .content h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 800;
+      margin-bottom: 30px;
+      background: linear-gradient(135deg, #0078d4, #00b4d8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .content p {
+      font-size: clamp(1.1rem, 3vw, 1.3rem);
+      color: #b0b0b0;
+      max-width: 600px;
+      line-height: 1.8;
+      margin-bottom: 30px;
+    }
+
+    .bio-card {
+      background: rgba(45, 45, 45, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 40px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 40px 0;
+      color: #808080;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: auto;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 0 15px;
       }
       
-      button {
-        width: 100%;
-        margin-right: 0;
-        margin-bottom: 10px;
+      nav ul {
+        gap: 15px;
       }
-
-      /* Remove margin from last button */
-      button:last-child {
-        margin-bottom: 0;
+      
+      nav a {
+        padding: 10px 16px;
+        font-size: 16px;
+      }
+      
+      .bio-card {
+        padding: 30px 20px;
       }
     }
   </style>
 </head>
 <body>
+  <div class="container">
     <nav>
-        <a href="index.html">Home</a>
-        <a href="experiments.html">Experiments</a>
-        <a href="music.html">Music</a>
-        <a href="bio.html">About Me</a>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="experiments.html">Experiments</a></li>
+        <li><a href="music.html">Music</a></li>
+        <li><a href="bio.html">About Me</a></li>
+        <li><a href="games.html">Games</a></li>
+      </ul>
     </nav>
-    <h1>About Me</h1>
-    <p>Software engineer, gamer, and musician with a passion for Java coding, game modding, and problem-solving. I enjoy tackling complex challenges, optimizing systems, and creating content to share knowledge. When I’m not coding or gaming, I’m probably exploring new ideas over a cup of coffee or green tea.</p>
+
+    <main class="content">
+      <div class="bio-card">
+        <h1>About Me</h1>
+        <p>Software engineer, gamer, and musician with a passion for Java coding, game modding, and problem-solving. I enjoy tackling complex challenges, optimizing systems, and creating content to share knowledge. When I'm not coding or gaming, I'm probably exploring new ideas over a cup of coffee or green tea.</p>
+      </div>
+    </main>
+
+    <footer>
+      <p>&copy; 2024 Andres Pontt. </p>
+    </footer>
+  </div>
 </body>
 </html>
