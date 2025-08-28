@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perfect Pitch Tester</title>
+  <style>
+    :root{
+      --bg:#0b1020; --card:#12172c; --fg:#e6eefc; --muted:#8aa0c8;
+      --accent:#7dd3fc; --ok:#86efac; --bad:#fca5a5; --border:rgba(255,255,255,.12);
+      --shadow:0 14px 40px rgba(2,6,23,.22);
+    }
+    html,body{height:100%}
+    body{margin:0;font-family:ui-rounded,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:var(--fg);
+      background: radial-gradient(1000px 600px at -10% -20%, #112345 0%, transparent 60%),
+                  radial-gradient(900px 800px at 120% 0%, #0e203b 0%, transparent 55%),
+                  linear-gradient(180deg, #0b1020, #11162a);
+      display:grid; place-items:center; padding:16px;}
+    .app{width:min(980px,98vw); background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.03));
+      border:1px solid var(--border); border-radius:24px; box-shadow:var(--shadow); padding:18px; display:grid; gap:14px;}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .title{display:flex;align-items:center;gap:10px}
+    .logo{width:40px;height:40px;border-radius:12px;background:radial-gradient(circle at 30% 30%, var(--accent), #b8f3ff);
+      box-shadow:inset 0 0 0 3px rgba(255,255,255,.85), 0 10px 28px rgba(2,6,23,.28)}
+    h1{margin:0;font-size:clamp(18px,2.2vw,28px)}
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    select,.btn{appearance:none;border:1px solid var(--border);background:#0f162d;color:var(--fg);
+      padding:10px 14px;border-radius:12px;font-weight:800;letter-spacing:.2px;cursor:pointer}
+    .btn.ghost{background:rgba(255,255,255,.08)}
+    .btn.ok{background:#0e2a18}
+    .btn.warn{background:#2b1f05}
+    .panel{background:linear-gradient(180deg,#0d1329,#0b1328); border:1px solid var(--border); border-radius:18px; padding:14px}
+    .grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px}
+    .note{background:#0c1a36;border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;font-weight:900}
+    .note:hover{outline:3px solid var(--accent);outline-offset:2px}
+    .note.active{background:#0a2044}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .pill{background:#0a1430;border:1px solid var(--border);border-radius:999px;padding:8px 12px;font-weight:800}
+    .feedback{min-height:28px;color:var(--muted);font-weight:800;text-align:center}
+    .feedback.good{color:#10b981}
+    .feedback.bad{color:#ef4444}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Perfect Pitch Tester game">
+    <header>
+      <div class="title">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>Perfect Pitch Tester</h1>
+      </div>
+      <div class="controls">
+        <label for="difficulty" class="sr" aria-hidden="true">Difficulty</label>
+        <select id="difficulty" title="Difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+        <label for="scale" class="sr" aria-hidden="true">Scale</label>
+        <select id="scale" title="Scale">
+          <option value="normal">Normal (Diatonic)</option>
+          <option value="complex">Complex (Chromatic)</option>
+        </select>
+        <label for="tuning" class="sr" aria-hidden="true">Tuning</label>
+        <select id="tuning" title="A4 tuning">
+          <option value="440">A4 = 440 Hz</option>
+          <option value="432">A4 = 432 Hz</option>
+        </select>
+        <button id="play" class="btn ok" title="Play note">▶️ Play</button>
+        <button id="replay" class="btn ghost" title="Replay note">🔁 Replay</button>
+        <button id="next" class="btn" title="Next note">➡️ Next</button>
+        <button id="refA" class="btn ghost" title="Play reference A">🎧 A</button>
+      </div>
+    </header>
+
+    <section class="panel" aria-live="polite" aria-atomic="true">
+      <div class="row" style="justify-content:center">
+        <div class="pill">Score: <span id="score">0</span></div>
+        <div class="pill">Streak: <span id="streak">0</span> (Best <span id="best">0</span>)</div>
+        <div class="pill">Attempts: <span id="attempts">0</span></div>
+        <div class="pill">Tuning: <span id="tuneLabel">440</span> Hz</div>
+      </div>
+      <div id="feedback" class="feedback" role="status"></div>
+
+      <div class="row" style="justify-content:center; margin: 6px 0 2px; color:var(--muted)">Pick the note:</div>
+      <div id="noteGrid" class="grid" style="grid-template-columns:repeat(12, minmax(0,1fr));"></div>
+
+      <div id="octaveRow" class="row hidden" style="justify-content:center; margin-top:10px">
+        <span class="pill" style="opacity:.85">Octave:</span>
+        <button class="btn ghost octave" data-oct="2">2</button>
+        <button class="btn ghost octave" data-oct="3">3</button>
+        <button class="btn ghost octave" data-oct="4">4</button>
+        <button class="btn ghost octave" data-oct="5">5</button>
+        <button class="btn ghost octave" data-oct="6">6</button>
+        <button id="submit" class="btn ok hidden">Submit Guess</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ===== Data =====
+    const NORMAL_NOTES = ['C','D','E','F','G','A','B'];
+    const CHROMATIC_NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+    const SAVE_KEY = 'perfect_pitch_settings_v1';
+
+    // ===== Audio =====
+    let ctx = null;
+    let osc = null, gain = null;
+    let current = { note: 'A', octave: 4, freq: 440 };
+    let settings = { difficulty: 'easy', scale: 'normal', tuning: 440 };
+    let state = { score:0, streak:0, best:0, attempts:0, selectedNote:null, selectedOctave:null };
+
+    function ensureCtx(){ if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); if(ctx.state==='suspended') ctx.resume(); }
+    function playFreq(freq, dur=1.2){ ensureCtx(); stopTone(); osc = ctx.createOscillator(); gain = ctx.createGain(); osc.type='sine'; osc.frequency.value = freq; osc.connect(gain); gain.connect(ctx.destination);
+      const now = ctx.currentTime; gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.25, now+0.02); gain.gain.exponentialRampToValueAtTime(0.0001, now+dur);
+      osc.start(now); osc.stop(now+dur+0.05); }
+    function stopTone(){ try{ if(osc){ osc.disconnect(); osc = null; } if(gain){ gain.disconnect(); gain = null; } }catch(e){} }
+
+    // ===== Utils =====
+    function load(){ try{ const raw = localStorage.getItem(SAVE_KEY); if(raw){ const s = JSON.parse(raw); settings = { ...settings, ...s }; } }catch(e){} }
+    function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(settings)); }catch(e){} }
+    function noteIndex(note){ return CHROMATIC_NOTES.indexOf(note); }
+    function freqFor(note, octave, A4){
+      // Equal temperament relative to A4
+      const nIndex = noteIndex(note); // 0..11 where C=0
+      if(nIndex<0) return A4;
+      // Semitone distance from C to A is +9. So position of note in octave relative to A is nIndex - 9.
+      const semisFromA4 = (octave - 4)*12 + (nIndex - 9);
+      return A4 * Math.pow(2, semisFromA4/12);
+    }
+    function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+    // ===== DOM =====
+    const els = {
+      difficulty: document.getElementById('difficulty'),
+      scale: document.getElementById('scale'),
+      tuning: document.getElementById('tuning'),
+      play: document.getElementById('play'),
+      replay: document.getElementById('replay'),
+      next: document.getElementById('next'),
+      refA: document.getElementById('refA'),
+      noteGrid: document.getElementById('noteGrid'),
+      octaveRow: document.getElementById('octaveRow'),
+      submit: document.getElementById('submit'),
+      feedback: document.getElementById('feedback'),
+      score: document.getElementById('score'),
+      streak: document.getElementById('streak'),
+      best: document.getElementById('best'),
+      attempts: document.getElementById('attempts'),
+      tuneLabel: document.getElementById('tuneLabel'),
+    };
+
+    function buildNoteGrid(){
+      const pool = (settings.scale === 'normal') ? NORMAL_NOTES : CHROMATIC_NOTES;
+      els.noteGrid.innerHTML = '';
+      pool.forEach(n=>{
+        const btn = document.createElement('button');
+        btn.className = 'note';
+        btn.textContent = n;
+        btn.dataset.note = n;
+        btn.addEventListener('click', ()=> selectNote(n));
+        els.noteGrid.appendChild(btn);
+      });
+      // Adjust columns
+      els.noteGrid.style.gridTemplateColumns = `repeat(${pool.length}, minmax(0,1fr))`;
+    }
+
+    function selectNote(n){ state.selectedNote = n; document.querySelectorAll('.note').forEach(b=>b.classList.toggle('active', b.dataset.note===n)); if(settings.difficulty==='hard'){ els.submit.classList.remove('hidden'); } else { checkGuess(); } }
+    function selectOctave(o){ state.selectedOctave = Number(o); document.querySelectorAll('.octave').forEach(b=>b.classList.toggle('active', Number(b.dataset.oct)===state.selectedOctave)); }
+
+    function applySettingsToUI(){ els.difficulty.value = settings.difficulty; els.scale.value = settings.scale; els.tuning.value = String(settings.tuning); els.tuneLabel.textContent = settings.tuning; els.octaveRow.classList.toggle('hidden', settings.difficulty!=='hard'); }
+
+    function updateHud(){ els.score.textContent = state.score; els.streak.textContent = state.streak; els.best.textContent = state.best; els.attempts.textContent = state.attempts; }
+
+    function pickNote(){
+      const pool = (settings.scale === 'normal') ? NORMAL_NOTES : CHROMATIC_NOTES;
+      const note = pickRandom(pool);
+      const octavesEasy = [4];
+      const octavesMed = [3,4,5];
+      const octavesHard = [3,4,5,6];
+      const octave = settings.difficulty==='easy' ? pickRandom(octavesEasy) : settings.difficulty==='medium' ? pickRandom(octavesMed) : pickRandom(octavesHard);
+      const freq = freqFor(note, octave, settings.tuning);
+      current = { note, octave, freq };
+      state.selectedNote = null; state.selectedOctave = null;
+      document.querySelectorAll('.note').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.octave').forEach(b=>b.classList.remove('active'));
+      els.feedback.textContent = '';
+    }
+
+    function playCurrent(){ playFreq(current.freq); }
+    function playRefA(){ playFreq(settings.tuning, 1.0); }
+
+    function checkGuess(){
+      if(!state.selectedNote){ els.feedback.textContent = 'Pick a note'; return; }
+      let correct = state.selectedNote === current.note;
+      if(settings.difficulty==='hard'){
+        if(state.selectedOctave == null){ els.feedback.textContent = 'Select an octave'; return; }
+        correct = correct && (Number(state.selectedOctave) === current.octave);
+      }
+      state.attempts += 1;
+      if(correct){
+        state.score += (settings.difficulty==='hard') ? 20 : (settings.difficulty==='medium' ? 12 : 8);
+        state.streak += 1; state.best = Math.max(state.best, state.streak);
+        els.feedback.textContent = `Correct! ${current.note}${settings.difficulty==='hard' ? current.octave : ''} (${current.freq.toFixed(2)} Hz)`;
+        els.feedback.className = 'feedback good';
+        setTimeout(()=>{ nextRound(); }, 900);
+      } else {
+        state.streak = 0;
+        els.feedback.textContent = 'Try again';
+        els.feedback.className = 'feedback bad';
+      }
+      updateHud();
+    }
+
+    function nextRound(){ pickNote(); playCurrent(); updateHud(); }
+
+    // ===== Events =====
+    els.play.addEventListener('click', ()=>{ ensureCtx(); playCurrent(); });
+    els.replay.addEventListener('click', playCurrent);
+    els.next.addEventListener('click', ()=>{ nextRound(); });
+    els.refA.addEventListener('click', playRefA);
+
+    document.querySelectorAll('.octave').forEach(b=> b.addEventListener('click', ()=>{ selectOctave(b.dataset.oct); if(settings.difficulty!=='hard'){ checkGuess(); } }));
+    els.submit.addEventListener('click', checkGuess);
+
+    els.difficulty.addEventListener('change', e=>{ settings.difficulty = e.target.value; save(); applySettingsToUI(); });
+    els.scale.addEventListener('change', e=>{ settings.scale = e.target.value; save(); buildNoteGrid(); });
+    els.tuning.addEventListener('change', e=>{ settings.tuning = Number(e.target.value); save(); els.tuneLabel.textContent = settings.tuning; });
+
+    // Unlock audio on first interaction
+    ['click','touchstart','keydown'].forEach(evt=> window.addEventListener(evt, ()=>{ try{ ensureCtx(); }catch(e){} }, { once:true }));
+
+    // Init
+    load();
+    applySettingsToUI();
+    buildNoteGrid();
+    pickNote();
+    updateHud();
+  </script>
+</body>
+</html>
+

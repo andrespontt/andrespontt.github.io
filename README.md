@@ -11,6 +11,7 @@ Personal website and playground for Andres Pontt, hosted on GitHub Pages. The si
 - Games:
   - `games.html` – Type & Shine (kids typing game)
   - `type-quest.html` – Type Quest — built for my kids to help improve their reading and typing skills (modes, virtual keyboard, TTS)
+  - `perfect-pitch.html` – Perfect Pitch Tester (difficulty levels, A4 440/432, diatonic/chromatic)
 
 ## Local Preview
 
