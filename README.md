@@ -10,7 +10,7 @@ Personal website and playground for Andres Pontt, hosted on GitHub Pages. The si
 - Music (simple audio player): `music.html`
 - Games:
   - `games.html` – Type & Shine (kids typing game)
-  - `type-quest.html` – Type Quest (modes, virtual keyboard, TTS)
+  - `type-quest.html` – Type Quest — built for my kids to help improve their reading and typing skills (modes, virtual keyboard, TTS)
 
 ## Local Preview
 
