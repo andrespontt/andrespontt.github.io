@@ -31,10 +31,13 @@
     .btn.warn{background:#2b1f05}
     .panel{background:linear-gradient(180deg,#0d1329,#0b1328); border:1px solid var(--border); border-radius:18px; padding:14px}
     .grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px}
-    .note{background:#0c1a36;border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;font-weight:900}
-    .note:hover{outline:3px solid var(--accent);outline-offset:2px}
-    .note.active{background:#0a2044}
+    .note{background:#0f274f;border:1px solid #3b82f6;border-radius:12px;padding:12px 10px;text-align:center;font-weight:900;
+      color:#e9f1ff; font-size:1.05rem; letter-spacing:.5px; box-shadow:0 8px 18px rgba(3,14,33,.35)}
+    .note:hover, .note:focus-visible{outline:3px solid #60a5fa; outline-offset:2px}
+    .note.active{background:#123169; border-color:#60a5fa}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .octave{outline-offset:2px}
+    .octave:focus-visible{outline:3px solid #60a5fa}
     .pill{background:#0a1430;border:1px solid var(--border);border-radius:999px;padding:8px 12px;font-weight:800}
     .feedback{min-height:28px;color:var(--muted);font-weight:800;text-align:center}
     .feedback.good{color:#10b981}
@@ -93,6 +96,9 @@
         <button class="btn ghost octave" data-oct="5">5</button>
         <button class="btn ghost octave" data-oct="6">6</button>
         <button id="submit" class="btn ok hidden">Submit Guess</button>
+      </div>
+      <div class="row" style="justify-content:center; color:var(--muted); margin-top:6px; text-align:center">
+        <span class="pill" style="background:#0b1c3d">Shortcuts: Space = Play, A–G = pick note, 2–6 = octave (Hard), Enter = Submit</span>
       </div>
     </section>
   </div>
@@ -231,6 +237,32 @@
     // Unlock audio on first interaction
     ['click','touchstart','keydown'].forEach(evt=> window.addEventListener(evt, ()=>{ try{ ensureCtx(); }catch(e){} }, { once:true }));
 
+    // Keyboard controls
+    document.addEventListener('keydown', (e)=>{
+      const key = e.key;
+      if (key === ' ') { e.preventDefault(); playCurrent(); return; }
+      // Letter to note mapping (A–G)
+      const L = key.toUpperCase();
+      if (['A','B','C','D','E','F','G'].includes(L)) {
+        selectNote(L);
+        if (settings.difficulty !== 'hard') {
+          // auto-check on easy/medium
+          checkGuess();
+        }
+        return;
+      }
+      // Hard mode octave selection via numbers 2–6
+      if (settings.difficulty === 'hard' && /^[2-6]$/.test(key)) {
+        selectOctave(key);
+        return;
+      }
+      if (key === 'Enter') {
+        if (settings.difficulty === 'hard') {
+          checkGuess();
+        }
+      }
+    });
+
     // Init
     load();
     applySettingsToUI();
@@ -240,4 +272,3 @@
   </script>
 </body>
 </html>
-
