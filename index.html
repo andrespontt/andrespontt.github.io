@@ -235,15 +235,17 @@
 </head>
 <body>
   <div class="container">
-    <nav>
-      <ul>
-        <li><a href="index.html">Home</a></li>
-        <li><a href="experiments.html">Experiments</a></li>
-        <li><a href="music.html">Music</a></li>
-        <li><a href="bio.html">About Me</a></li>
-        <li><a href="type-quest.html">Games</a></li>
-        <li><a href="perfect-pitch.html">Perfect Pitch</a></li>
-      </ul>
+    <nav id="site-nav">
+      <noscript>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="experiments.html">Experiments</a></li>
+          <li><a href="music.html">Music</a></li>
+          <li><a href="bio.html">About Me</a></li>
+          <li><a href="type-quest.html">Games</a></li>
+          <li><a href="perfect-pitch.html">Perfect Pitch</a></li>
+        </ul>
+      </noscript>
     </nav>
 
     <main class="hero">
@@ -264,7 +266,7 @@
         <div class="feature-card">
           <span class="feature-icon">🎮</span>
           <h3>Game Development</h3>
-          <p>Experienced in game modding and development, with a focus on creating engaging interactive experiences. I built <a href="type-quest.html" style="color:#90e0ef; text-decoration: underline;">Type Quest</a> for my kids to help improve their reading and typing skills.</p>
+          <p>Experienced in game modding and development, with a focus on creating engaging interactive experiences. I've built several educational games including <a href="apps/games.html" style="color:#90e0ef; text-decoration: underline;">Type Quest</a> for typing practice and <a href="apps/perfect-pitch.html" style="color:#90e0ef; text-decoration: underline;">Perfect Pitch</a> for music training.</p>
         </div>
         
         <div class="feature-card">
@@ -273,6 +275,24 @@
           <p>Musician who finds inspiration in the intersection of technology and artistic expression.</p>
         </div>
       </div>
+
+      <!-- Apps Section -->
+      <section class="apps-section" style="margin: 60px 0; text-align: center;">
+        <h2 style="font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 40px; background: linear-gradient(135deg, #0078d4, #00b4d8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">My Apps & Games</h2>
+        <div class="apps-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; max-width: 1000px; margin: 0 auto;">
+          <div class="app-card" style="background: rgba(45, 45, 45, 0.8); backdrop-filter: blur(10px); padding: 30px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s ease;">
+            <h3 style="font-size: 1.5rem; margin-bottom: 15px; color: #0078d4;">🎮 Type Quest</h3>
+            <p style="color: #b0b0b0; margin-bottom: 20px;">Educational typing game for kids ages 3-6, helping them learn to read and type with fun cat animations.</p>
+            <a href="apps/games.html" class="cta-button" style="display: inline-block; text-decoration: none;">Play Now</a>
+          </div>
+          
+          <div class="app-card" style="background: rgba(45, 45, 45, 0.8); backdrop-filter: blur(10px); padding: 30px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s ease;">
+            <h3 style="font-size: 1.5rem; margin-bottom: 15px; color: #0078d4;">🎵 Perfect Pitch</h3>
+            <p style="color: #b0b0b0; margin-bottom: 20px;">Music training app to develop perfect pitch and musical ear through interactive exercises.</p>
+            <a href="apps/perfect-pitch.html" class="cta-button" style="display: inline-block; text-decoration: none;">Try It</a>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer>
@@ -284,5 +304,6 @@
       <p>&copy; 2024 Andres Pontt.</p>
     </footer>
   </div>
+  <script src="assets/nav.js" defer></script>
 </body>
 </html>
