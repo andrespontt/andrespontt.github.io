@@ -9,18 +9,35 @@
     var nav = document.getElementById('site-nav');
     if (!nav) return;
 
+    // Determine where we are (root, pages/, apps/)
+    var path = (location.pathname || '/').replace(/\\+/g,'/');
+    var parts = path.split('/').filter(Boolean);
+    var dir = parts.length > 1 ? parts[parts.length-2] : '';
+    var scope = (dir === 'pages') ? 'pages' : (dir === 'apps' ? 'apps' : 'root');
+
+    function toHome(){ return scope === 'root' ? 'index.html' : '../index.html'; }
+    function toPage(file){
+      if (scope === 'root') return 'pages/' + file;
+      if (scope === 'pages') return file;
+      return '../pages/' + file; // from apps
+    }
+    function toApp(file){
+      if (scope === 'root') return 'apps/' + file;
+      if (scope === 'pages') return '../apps/' + file;
+      return file; // already in apps
+    }
+
     var links = [
-      { href: 'index.html', label: 'Home' },
-      { href: 'experiments.html', label: 'Experiments' },
-      { href: 'music.html', label: 'Music' },
-      { href: 'bio.html', label: 'About Me' },
-      { href: 'type-quest.html', label: 'Games' },
-      { href: 'perfect-pitch.html', label: 'Perfect Pitch' }
+      { href: toHome(), label: 'Home', key: 'home' },
+      { href: toPage('experiments.html'), label: 'Experiments', key: 'experiments' },
+      { href: toPage('music.html'), label: 'Music', key: 'music' },
+      { href: toPage('bio.html'), label: 'About Me', key: 'bio' },
+      { href: toApp('games.html'), label: 'Games', key: 'games' },
+      { href: toApp('perfect-pitch.html'), label: 'Perfect Pitch', key: 'perfect-pitch' }
     ];
 
-    // Normalize current path for index route
-    var here = (location.pathname || '').split('/').pop() || 'index.html';
-    if (here === '') here = 'index.html';
+    // Determine current file to set aria-current
+    var here = parts[parts.length-1] || 'index.html';
 
     var ul = document.createElement('ul');
     ul.setAttribute('role', 'list');
@@ -30,8 +47,9 @@
       var a = document.createElement('a');
       a.href = item.href;
       a.textContent = item.label;
-      // mark current page for a11y; sites may add styles for [aria-current]
-      if (here === item.href) a.setAttribute('aria-current', 'page');
+      // For current page highlighting, compare filename only
+      var target = item.href.split('/').pop();
+      if (here === target) a.setAttribute('aria-current', 'page');
       li.appendChild(a);
       ul.appendChild(li);
     });
@@ -47,4 +65,3 @@
     buildNav();
   }
 })();
-

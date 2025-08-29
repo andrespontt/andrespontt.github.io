@@ -175,15 +175,18 @@
 </head>
 <body>
   <div class="app" role="application" aria-label="Kids typing game">
-    <!-- Navigation Bar -->
-    <nav style="background: rgba(45, 45, 45, 0.9); backdrop-filter: blur(10px); padding: 15px; border-radius: 12px; margin: 15px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-      <ul style="list-style: none; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin: 0; padding: 0;">
-        <li><a href="../index.html" style="color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 8px 16px; border-radius: 8px; transition: all 0.3s ease; border: 2px solid transparent;">Home</a></li>
-        <li><a href="../pages/experiments.html" style="color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 8px 16px; border-radius: 8px; transition: all 0.3s ease; border: 2px solid transparent;">Experiments</a></li>
-        <li><a href="../pages/music.html" style="color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 8px 16px; border-radius: 8px; transition: all 0.3s ease; border: 2px solid transparent;">Music</a></li>
-        <li><a href="../pages/bio.html" style="color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 8px 16px; border-radius: 8px; transition: all 0.3s ease; border: 2px solid transparent;">About Me</a></li>
-        <li><a href="games.html" style="color: #0078d4; text-decoration: none; font-weight: 600; font-size: 16px; padding: 8px 16px; border-radius: 8px; transition: all 0.3s ease; border: 2px solid #0078d4; background: rgba(0, 120, 212, 0.1);">Games</a></li>
-      </ul>
+    <!-- Site Navigation -->
+    <nav id="site-nav">
+      <noscript>
+        <ul>
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="../pages/experiments.html">Experiments</a></li>
+          <li><a href="../pages/music.html">Music</a></li>
+          <li><a href="../pages/bio.html">About Me</a></li>
+          <li><a href="games.html">Games</a></li>
+          <li><a href="perfect-pitch.html">Perfect Pitch</a></li>
+        </ul>
+      </noscript>
     </nav>
 
     <header>
@@ -238,6 +241,7 @@
   <!-- Confetti canvas (auto-clears + fades out) -->
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 
+  <script src="../assets/nav.js" defer></script>
   <script>
     // ======= Word Lists (editable) =======
     const WORDS = {
