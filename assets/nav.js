@@ -32,7 +32,7 @@
       { href: toPage('experiments.html'), label: 'Experiments', key: 'experiments' },
       { href: toPage('music.html'), label: 'Music', key: 'music' },
       { href: toPage('bio.html'), label: 'About Me', key: 'bio' },
-      { href: toApp('games.html'), label: 'Games', key: 'games' },
+      { href: toApp('type-quest.html'), label: 'Games', key: 'games' },
       { href: toApp('perfect-pitch.html'), label: 'Perfect Pitch', key: 'perfect-pitch' }
     ];
 
