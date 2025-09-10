@@ -2,75 +2,77 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Pomodoro — Focus Timer</title>
   <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg:#0b1020; --bg2:#0f1426; --card:#12172c; --fg:#e6eefc; --muted:#8aa0c8;
-      --accent:#7dd3fc; --accent2:#34d399; --warn:#fde047; --ok:#86efac; --border:rgba(255,255,255,.12);
-      --shadow:0 14px 40px rgba(2,6,23,.22);
+      --bg:#0c111c; --bg2:#0b1020; --fg:#e6eefc; --muted:#8aa0c8; --accent:#7dd3fc; --accent2:#34d399; --border:rgba(255,255,255,.12);
+      --warn:#fde047; --ok:#86efac; --shadow:0 14px 40px rgba(2,6,23,.22);
     }
-    html,body{height:100%}
+    html, body { height: 100%; }
+    * { box-sizing: border-box; }
     body{
-      margin:0; color:var(--fg);
+      margin: 0; color: var(--fg);
       font-family: ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      background:
-        radial-gradient(1100px 700px at -10% -10%, #12223f 0%, transparent 60%),
-        radial-gradient(800px 800px at 110% 10%, #0e203b 0%, transparent 55%),
-        linear-gradient(180deg, var(--bg), var(--bg2));
-      display:grid; place-items:center; padding:16px;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      height: 100dvh; overflow: hidden; /* no scroll */
     }
-    .app{ width:min(980px,98vw); background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.03));
-      border:1px solid var(--border); border-radius:24px; box-shadow:var(--shadow); padding:18px; display:grid; gap:14px; }
-    nav ul{ list-style:none; display:flex; gap:10px; flex-wrap:wrap; margin:0; padding:0; }
-    nav a{ color:var(--fg); text-decoration:none; font-weight:700; padding:8px 10px; border-radius:10px; }
-    nav a[aria-current="page"]{ color:var(--accent); border-bottom:2px solid var(--accent); }
-    header{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
-    .brand{ display:flex; align-items:center; gap:10px; }
-    .logo{ width:40px; height:40px; border-radius:12px; background:radial-gradient(circle at 30% 30%, var(--accent), var(--accent2)); box-shadow:inset 0 0 0 3px rgba(255,255,255,.85), 0 10px 28px rgba(2,6,23,.28); }
-    h1{ margin:0; font-size:clamp(18px,2.4vw,28px); }
-    .controls{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    select,.btn,input[type="number"],input[type="text"]{ appearance:none; border:1px solid var(--border); background:#0f162d; color:var(--fg);
-      padding:10px 12px; border-radius:12px; font-weight:800; letter-spacing:.2px; }
-    .btn{ cursor:pointer; box-shadow:var(--shadow); }
-    .btn.primary{ background:#0d2340; }
-    .btn.ghost{ background:rgba(255,255,255,.08); }
-    .btn.warn{ background:#2b1f05; border-color:#5c4306; color:#ffe8a3; }
-    .panel{ background:linear-gradient(180deg,#0d1329,#0b1328); border:1px solid var(--border); border-radius:18px; padding:14px; }
-    .grid{ display:grid; grid-template-columns: 1fr; gap:12px; }
+    .screen{ position:relative; width:100vw; height:100dvh; overflow:hidden; }
+    /* fixed minimal nav so page never scrolls */
+    nav#site-nav{ position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.25); border:1px solid var(--border); border-radius: 999px; padding: 6px 10px; z-index: 5; backdrop-filter: blur(10px); }
+    nav#site-nav ul{ display:flex; gap:8px; margin:0; padding:0; list-style:none; }
+    nav#site-nav a{ color:#cfe8ff; text-decoration:none; padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px; }
+    nav#site-nav a[aria-current="page"]{ color:#081a14; background: var(--accent); }
 
-    .timer-wrap{ display:grid; grid-template-columns: minmax(240px, 320px) 1fr; gap:16px; align-items:center; }
-    @media (max-width:760px){ .timer-wrap{ grid-template-columns: 1fr; justify-items:center; } }
-    .ring{ width:min(320px, 70vw); aspect-ratio:1/1; border-radius:50%; background:
+    .main{
+      position:absolute; inset:0; display:grid; grid-template-rows: 56px 1fr 56px; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); gap: 8px;
+    }
+    .topbar{ display:flex; align-items:center; justify-content:space-between; }
+    .ghost{ background: rgba(255,255,255,.08); border:1px solid var(--border); color:var(--fg); border-radius:12px; padding:8px 12px; font-weight:800; text-decoration:none; cursor:pointer; }
+    .icon{ width:36px; height:36px; display:grid; place-items:center; border-radius:10px; background: rgba(255,255,255,.08); border:1px solid var(--border); cursor:pointer; }
+
+    .center{ display:grid; place-items:center; }
+    .ring{ width:min(86vw, 520px); aspect-ratio:1/1; border-radius:50%; background:
       conic-gradient(var(--accent) calc(var(--pct,0)*1%), rgba(255,255,255,.08) 0);
-      display:grid; place-items:center; box-shadow:0 12px 36px rgba(2,6,23,.25); }
-    .ring-inner{ width:84%; height:84%; border-radius:50%; background:#0b1328; border:1px solid var(--border); display:grid; place-items:center; text-align:center; padding:10px; }
-    .time{ font-size: clamp(32px, 6vw, 58px); font-weight: 900; letter-spacing:.5px; }
-    .phase{ color: var(--muted); font-weight:800; margin-top:-4px; }
-    .actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:8px; }
+      display:grid; place-items:center; box-shadow:0 18px 50px rgba(2,6,23,.25); transition: filter .2s ease;
+    }
+    .ring:active{ filter: brightness(1.05); }
+    .ring-inner{ width:78%; height:78%; border-radius:50%; background:#0b142a; border:1px solid var(--border); display:grid; place-items:center; text-align:center; padding:10px; }
+    .ring-inner.pulse{ animation: pulse .35s ease; }
+    @keyframes pulse { 0%{ transform: scale(1); box-shadow: 0 0 0 0 rgba(125,211,252,.45);} 70%{ transform: scale(.985); box-shadow: 0 0 0 16px rgba(125,211,252,0);} 100%{ transform: scale(1); box-shadow: none; } }
+    .time{ font-size: clamp(42px, 15vw, 72px); font-weight: 900; letter-spacing:.5px; }
+    .phase{ color: var(--muted); font-weight:800; margin-top:-2px; font-size: clamp(12px, 3.5vw, 14px); }
+    .hint{ color: var(--muted); font-size: 12px; margin-top: 6px; transition: color .15s ease; }
+    .hint.flash{ color: var(--accent2); }
 
-    .stats{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:8px; }
-    .pill{ background:#0a1430; border:1px solid var(--border); border-radius:999px; padding:10px 12px; text-align:center; font-weight:800; }
+    .bottombar{ display:flex; align-items:center; justify-content:space-between; }
+    .pill{ background:#0a1430; border:1px solid var(--border); border-radius:999px; padding:8px 12px; font-weight:800; color:#c3d7fb; }
 
-    .rank{ display:grid; grid-template-columns: 1fr; gap:6px; }
-    .rank-item{ display:flex; justify-content:space-between; align-items:center; background:#0c1733; border:1px solid var(--border); border-radius:12px; padding:8px 12px; }
-    .rank-item strong{ color:#e9f1ff; }
-    .rank-item span{ color:var(--muted); }
-
-    .sr{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    /* Preferences panel (iPhone-like slide) */
+    .sheet{ position:absolute; inset:0; background: linear-gradient(180deg, #090f1c, #0b1224); border-left:1px solid var(--border); transform: translateX(100%);
+      transition: transform .35s cubic-bezier(.22,.61,.36,1); z-index:6; display:grid; grid-template-rows: 56px 1fr; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
+    .sheet.open{ transform: translateX(0); }
+    .sheet header{ display:flex; align-items:center; justify-content:space-between; }
+    .sheet h2{ font-size: 18px; margin:0; }
+    .list{ display:grid; gap: 10px; align-content:start; overflow:auto; padding-bottom: 24px; }
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:#0c1733; border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+    .row label{ color:#cfe8ff; font-weight:800; }
+    .row input, .row select{ appearance:none; border:1px solid var(--border); background:#0f162d; color:var(--fg); padding:10px 12px; border-radius:10px; font-weight:800; min-width:90px; }
+    .row .grow{ flex:1 }
+    .danger{ background:#2b1f05; border-color:#5c4306; color:#ffe8a3; }
   </style>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
+    function gtag(){dataLayer.push(arguments)};
     gtag('js', new Date());
     gtag('config', 'G-2PFGZZBZ0B');
   </script>
 </head>
 <body>
-  <div class="app" role="application" aria-label="Pomodoro focus timer">
+  <div class="screen" role="application" aria-label="Pomodoro focus timer">
     <nav id="site-nav">
       <noscript>
         <ul>
@@ -85,255 +87,174 @@
       </noscript>
     </nav>
 
-    <header>
-      <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
-        <h1>Pomodoro</h1>
-      </div>
-      <div class="controls" role="group" aria-label="Timer settings and actions">
-        <input id="taskName" type="text" placeholder="Task (optional)" title="Current task name" style="min-width:160px;" />
-        <label class="sr" for="focusMin">Focus minutes</label>
-        <input id="focusMin" type="number" min="1" max="180" value="25" title="Focus minutes" />
-        <label class="sr" for="shortMin">Short break</label>
-        <input id="shortMin" type="number" min="1" max="60" value="5" title="Short break minutes" />
-        <label class="sr" for="longMin">Long break</label>
-        <input id="longMin" type="number" min="1" max="90" value="15" title="Long break minutes" />
-        <select id="longEvery" title="Long break every N focus">
-          <option value="4">Long every 4</option>
-          <option value="3">Long every 3</option>
-          <option value="5">Long every 5</option>
-        </select>
-        <button id="notif" class="btn ghost" title="Enable desktop notifications">🔔 Notifications</button>
-        <button id="mute" class="btn" title="Toggle sounds">🔊 Sound On</button>
-        <button id="resetProgress" class="btn warn" title="Reset saved progress">♻️ Reset</button>
-      </div>
-    </header>
-
-    <section class="panel grid" aria-live="polite" aria-atomic="true">
-      <div class="timer-wrap">
-        <div class="ring" id="ring" style="--pct:0">
-          <div class="ring-inner">
-            <div class="time" id="time">25:00</div>
-            <div class="phase" id="phase">Focus</div>
-            <div class="actions">
-              <button id="startPause" class="btn primary">▶️ Start</button>
-              <button id="skip" class="btn ghost">⏭️ Skip</button>
-              <button id="reset" class="btn">🔁 Reset</button>
-            </div>
-          </div>
-        </div>
-        <div class="side">
-          <div class="stats">
-            <div class="pill">Today: <span id="today">0</span></div>
-            <div class="pill">Total: <span id="total">0</span></div>
-            <div class="pill">Streak: <span id="streak">0</span> days</div>
-            <div class="pill">Cycle: <span id="cycle">0</span>/<span id="every">4</span></div>
-          </div>
-          <div class="panel" style="margin-top:10px">
-            <strong style="display:block; margin-bottom:6px;">Top Days</strong>
-            <div id="ranking" class="rank" aria-live="polite"></div>
-          </div>
-          <div class="panel" style="margin-top:10px">
-            <strong style="display:block; margin-bottom:6px;">Top Tasks</strong>
-            <div id="taskRanking" class="rank" aria-live="polite"></div>
-          </div>
+    <div class="main" id="main">
+      <div class="topbar">
+        <button id="status" class="ghost" aria-live="polite">Ready</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="notif" class="icon" title="Notifications">🔔</button>
+          <button id="gear" class="icon" title="Preferences">⚙️</button>
         </div>
       </div>
-    </section>
+      <div class="center">
+        <button id="ring" class="ring" style="--pct:0" aria-label="Timer ring (tap to start/pause)">
+          <div id="ringInner" class="ring-inner">
+            <div id="time" class="time">05:00</div>
+            <div id="phase" class="phase">Focus</div>
+            <div id="hint" class="hint">Tap to start • Double-tap to reset</div>
+          </div>
+        </button>
+      </div>
+      <div class="bottombar">
+        <div class="pill" id="taskpill">Task: <span id="taskLabel">None</span></div>
+        <div class="pill">Cycle <span id="cycle">0</span>/<span id="every">4</span></div>
+      </div>
+    </div>
 
-    <footer style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-      <div class="pill" style="background:#0c1a36">Progress saves locally. Notifications require permission.</div>
-      <div class="pill" id="status" style="background:#0c1a36">Ready</div>
-    </footer>
+    <!-- Slide-in preferences sheet -->
+    <div class="sheet" id="sheet" aria-hidden="true">
+      <header>
+        <h2>Preferences</h2>
+        <button id="closeSheet" class="icon" title="Close">✖️</button>
+      </header>
+      <div class="list">
+        <div class="row">
+          <label for="taskName" class="grow">Task</label>
+          <input id="taskName" class="grow" type="text" placeholder="Optional" />
+        </div>
+        <div class="row">
+          <label for="focusMin">Focus (min)</label>
+          <input id="focusMin" type="number" min="1" max="180" />
+        </div>
+        <div class="row">
+          <label for="shortMin">Short Break (min)</label>
+          <input id="shortMin" type="number" min="1" max="60" />
+        </div>
+        <div class="row">
+          <label for="longMin">Long Break (min)</label>
+          <input id="longMin" type="number" min="1" max="90" />
+        </div>
+        <div class="row">
+          <label for="longEvery">Long every</label>
+          <select id="longEvery">
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="soundToggle">Sound</label>
+          <select id="soundToggle">
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="wakeToggle">Keep Screen Awake</label>
+          <select id="wakeToggle">
+            <option value="off">Off</option>
+            <option value="on">On</option>
+          </select>
+        </div>
+        <div class="row danger">
+          <button id="resetProgress" class="ghost danger" style="width:100%">Reset Progress</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="../assets/nav.js" defer></script>
   <script>
     const SAVE_KEY = 'pomodoro_state_v1';
-
     const els = {
-      focusMin: document.getElementById('focusMin'),
-      shortMin: document.getElementById('shortMin'),
-      longMin: document.getElementById('longMin'),
-      longEvery: document.getElementById('longEvery'),
-      taskName: document.getElementById('taskName'),
-      notifBtn: document.getElementById('notif'),
-      mute: document.getElementById('mute'),
-      resetProgress: document.getElementById('resetProgress'),
-      time: document.getElementById('time'),
-      phase: document.getElementById('phase'),
-      ring: document.getElementById('ring'),
-      startPause: document.getElementById('startPause'),
-      skip: document.getElementById('skip'),
-      reset: document.getElementById('reset'),
-      today: document.getElementById('today'),
-      total: document.getElementById('total'),
-      streak: document.getElementById('streak'),
-      cycle: document.getElementById('cycle'),
-      every: document.getElementById('every'),
-      ranking: document.getElementById('ranking'),
-      taskRanking: document.getElementById('taskRanking'),
-      status: document.getElementById('status'),
+      ring: document.getElementById('ring'), ringInner: document.getElementById('ringInner'), time: document.getElementById('time'), phase: document.getElementById('phase'), hint: document.getElementById('hint'),
+      status: document.getElementById('status'), cycle: document.getElementById('cycle'), every: document.getElementById('every'),
+      gear: document.getElementById('gear'), sheet: document.getElementById('sheet'), closeSheet: document.getElementById('closeSheet'),
+      taskPill: document.getElementById('taskpill'), taskLabel: document.getElementById('taskLabel'),
+      focusMin: document.getElementById('focusMin'), shortMin: document.getElementById('shortMin'), longMin: document.getElementById('longMin'), longEvery: document.getElementById('longEvery'),
+      soundToggle: document.getElementById('soundToggle'), wakeToggle: document.getElementById('wakeToggle'), taskName: document.getElementById('taskName'),
+      resetProgress: document.getElementById('resetProgress'), notif: document.getElementById('notif')
     };
 
-    // ===== State =====
-    let audioCtx = null; let muted = false;
-    let tickHandle = null;
+    // State
+    let audioCtx = null; let muted = false; let wakeLock = null; let wakeWanted = false;
+    let tickHandle = null; let lastTap = 0;
     const nowMs = () => Date.now();
     const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
     function ensureAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
     function tone(freq=600, dur=.12, type='sine', vol=.22){ if(muted) return; try{ ensureAudio(); const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type=type; o.frequency.value=freq; o.connect(g); g.connect(audioCtx.destination); const t=audioCtx.currentTime; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+dur); o.start(t); o.stop(t+dur+.02);}catch(e){} }
     function chime(){ tone(523.25,.12,'sine',.22); setTimeout(()=>tone(659.25,.12,'sine',.22),140); setTimeout(()=>tone(784,.14,'sine',.22),300); }
+    function vibrate(pat=[120,80,120]){ try{ if(navigator.vibrate) navigator.vibrate(pat); }catch(e){} }
+    async function requestWake(){ if(!('wakeLock' in navigator)) return; try{ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', ()=>{ wakeLock=null; }); }catch(e){} }
+    function releaseWake(){ try{ if(wakeLock) { wakeLock.release(); wakeLock=null; } }catch(e){} }
 
     const state = {
-      settings: { focusMin:25, shortMin:5, longMin:15, longEvery:4, notifs:false, currentTask:'' },
-      running: false,
-      phase: 'focus', // 'focus' | 'short' | 'long'
-      startAt: 0, // epoch ms
-      endAt: 0, // epoch ms
-      durSec: 25*60,
-      doneCycles: 0, // focus cycles since last long break
-      totalFocus: 0, // number of completed focus sessions
-      history: [], // {ts, phase, sec}
-      tasks: {}, // name -> {focusCount, focusSec, lastAt}
+      settings: { focusMin:5, shortMin:2, longMin:10, longEvery:4, notifs:false, currentTask:'', keepAwake:false },
+      running:false, phase:'focus', startAt:0, endAt:0, durSec:5*60, doneCycles:0,
+      history: [], tasks:{}
     };
 
     function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){} }
-    function load(){ try{ const raw = localStorage.getItem(SAVE_KEY); if(raw){ const s = JSON.parse(raw); // merge cautiously
-        if(s.settings) state.settings = { ...state.settings, ...s.settings };
-        ['running','phase','startAt','endAt','durSec','doneCycles','totalFocus'].forEach(k=>{ if(s[k]!==undefined) state[k]=s[k]; });
-        if(Array.isArray(s.history)) state.history = s.history.slice(-2000); // cap
-        if(s.tasks && typeof s.tasks==='object') state.tasks = s.tasks;
-      } }catch(e){} }
+    function load(){ try{ const raw = localStorage.getItem(SAVE_KEY); if(raw){ const s=JSON.parse(raw); if(s.settings) state.settings={...state.settings,...s.settings}; ['running','phase','startAt','endAt','durSec','doneCycles'].forEach(k=>{ if(s[k]!==undefined) state[k]=s[k]; }); if(Array.isArray(s.history)) state.history=s.history.slice(-2000); if(s.tasks) state.tasks=s.tasks; } }catch(e){} }
 
     function msLeft(){ return Math.max(0, state.endAt - nowMs()); }
     function secsLeft(){ return Math.ceil(msLeft()/1000); }
-    function fmtClock(totalSec){ const m = Math.floor(totalSec/60); const s = totalSec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+    function fmtClock(totalSec){ const m=Math.floor(totalSec/60), s=totalSec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 
-    function setPhase(next){ state.phase = next; const mins = (next==='focus')?state.settings.focusMin:(next==='short')?state.settings.shortMin:state.settings.longMin; state.durSec = Math.max(1, Math.round(mins*60)); state.startAt = 0; state.endAt = 0; state.running = false; updateUI(); save(); }
-    function start(){ if(state.running) return; const left = state.durSec; state.startAt = nowMs(); state.endAt = state.startAt + left*1000; state.running = true; els.startPause.textContent = '⏸️ Pause'; els.status.textContent='Running'; if(!tickHandle) tickHandle = setInterval(tick, 250); ensureAudio(); }
-    function pause(){ if(!state.running) return; state.durSec = secsLeft(); state.running = false; els.startPause.textContent='▶️ Start'; els.status.textContent='Paused'; save(); }
-    function resetTimer(){ state.startAt=0; state.endAt=0; state.running=false; const mins=(state.phase==='focus')?state.settings.focusMin:(state.phase==='short')?state.settings.shortMin:state.settings.longMin; state.durSec=Math.round(mins*60); els.startPause.textContent='▶️ Start'; els.status.textContent='Ready'; updateUI(); save(); }
+    function setPhase(next){ state.phase=next; const mins=(next==='focus')?state.settings.focusMin:(next==='short')?state.settings.shortMin:state.settings.longMin; state.durSec=Math.max(1,Math.round(mins*60)); state.startAt=0; state.endAt=0; state.running=false; updateUI(); save(); }
+    function start(){ if(state.running) return; const left=state.durSec; state.startAt=nowMs(); state.endAt=state.startAt+left*1000; state.running=true; els.status.textContent='Running'; if(!tickHandle) tickHandle=setInterval(tick,250); ensureAudio(); if(state.settings.keepAwake) requestWake(); }
+    function pause(){ if(!state.running) return; state.durSec=secsLeft(); state.running=false; els.status.textContent='Paused'; save(); releaseWake(); }
+    function resetTimer(){ state.startAt=0; state.endAt=0; state.running=false; const mins=(state.phase==='focus')?state.settings.focusMin:(state.phase==='short')?state.settings.shortMin:state.settings.longMin; state.durSec=Math.round(mins*60); els.status.textContent='Ready'; updateUI(); save(); }
     function skip(){ completePhase(true); }
 
-    function notify(title, body){ if(!state.settings.notifs) return; try{ if(Notification.permission==='granted'){ const n = new Notification(title, { body }); setTimeout(()=>n.close&&n.close(), 5000);} }catch(e){} }
+    function notify(title, body){ if(!state.settings.notifs) return; try{ if(Notification.permission==='granted'){ const n=new Notification(title,{ body }); setTimeout(()=>n.close&&n.close(),5000);} }catch(e){} }
 
-    function completePhase(skipped=false){ // finalize current phase
-      const elapsed = (state.running?Math.round((state.endAt - state.startAt)/1000):state.durSec);
-      state.history.push({ ts: Date.now(), phase: state.phase, sec: elapsed, skipped });
-      if(state.phase==='focus' && !skipped){
-        state.totalFocus += 1; state.doneCycles += 1; updateRanking();
-        // task accounting
-        const tname = (state.settings.currentTask||'').trim();
-        if(tname){ const t = state.tasks[tname] || { focusCount:0, focusSec:0, lastAt:0 }; t.focusCount += 1; t.focusSec += elapsed; t.lastAt = Date.now(); state.tasks[tname] = t; updateTaskRanking(); }
-        chime(); notify('Focus done ✅', `Great work! ${state.settings.shortMin} min break`);
-      }
-      if(state.phase!=='focus'){ notify('Break over ⏰', 'Back to focus'); tone(440,.15); setTimeout(()=>tone(660,.12),160); }
-      // Next phase
-      if(state.phase==='focus'){
-        const every = state.settings.longEvery;
-        const next = (state.doneCycles % every === 0) ? 'long' : 'short';
-        setPhase(next);
-      } else {
-        setPhase('focus');
-      }
-      save(); updateUI();
-    }
+    function completePhase(skipped=false){ const elapsed=(state.running?Math.round((state.endAt-state.startAt)/1000):state.durSec); state.history.push({ts:Date.now(),phase:state.phase,sec:elapsed,skipped});
+      // Task accounting (only count completed focus)
+      if(state.phase==='focus' && !skipped){ const name=(state.settings.currentTask||'').trim(); if(name){ const t=state.tasks[name]||{focusCount:0,focusSec:0,lastAt:0}; t.focusCount+=1; t.focusSec+=elapsed; t.lastAt=Date.now(); state.tasks[name]=t; } chime(); vibrate(); notify('Focus done ✅', `Break ${state.settings.shortMin} min`); state.doneCycles+=1; }
+      if(state.phase!=='focus'){ notify('Break over ⏰','Back to focus'); tone(440,.15); setTimeout(()=>tone(660,.12),160); }
+      // next phase
+      if(state.phase==='focus'){ const next=(state.doneCycles % state.settings.longEvery===0)?'long':'short'; setPhase(next); } else { setPhase('focus'); }
+      save(); updateUI(); }
 
-    function tick(){ if(!state.running){ clearInterval(tickHandle); tickHandle=null; return; }
-      const left = secsLeft(); if(left <= 0){ state.running=false; els.startPause.textContent='▶️ Start'; completePhase(false); return; }
-      state.durSec = left; updateUI(false); }
+    function tick(){ if(!state.running){ clearInterval(tickHandle); tickHandle=null; return; } const left=secsLeft(); if(left<=0){ state.running=false; completePhase(false); return; } state.durSec=left; updateUI(false); }
 
-    function updateUI(updateRing=true){
-      const total = (state.phase==='focus')?state.settings.focusMin*60:(state.phase==='short')?state.settings.shortMin*60:state.settings.longMin*60;
-      const left = state.durSec;
-      els.time.textContent = fmtClock(left);
-      els.phase.textContent = (state.phase==='focus'?'Focus':(state.phase==='short'?'Short Break':'Long Break'));
-      if(updateRing){ const pct = Math.max(0, Math.min(1, 1 - (left/total))); els.ring.style.setProperty('--pct', (pct*100).toFixed(2)); }
-      els.every.textContent = String(state.settings.longEvery);
-      els.cycle.textContent = String(state.doneCycles % state.settings.longEvery);
-      const { todayCount, totalCount, streak } = computeStats();
-      els.today.textContent = String(todayCount);
-      els.total.textContent = String(totalCount);
-      els.streak.textContent = String(streak);
-      renderRanking();
-      renderTaskRanking();
-    }
+    function updateUI(updateRing=true){ const total=(state.phase==='focus')?state.settings.focusMin*60:(state.phase==='short')?state.settings.shortMin*60:state.settings.longMin*60; const left=state.durSec; els.time.textContent=fmtClock(left); els.phase.textContent=(state.phase==='focus'?'Focus':(state.phase==='short'?'Short Break':'Long Break'));
+      if(updateRing){ const pct=Math.max(0,Math.min(1,1-(left/total))); els.ring.style.setProperty('--pct',(pct*100).toFixed(2)); }
+      els.every.textContent=String(state.settings.longEvery); els.cycle.textContent=String(state.doneCycles % state.settings.longEvery); els.taskLabel.textContent=(state.settings.currentTask||'None'); updateHint(); }
 
-    // ===== Stats & Ranking =====
-    function dayKey(ts){ const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-    function computeStats(){
-      const byDay = new Map();
-      let total = 0;
-      state.history.forEach(h=>{ if(h.phase==='focus' && !h.skipped){ total++; const k=dayKey(h.ts); byDay.set(k, (byDay.get(k)||0)+1); } });
-      const todayK = dayKey(Date.now()); const todayCount = byDay.get(todayK)||0;
-      // streak: consecutive days up to today with >=1 focus
-      let streak = 0; const today = new Date(); today.setHours(0,0,0,0);
-      for(let i=0;i<400;i++){ const d=new Date(today); d.setDate(today.getDate()-i); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; const has = (byDay.get(k)||0)>0; if(has) streak++; else break; }
-      return { todayCount, totalCount: total, streak, byDay };
-    }
-    let lastRanking = [];
-    function updateRanking(){ const { byDay } = computeStats(); lastRanking = Array.from(byDay.entries()).sort((a,b)=>b[1]-a[1]).slice(0,7); }
-    function renderRanking(){ if(!lastRanking.length) updateRanking(); els.ranking.innerHTML=''; if(!lastRanking.length){ els.ranking.innerHTML = '<div class="rank-item"><span>No data yet</span><span>—</span></div>'; return; }
-      lastRanking.forEach(([k,v])=>{ const el=document.createElement('div'); el.className='rank-item'; const nice = (new Date(k)).toLocaleDateString(undefined,{month:'short', day:'numeric'}); el.innerHTML = `<strong>${nice}</strong><span>${v} focus</span>`; els.ranking.appendChild(el); }); }
+    function updateHint(){ els.hint.textContent = state.running ? 'Tap to pause • Double-tap to reset' : 'Tap to start • Double-tap to reset'; }
+    function flash(msg){ const old = els.hint.textContent; els.hint.textContent = msg; els.hint.classList.add('flash'); setTimeout(()=>{ els.hint.classList.remove('flash'); updateHint(); }, 800); }
+    function pulseRing(){ try{ els.ringInner.classList.remove('pulse'); void els.ringInner.offsetWidth; els.ringInner.classList.add('pulse'); }catch(e){} }
 
-    // Task ranking
-    let lastTaskRanking = [];
-    function updateTaskRanking(){ const entries = Object.entries(state.tasks||{}); lastTaskRanking = entries.sort((a,b)=> b[1].focusSec - a[1].focusSec).slice(0,7); }
-    function renderTaskRanking(){ if(!lastTaskRanking.length) updateTaskRanking(); els.taskRanking.innerHTML=''; if(!lastTaskRanking.length){ els.taskRanking.innerHTML = '<div class="rank-item"><span>No tasks yet</span><span>—</span></div>'; return; }
-      lastTaskRanking.forEach(([name, t])=>{ const mins = Math.round(t.focusSec/60); const el=document.createElement('div'); el.className='rank-item'; el.innerHTML = `<strong>${name}</strong><span>${t.focusCount} × • ${mins}m</span>`; els.taskRanking.appendChild(el); }); }
+    // Interaction: tap ring to start/pause; double-tap to reset
+    els.ring.addEventListener('click', ()=>{ const now=Date.now(); if(now-lastTap<300){ lastTap=0; resetTimer(); flash('Reset'); pulseRing(); vibrate([20]); return; } lastTap=now; if(state.running){ pause(); flash('Paused'); } else { start(); flash('Started'); } pulseRing(); vibrate([10]); });
 
-    // ===== Event wiring =====
-    els.startPause.addEventListener('click', ()=>{ if(state.running) pause(); else start(); });
-    els.reset.addEventListener('click', resetTimer);
-    els.skip.addEventListener('click', skip);
+    // Sheet open/close
+    function openSheet(){ els.sheet.classList.add('open'); els.sheet.setAttribute('aria-hidden','false'); }
+    function closeSheet(){ els.sheet.classList.remove('open'); els.sheet.setAttribute('aria-hidden','true'); }
+    els.gear.addEventListener('click', openSheet); els.closeSheet.addEventListener('click', closeSheet);
 
-    els.focusMin.addEventListener('change', ()=>{ state.settings.focusMin = clamp(Number(els.focusMin.value)||25,1,180); if(state.phase==='focus') resetTimer(); save(); });
-    els.shortMin.addEventListener('change', ()=>{ state.settings.shortMin = clamp(Number(els.shortMin.value)||5,1,60); if(state.phase==='short') resetTimer(); save(); });
-    els.longMin.addEventListener('change', ()=>{ state.settings.longMin = clamp(Number(els.longMin.value)||15,1,90); if(state.phase==='long') resetTimer(); save(); });
-    els.longEvery.addEventListener('change', ()=>{ state.settings.longEvery = clamp(Number(els.longEvery.value)||4,2,12); els.every.textContent=String(state.settings.longEvery); save(); });
+    // Prefs wiring
+    function applyInputsToSettings(){ state.settings.focusMin=clamp(Number(els.focusMin.value)||5,1,180); state.settings.shortMin=clamp(Number(els.shortMin.value)||2,1,60); state.settings.longMin=clamp(Number(els.longMin.value)||10,1,90); state.settings.longEvery=clamp(Number(els.longEvery.value)||4,2,12); state.settings.currentTask=(els.taskName.value||'').trim(); state.settings.keepAwake = (els.wakeToggle.value==='on'); muted = (els.soundToggle.value==='off'); save(); if(state.phase==='focus' || state.phase==='short' || state.phase==='long'){ resetTimer(); } updateUI(); }
+    ['change','input'].forEach(evt=>{ [els.focusMin,els.shortMin,els.longMin,els.longEvery,els.taskName,els.soundToggle,els.wakeToggle].forEach(c=>c.addEventListener(evt, applyInputsToSettings)); });
 
-    els.notifBtn = document.getElementById('notif');
-    els.notifBtn.addEventListener('click', async ()=>{
-      try{
-        if('Notification' in window){
-          if(Notification.permission==='granted'){ state.settings.notifs = !state.settings.notifs; els.status.textContent = state.settings.notifs? 'Notifications on' : 'Notifications off'; }
-          else {
-            const perm = await Notification.requestPermission();
-            state.settings.notifs = (perm==='granted'); els.status.textContent = state.settings.notifs? 'Notifications on' : 'Notifications blocked';
-          }
-          save();
-        } else { els.status.textContent='Notifications not supported'; }
-      }catch(e){ els.status.textContent='Notification error'; }
+    // Notifications toggle
+    els.notif.addEventListener('click', async ()=>{ try{ if('Notification' in window){ if(Notification.permission==='granted'){ state.settings.notifs=!state.settings.notifs; els.status.textContent= state.settings.notifs? 'Notifications on' : 'Notifications off'; } else { const perm=await Notification.requestPermission(); state.settings.notifs=(perm==='granted'); els.status.textContent= state.settings.notifs? 'Notifications on' : 'Notifications blocked'; } save(); } else { els.status.textContent='No notifications; using sound/vibration'; } }catch(e){ els.status.textContent='Notification error'; }
     });
 
-    els.mute.addEventListener('click', ()=>{ muted=!muted; els.mute.textContent = muted? '🔇 Sound Off' : '🔊 Sound On'; save(); });
-    els.resetProgress.addEventListener('click', ()=>{ if(confirm('Reset all saved Pomodoro progress?')){ localStorage.removeItem(SAVE_KEY); state.settings = { focusMin:25, shortMin:5, longMin:15, longEvery:4, notifs:false }; state.running=false; state.phase='focus'; state.doneCycles=0; state.totalFocus=0; state.history=[]; resetTimer(); updateRanking(); save(); els.status.textContent='Progress cleared'; }});
-
-    // Task input wiring
-    els.taskName.addEventListener('change', ()=>{ state.settings.currentTask = (els.taskName.value||'').trim(); save(); });
-    els.taskName.addEventListener('keyup', ()=>{ state.settings.currentTask = (els.taskName.value||'').trim(); });
+    // Reset progress
+    els.resetProgress.addEventListener('click', ()=>{ if(confirm('Reset all Pomodoro progress?')){ localStorage.removeItem(SAVE_KEY); state.settings={ focusMin:5, shortMin:2, longMin:10, longEvery:4, notifs:false, currentTask:'', keepAwake:false }; state.running=false; state.phase='focus'; state.doneCycles=0; state.history=[]; state.tasks={}; muted=false; wakeWanted=false; releaseWake(); resetTimer(); save(); els.status.textContent='Progress cleared'; }});
 
     document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ tone(523.25,.05); } });
     ['click','touchstart','keydown'].forEach(evt=>{ window.addEventListener(evt, ()=>{ try{ ensureAudio(); }catch(e){} }, { once:true }); });
 
-    // ===== Init =====
+    // Init
     load();
-    // put settings into UI
-    els.focusMin.value = String(state.settings.focusMin);
-    els.shortMin.value = String(state.settings.shortMin);
-    els.longMin.value = String(state.settings.longMin);
-    els.longEvery.value = String(state.settings.longEvery);
-    els.every.textContent = String(state.settings.longEvery);
-    els.taskName.value = state.settings.currentTask || '';
-    if(state.running){ // resume running session
-      const left = secsLeft(); if(left<=0){ state.running=false; completePhase(false); } else { state.durSec = left; els.startPause.textContent='⏸️ Pause'; tickHandle = setInterval(tick, 250); }
-    } else if(state.startAt && state.endAt){ // paused state
-      state.durSec = Math.max(1, Math.round((state.endAt - state.startAt)/1000));
-    } else {
-      resetTimer();
-    }
-    updateRanking(); updateTaskRanking();
+    // set defaults into inputs
+    els.focusMin.value=String(state.settings.focusMin); els.shortMin.value=String(state.settings.shortMin); els.longMin.value=String(state.settings.longMin); els.longEvery.value=String(state.settings.longEvery); els.taskName.value=state.settings.currentTask||''; els.every.textContent=String(state.settings.longEvery); els.soundToggle.value= muted? 'off' : 'on'; els.wakeToggle.value = state.settings.keepAwake? 'on':'off';
+    if(state.running){ const left=secsLeft(); if(left<=0){ state.running=false; completePhase(false); } else { state.durSec=left; els.status.textContent='Running'; tickHandle=setInterval(tick,250); } }
+    else if(state.startAt && state.endAt){ state.durSec=Math.max(1,Math.round((state.endAt-state.startAt)/1000)); }
+    else { resetTimer(); }
     updateUI();
   </script>
 </body>
