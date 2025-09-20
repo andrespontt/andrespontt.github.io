@@ -12,7 +12,7 @@
   --focus: #2dd4bf;       /* focus ring */
 }
 
-html, body{ height:100%; }
+html, body{ height:100%; max-width:100%; overflow-x:hidden; }
 *{ box-sizing:border-box; }
 body{
   margin:0; background: var(--bg); color: var(--fg);
@@ -25,6 +25,9 @@ body{
   margin:0 auto; min-height:100vh;
   display:flex; flex-direction:column;
 }
+
+/* Ensure media never causes horizontal overflow */
+img, canvas, video, svg{ max-width:100%; height:auto; }
 
 /* Navigation */
 nav{
@@ -56,7 +59,7 @@ a:focus-visible, button:focus-visible{ outline: 2px solid var(--focus); outline-
 .cta-button.secondary{ background: var(--surface); color: var(--fg); border-color: var(--border); }
 
 /* Cards and Grids */
-.features, .apps-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 20px 0; }
+.features, .apps-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 20px 0; }
 .feature-card, .app-card, .music-card, .bio-card, .experiment-section{
   background: var(--surface); border:1px solid var(--border); border-radius: 10px; padding: 16px;
 }
@@ -81,3 +84,6 @@ footer{ text-align:center; color: var(--muted); padding: 22px 0; border-top: 1px
 canvas{ border-radius: 8px; background: #0b0b0c; }
 
 @media (max-width: 760px){ nav{ border-radius: 8px; padding: 8px 8px; } }
+
+/* Override inline grid min width on index apps grid to avoid overflow */
+.apps-grid{ grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important; }
