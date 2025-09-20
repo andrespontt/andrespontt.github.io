@@ -29,6 +29,9 @@ body{
 /* Ensure media never causes horizontal overflow */
 img, canvas, video, svg{ max-width:100%; height:auto; }
 
+/* Prevent long text/links from causing horizontal overflow */
+:where(h1,h2,h3,p,a,li,button,input){ overflow-wrap:anywhere; }
+
 /* Navigation */
 nav{
   position: sticky; top: 12px; z-index: 10;
