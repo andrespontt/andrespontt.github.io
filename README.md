@@ -1,6 +1,6 @@
 # andrespontt.github.io
 
-Last updated: 2025-09-20
+Last updated: 2025-09-22
 
 Personal website and playground for Andres Pontt, hosted on GitHub Pages. The site is fully static (plain HTML/CSS/JS) with no build step.
 
