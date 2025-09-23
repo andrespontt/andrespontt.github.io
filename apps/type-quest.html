@@ -81,7 +81,7 @@
       display: grid; grid-template-columns: 1fr; gap: 10px;
     }
 
-    .celebrate-row { min-height: 140px; display: grid; place-items: center; }
+    .celebrate-row { min-height: 80px; display: grid; place-items: center; }
     .celebrate-row img { max-width: min(320px, 80%); border-radius: 14px; box-shadow: 0 10px 28px rgba(2,6,23,.25); opacity: 0; transform: translateY(6px) scale(.98); transition: opacity .25s ease, transform .25s ease; pointer-events: none; }
     .celebrate-row.show img { opacity: 1; transform: translateY(0) scale(1); }
 
@@ -147,22 +147,25 @@
         <h1>Type Quest</h1>
       </div>
       <div class="controls">
-        <label for="level" class="sr" aria-hidden="true">Level</label>
-        <select id="level" title="Choose age level" aria-label="Choose age level">
-          <option value="3">Age 3 (3-letter)</option>
-          <option value="4">Age 4 (4-letter)</option>
-          <option value="5">Age 5 (5-letter)</option>
-          <option value="6">Age 6 (6-letter)</option>
-        </select>
-        <select id="mode" title="Game mode">
-          <option value="learn">Learn</option>
-          <option value="challenge">Challenge (60s)</option>
-          <option value="zen">Zen</option>
-        </select>
-        <button id="tts" class="btn ghost" title="Toggle speech coach">🗣️ Speech</button>
-        <button id="mute" class="btn" title="Toggle sound">🔊 Sound On</button>
-        <button id="contrast" class="btn ghost" title="Toggle high contrast">🌓 Contrast</button>
-        <button id="reset" class="btn warn" title="Reset progress">♻️ Reset</button>
+        <button id="settings-toggle" class="btn">⚙️ Settings</button>
+        <div id="collapsible-controls" style="display: none; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <label for="level" class="sr" aria-hidden="true">Level</label>
+          <select id="level" title="Choose age level" aria-label="Choose age level">
+            <option value="3">Age 3 (3-letter)</option>
+            <option value="4">Age 4 (4-letter)</option>
+            <option value="5">Age 5 (5-letter)</option>
+            <option value="6">Age 6 (6-letter)</option>
+          </select>
+          <select id="mode" title="Game mode">
+            <option value="learn">Learn</option>
+            <option value="challenge">Challenge (60s)</option>
+            <option value="zen">Zen</option>
+          </select>
+          <button id="tts" class="btn ghost" title="Toggle speech coach">🗣️ Speech</button>
+          <button id="mute" class="btn" title="Toggle sound">🔊 Sound On</button>
+          <button id="contrast" class="btn ghost" title="Toggle high contrast">🌓 Contrast</button>
+          <button id="reset" class="btn warn" title="Reset progress">♻️ Reset</button>
+        </div>
       </div>
     </header>
 
@@ -339,6 +342,15 @@
     els.mode.addEventListener('change', e=>{ setMode(e.target.value); });
     els.contrast.addEventListener('click', ()=>{ state.contrast=!state.contrast; document.documentElement.setAttribute('data-contrast', state.contrast?'high':'normal'); save(); });
     els.reset.addEventListener('click', ()=>{ localStorage.removeItem(SAVE_KEY); state.score=0; state.streak=0; state.best=0; state.done=0; state.correctChars=0; state.typedChars=0; save(); updateHud(); els.feedback.textContent='Progress cleared'; setTimeout(()=>els.feedback.textContent='',1200); });
+
+    const settingsToggle = document.getElementById('settings-toggle');
+    const collapsibleControls = document.getElementById('collapsible-controls');
+    settingsToggle.addEventListener('click', () => {
+      const isHidden = collapsibleControls.style.display === 'none';
+      collapsibleControls.style.display = isHidden ? 'flex' : 'none';
+      settingsToggle.textContent = isHidden ? '⚙️ Hide Settings' : '⚙️ Settings';
+    });
+
     document.addEventListener('click', (e)=>{ if(!e.target.closest('button') && !e.target.closest('select')) els.input.focus(); });
 
     function sizeCanvas(){ els.confetti.width = window.innerWidth; els.confetti.height = window.innerHeight; }
