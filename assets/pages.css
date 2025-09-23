@@ -86,7 +86,9 @@ footer{ text-align:center; color: var(--muted); padding: 22px 0; border-top: 1px
 /* Experiments */
 canvas{ border-radius: 8px; background: #0b0b0c; }
 
-@media (max-width: 760px){ nav{ border-radius: 8px; padding: 8px 8px; } }
-
-/* Override inline grid min width on index apps grid to avoid overflow */
-.apps-grid{ grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important; }
+@media (max-width: 760px){
+  nav{ border-radius: 8px; padding: 8px 8px; }
+  .features, .apps-grid {
+    grid-template-columns: 1fr;
+  }
+}
