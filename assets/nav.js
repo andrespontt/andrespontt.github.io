@@ -34,7 +34,8 @@
       { href: toPage('bio.html'), label: 'About Me', key: 'bio' },
       { href: toApp('type-quest.html'), label: 'Games', key: 'games' },
       { href: toApp('perfect-pitch.html'), label: 'Perfect Pitch', key: 'perfect-pitch' },
-      { href: toApp('pomodoro.html'), label: 'Pomodoro', key: 'pomodoro' }
+      { href: toApp('pomodoro.html'), label: 'Pomodoro', key: 'pomodoro' },
+      { href: toApp('math-screener.html'), label: 'Math Screener', key: 'math-screener' }
     ];
 
     // Determine current file to set aria-current
