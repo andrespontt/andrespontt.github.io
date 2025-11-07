@@ -539,23 +539,12 @@
     els.say.addEventListener('click', ()=>{ const w = state.order[state.idx]; speakWordPhonics(w); });
     els.level.addEventListener('change', e=>{ 
       const newLevel = parseInt(e.target.value);
-      console.log('Level changed to:', newLevel);
       if (newLevel >= 3 && newLevel <= 6) {
         setLevel(newLevel);
       } else {
-        console.warn('Invalid level:', newLevel);
         // Reset to valid level
         els.level.value = String(state.level);
       }
-    });
-    
-    // Debug: Test if select element can be clicked
-    els.level.addEventListener('click', e => {
-      console.log('Select element clicked');
-    });
-    
-    els.level.addEventListener('mousedown', e => {
-      console.log('Select element mousedown');
     });
     els.contrast.addEventListener('click', ()=>{ state.contrast = !state.contrast; updateHud(); save(); });
 
@@ -591,19 +580,9 @@
       state.level = 3;
     }
     
-    // Debug: Check if select element is properly initialized
-    console.log('Select element:', els.level);
-    console.log('Initial level:', state.level);
-    
     setLevel(state.level);
     els.input.setAttribute('aria-describedby','feedback');
     updateHud();
-    
-    // Test select element functionality
-    if (els.level) {
-      console.log('Select element value:', els.level.value);
-      console.log('Select element options:', els.level.options.length);
-    }
   </script>
 </body>
 </html>

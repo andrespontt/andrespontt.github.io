@@ -44,8 +44,27 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+  
+  // App HTML pages: Network-first, fallback to cache
+  if (isAppPath(url) && request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(PAGE_CACHE).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          return cached || caches.match('/offline.html');
+        })
+    );
+    return;
+  }
+  
+  // Skip other app requests (let network handle)
   if (isAppPath(url)) {
-    return; // don't intercept apps, let network handle
+    return;
   }
 
   // HTML pages: Network-first, fallback to cache then offline
