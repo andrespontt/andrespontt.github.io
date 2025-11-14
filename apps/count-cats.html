@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🐱 Counting Cats - Count to 50!</title>
+  <meta name="theme-color" content="#1e1b4b" />
+  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQ291bnRpbmcgQ2F0cyIsInNob3J0X25hbWUiOiJDYXRzIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzFhMTQ0NyIsInRoZW1lX2NvbG9yIjoiIzFlMWI0YiIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWwsJTNDc3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnJTNFJTNDcmVjdCB3aWR0aD0nMTAwJyBoZWlnaHQ9JzEwMCcgZmlsbD0nJTIzN2M3ZGZmJy8lM0UlM0N0ZXh0IHg9JzUwJyB5PSc2NScgZm9udC1zaXplPSc1MCcgdGV4dC1hbmNob3I9J21pZGRsZSclM0UlRjAlOUYlOTAlQkElM0MvdGV4dCUzRSUzQy9zdmclM0UiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCIsInNpemVzIjoiNTEyeDUxMiJ9XX0=" />
+  <style>
+    :root {
+      --bg: #1a1447;
+      --bg2: #231858;
+      --card: #2d1f6b;
+      --fg: #f3f0ff;
+      --muted: #c4b5fd;
+      --accent: #a78bfa;
+      --orange: #fb923c;
+      --yellow: #fcd34d;
+      --ok: #86efac;
+      --bad: #fca5a5;
+      --border: rgba(167, 139, 250, 0.2);
+      --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html, body { height: 100%; }
+    
+    body {
+      color: var(--fg);
+      font-family: ui-rounded, 'Comic Sans MS', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .app {
+      min-height: 100vh;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .back-link {
+      padding: 10px 18px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--fg);
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+    }
+    
+    .back-link:hover {
+      background: rgba(167, 139, 250, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 50px;
+      height: 50px;
+      font-size: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: bounce 2s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    h1 {
+      font-size: clamp(20px, 5vw, 28px);
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), #fbbf24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .progress-bar {
+      background: rgba(167, 139, 250, 0.15);
+      border: 2px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .progress-fill {
+      background: linear-gradient(90deg, #a78bfa, #fbbf24);
+      height: 24px;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 14px;
+      color: #1a1447;
+      box-shadow: 0 2px 8px rgba(167, 139, 250, 0.3);
+    }
+
+    .card {
+      background: linear-gradient(135deg, #2d1f6b, #241858);
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 32px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      min-height: 400px;
+    }
+
+    .level-select {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 700px;
+    }
+
+    .level-btn {
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(167, 139, 250, 0.1));
+      border: 2px solid var(--accent);
+      border-radius: 20px;
+      padding: 24px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .level-btn:hover {
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.3), rgba(167, 139, 250, 0.2));
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 8px 20px rgba(167, 139, 250, 0.3);
+    }
+
+    .level-btn.completed {
+      border-color: var(--ok);
+      background: linear-gradient(135deg, rgba(134, 239, 172, 0.2), rgba(134, 239, 172, 0.1));
+    }
+
+    .level-icon {
+      font-size: 48px;
+    }
+
+    .level-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--fg);
+    }
+
+    .level-range {
+      font-size: 16px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .game-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      width: 100%;
+    }
+
+    .current-number {
+      font-size: clamp(80px, 15vw, 160px);
+      font-weight: 900;
+      color: var(--accent);
+      text-shadow: 0 4px 20px rgba(167, 139, 250, 0.5);
+      animation: pulse 1s ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .cats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 600px;
+      padding: 20px;
+      background: rgba(167, 139, 250, 0.1);
+      border-radius: 20px;
+      border: 2px dashed var(--border);
+      min-height: 200px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .cat {
+      font-size: 48px;
+      animation: catPop 0.4s ease-out;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    }
+
+    @keyframes catPop {
+      0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+      70% { transform: scale(1.2) rotate(10deg); }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+
+    .buttons {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--accent), #c4b5fd);
+      color: #1a1447;
+      border: none;
+      border-radius: 16px;
+      padding: 20px 40px;
+      font-weight: 900;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(167, 139, 250, 0.5);
+    }
+
+    .btn:active {
+      transform: translateY(-2px);
+    }
+
+    .btn.secondary {
+      background: rgba(167, 139, 250, 0.2);
+      color: var(--fg);
+      border: 2px solid var(--accent);
+    }
+
+    .btn.speak {
+      background: linear-gradient(135deg, #fbbf24, #fb923c);
+      font-size: 32px;
+      padding: 24px;
+      border-radius: 50%;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .celebration {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 120px;
+      animation: celebrate 1s ease-out;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    @keyframes celebrate {
+      0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; }
+      50% { transform: translate(-50%, -50%) scale(1.5) rotate(180deg); }
+      100% { transform: translate(-50%, -50%) scale(1) rotate(360deg); opacity: 0; }
+    }
+
+    .stats {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stat {
+      background: rgba(167, 139, 250, 0.15);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 900;
+      color: var(--accent);
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .hint {
+      text-align: center;
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 700;
+      padding: 12px;
+      background: rgba(167, 139, 250, 0.1);
+      border-radius: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .card { padding: 20px; }
+      .current-number { font-size: 100px; }
+      .cats-container { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); }
+      .cat { font-size: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <a href="index.html" class="back-link">← Back to Apps</a>
+      <div class="title">
+        <div class="logo">🐱</div>
+        <h1>Counting Cats to 50!</h1>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress" style="width: 0%;">0/50</div>
+      </div>
+    </header>
+
+    <section class="card" id="card">
+      <!-- Content will be dynamically inserted here -->
+    </section>
+  </div>
+
+  <script>
+    const SAVE_KEY = 'counting_cats_v1';
+    
+    const state = {
+      screen: 'menu', // menu, playing, complete
+      currentLevel: null,
+      currentNumber: 1,
+      levels: {
+        1: { start: 1, end: 10, completed: false, stars: 0 },
+        2: { start: 1, end: 20, completed: false, stars: 0 },
+        3: { start: 1, end: 30, completed: false, stars: 0 },
+        4: { start: 1, end: 40, completed: false, stars: 0 },
+        5: { start: 1, end: 50, completed: false, stars: 0 }
+      }
+    };
+
+    const catEmojis = ['🐱', '🐈', '😺', '😸', '😻', '🐈‍⬛', '😹', '😽'];
+
+    // Speech synthesis
+    function speak(number) {
+      if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(String(number));
+        utterance.rate = 0.8;
+        utterance.pitch = 1.2;
+        utterance.volume = 1;
+        speechSynthesis.speak(utterance);
+      }
+    }
+
+    function save() {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+      } catch (e) {}
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          Object.assign(state, saved);
+        }
+      } catch (e) {}
+    }
+
+    function showCelebration(emoji) {
+      const cel = document.createElement('div');
+      cel.className = 'celebration';
+      cel.textContent = emoji;
+      document.body.appendChild(cel);
+      setTimeout(() => cel.remove(), 1000);
+    }
+
+    function updateProgress() {
+      const level = state.levels[state.currentLevel];
+      if (!level) return;
+      const progress = ((state.currentNumber - level.start) / (level.end - level.start + 1)) * 100;
+      const progressEl = document.getElementById('progress');
+      progressEl.style.width = progress + '%';
+      progressEl.textContent = `${state.currentNumber - level.start}/${level.end - level.start + 1}`;
+    }
+
+    function renderMenu() {
+      const card = document.getElementById('card');
+      card.innerHTML = `
+        <h2 style="font-size: 28px; font-weight: 900; color: var(--fg); text-align: center;">
+          Choose Your Level! 🎯
+        </h2>
+        <div class="level-select">
+          ${Object.entries(state.levels).map(([num, level]) => `
+            <button class="level-btn ${level.completed ? 'completed' : ''}" onclick="startLevel(${num})">
+              <div class="level-icon">${level.completed ? '⭐' : '🐾'}</div>
+              <div class="level-title">Level ${num}</div>
+              <div class="level-range">Count ${level.start}-${level.end}</div>
+            </button>
+          `).join('')}
+        </div>
+        <div class="hint">
+          🎵 Tap numbers to hear them spoken! Practice makes purrfect! 🐱
+        </div>
+      `;
+    }
+
+    function startLevel(levelNum) {
+      state.screen = 'playing';
+      state.currentLevel = levelNum;
+      state.currentNumber = state.levels[levelNum].start;
+      save();
+      renderGame();
+      speak(state.currentNumber);
+    }
+
+    function renderGame() {
+      const card = document.getElementById('card');
+      const level = state.levels[state.currentLevel];
+      
+      card.innerHTML = `
+        <div class="game-area">
+          <div class="current-number" id="currentNum">${state.currentNumber}</div>
+          
+          <div class="cats-container" id="catsContainer">
+            ${Array(state.currentNumber).fill(0).map((_, i) => 
+              `<div class="cat">${catEmojis[i % catEmojis.length]}</div>`
+            ).join('')}
+          </div>
+
+          <div class="buttons">
+            <button class="btn speak" onclick="speak(${state.currentNumber})" title="Hear the number">
+              🔊
+            </button>
+            <button class="btn" onclick="nextNumber()">
+              Next Number ➡️
+            </button>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-value">${state.currentNumber}</div>
+              <div class="stat-label">Current</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value">${level.end}</div>
+              <div class="stat-label">Goal</div>
+            </div>
+          </div>
+
+          <button class="btn secondary" onclick="backToMenu()">
+            ⬅️ Back to Levels
+          </button>
+        </div>
+      `;
+      
+      updateProgress();
+    }
+
+    function nextNumber() {
+      const level = state.levels[state.currentLevel];
+      
+      if (state.currentNumber >= level.end) {
+        // Level complete!
+        state.levels[state.currentLevel].completed = true;
+        showCelebration('🎉');
+        
+        setTimeout(() => {
+          if (confirm(`🎉 Amazing! You counted to ${level.end}! 🎉\n\nReady for the next level?`)) {
+            if (state.currentLevel < 5) {
+              startLevel(state.currentLevel + 1);
+            } else {
+              alert('🏆 WOW! You can count all the way to 50! You\'re a CHAMPION! 🏆');
+              backToMenu();
+            }
+          } else {
+            backToMenu();
+          }
+        }, 500);
+        
+        save();
+        return;
+      }
+
+      state.currentNumber++;
+      save();
+      
+      // Update display with animation
+      const numEl = document.getElementById('currentNum');
+      numEl.style.animation = 'none';
+      setTimeout(() => {
+        numEl.style.animation = 'pulse 1s ease-in-out';
+        numEl.textContent = state.currentNumber;
+      }, 10);
+
+      // Update cats
+      const container = document.getElementById('catsContainer');
+      const newCat = document.createElement('div');
+      newCat.className = 'cat';
+      newCat.textContent = catEmojis[(state.currentNumber - 1) % catEmojis.length];
+      container.appendChild(newCat);
+
+      // Speak the number
+      speak(state.currentNumber);
+      
+      // Celebration every 5 numbers
+      if (state.currentNumber % 5 === 0) {
+        showCelebration('⭐');
+      }
+
+      updateProgress();
+    }
+
+    function backToMenu() {
+      state.screen = 'menu';
+      state.currentLevel = null;
+      save();
+      renderMenu();
+    }
+
+    // Initialize
+    load();
+    if (state.screen === 'menu') {
+      renderMenu();
+    } else if (state.screen === 'playing' && state.currentLevel) {
+      renderGame();
+    } else {
+      renderMenu();
+    }
+
+    // PWA Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZSA9PiBzZWxmLnNraXBXYWl0aW5nKCkpOwpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2FjdGl2YXRlJywgZSA9PiBzZWxmLmNsaWVudHMuY2xhaW0oKSk7CnNlbGYuYWRkRXZlbnRMaXN0ZW5lcignZmV0Y2gnLCBlID0+IGUucmVzcG9uZFdpdGgoZmV0Y2goZS5yZXF1ZXN0KSkpOw==');
+    }
+  </script>
+</body>
+</html>
