@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>World Clock</title>
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIldvcmxkIENsb2NrIiwKICAic2hvcnRfbmFtZSI6ICJDbG9jayIsCiAgInN0YXJ0X3VybCI6ICIvIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMWExYTJlIiwKICAidGhlbWVfY29sb3IiOiAiIzFhMWEyZSIsCiAgImljb25zIjogW10KfQ==">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 18px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+        }
+        
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .datetime-input {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .datetime-input label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #bbb;
+        }
+
+        .datetime-input input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1em;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+        }
+
+        .datetime-input input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.1);
+            cursor: text;
+        }
+
+        .datetime-input input.editing {
+            border-color: #f5576c;
+            background: rgba(245, 87, 108, 0.1);
+        }
+
+        .clocks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .clock-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .clock-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .clock-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+        }
+
+        .clock-card:hover::before {
+            opacity: 1;
+        }
+
+        .timezone-name {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #667eea;
+        }
+
+        .location {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 20px;
+        }
+
+        .time {
+            font-size: 3em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+        }
+
+        .date {
+            font-size: 1.1em;
+            color: #bbb;
+            margin-bottom: 5px;
+        }
+
+        .offset {
+            font-size: 0.85em;
+            color: #888;
+            font-style: italic;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            font-weight: 600;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .expand-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .time {
+                font-size: 2.2em;
+            }
+
+            .clocks-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Apps</a>
+        <h1>🌍 World Clock</h1>
+        
+        <div class="datetime-input">
+            <label>ISO DateTime (Click to edit and freeze time - Refresh page to reset):</label>
+            <input type="text" id="customDateTime" readonly>
+        </div>
+
+        <div class="clocks-grid" id="clocksGrid"></div>
+
+        <div class="buttons">
+            <button class="expand-btn" id="expandBtn" onclick="toggleExpand()">Show All Timezones</button>
+            <button onclick="resetToNow()">Reset to Now</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration: Add or modify timezones here
+        const TIMEZONES = [
+            { name: 'US Eastern', location: 'New York', tz: 'America/New_York' },
+            { name: 'US Central', location: 'Chicago', tz: 'America/Chicago' },
+            { name: 'US Pacific', location: 'Los Angeles', tz: 'America/Los_Angeles' },
+            { name: 'UTC', location: 'Coordinated Universal Time', tz: 'UTC' },
+            { name: 'UK', location: 'London', tz: 'Europe/London' },
+            { name: 'India', location: 'Mumbai', tz: 'Asia/Kolkata' }
+        ];
+
+        let customDate = null;
+        let updateInterval;
+        let showAll = false;
+        let isEditing = false;
+        let isoUpdateInterval;
+
+        function updateISOInput() {
+            const input = document.getElementById('customDateTime');
+            if (!isEditing && !customDate) {
+                input.value = new Date().toISOString();
+            }
+        }
+
+        function formatTime(date, timezone) {
+            return date.toLocaleTimeString('en-US', {
+                timeZone: timezone,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
+
+        function formatDate(date, timezone) {
+            return date.toLocaleDateString('en-US', {
+                timeZone: timezone,
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function getOffset(date, timezone) {
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: timezone,
+                timeZoneName: 'shortOffset'
+            });
+            const parts = formatter.formatToParts(date);
+            const offset = parts.find(part => part.type === 'timeZoneName')?.value || '';
+            return offset;
+        }
+
+        function updateClocks() {
+            const now = customDate || new Date();
+            const grid = document.getElementById('clocksGrid');
+            
+            const timezonesToShow = showAll ? TIMEZONES : TIMEZONES.filter(tz => 
+                tz.name === 'US Eastern' || tz.name === 'UTC'
+            );
+            
+            grid.innerHTML = timezonesToShow.map(tz => `
+                <div class="clock-card">
+                    <div class="timezone-name">${tz.name}</div>
+                    <div class="location">${tz.location}</div>
+                    <div class="time">${formatTime(now, tz.tz)}</div>
+                    <div class="date">${formatDate(now, tz.tz)}</div>
+                    <div class="offset">${getOffset(now, tz.tz)}</div>
+                </div>
+            `).join('');
+        }
+
+        function toggleExpand() {
+            showAll = !showAll;
+            const btn = document.getElementById('expandBtn');
+            btn.textContent = showAll ? 'Show Less' : 'Show All Timezones';
+            updateClocks();
+        }
+
+        function resetToNow() {
+            customDate = null;
+            isEditing = false;
+            const input = document.getElementById('customDateTime');
+            input.classList.remove('editing');
+            input.readOnly = true;
+            updateISOInput();
+            startAutoUpdate();
+        }
+
+        function applyCustomTime() {
+            const input = document.getElementById('customDateTime');
+            const value = input.value.trim();
+            if (value) {
+                try {
+                    customDate = new Date(value);
+                    if (isNaN(customDate.getTime())) {
+                        alert('Invalid ISO date format');
+                        return;
+                    }
+                    isEditing = false;
+                    input.classList.remove('editing');
+                    input.readOnly = true;
+                    if (updateInterval) {
+                        clearInterval(updateInterval);
+                    }
+                    if (isoUpdateInterval) {
+                        clearInterval(isoUpdateInterval);
+                    }
+                    updateClocks();
+                } catch (e) {
+                    alert('Invalid ISO date format');
+                }
+            }
+        }
+
+        function startAutoUpdate() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+            if (isoUpdateInterval) {
+                clearInterval(isoUpdateInterval);
+            }
+            updateClocks();
+            updateISOInput();
+            updateInterval = setInterval(() => {
+                if (!customDate) {
+                    updateClocks();
+                }
+            }, 1000);
+            isoUpdateInterval = setInterval(() => {
+                if (!isEditing && !customDate) {
+                    updateISOInput();
+                }
+            }, 1000);
+        }
+
+        // Setup input event handlers
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('customDateTime');
+            
+            input.addEventListener('click', () => {
+                if (!isEditing) {
+                    isEditing = true;
+                    input.readOnly = false;
+                    input.classList.add('editing');
+                    input.select();
+                    if (isoUpdateInterval) {
+                        clearInterval(isoUpdateInterval);
+                    }
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    applyCustomTime();
+                } else if (e.key === 'Escape') {
+                    resetToNow();
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                if (isEditing && input.value !== (customDate ? customDate.toISOString() : '')) {
+                    // User clicked away without applying, ask if they want to apply
+                    setTimeout(() => {
+                        if (isEditing && confirm('Apply this time?')) {
+                            applyCustomTime();
+                        } else {
+                            resetToNow();
+                        }
+                    }, 100);
+                }
+            });
+        });
+
+        // Initialize
+        startAutoUpdate();
+
+        // PWA Service Worker registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZSA9PiB7CiAgc2VsZi5za2lwV2FpdGluZygpOwp9KTsKCnNlbGYuYWRkRXZlbnRMaXN0ZW5lcignZmV0Y2gnLCBlID0+IHsKICBlLnJlc3BvbmRXaXRoKGZldGNoKGUucmVxdWVzdCkpOwp9KTs=')
+                .catch(err => console.log('SW registration failed'));
+        }
+    </script>
+</body>
+</html>
