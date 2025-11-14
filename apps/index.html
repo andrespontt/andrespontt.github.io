@@ -112,13 +112,68 @@
           </svg>
         </a>
       </div>
-      <p>&copy; <span id="copyright-year">2025</span> Andres Pontt.</p>
+      <p>&copy; <span id="copyright-year">2025</span> Andres Pontt. <span id="last-updated-badge" class="update-badge" style="display: none;"></span></p>
+      <div class="badges" style="margin-top: 6px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <a href="https://github.com/andrespontt/andrespontt.github.io" target="_blank" rel="noopener noreferrer" title="View on GitHub">
+          <img src="https://img.shields.io/github/last-commit/andrespontt/andrespontt.github.io?label=GitHub&logo=github" alt="GitHub Repository" style="height: 20px;">
+        </a>
+      </div>
     </footer>
   </div>
   <script src="../assets/nav.js?v=3da97c2" defer></script>
   <script>
     // Set copyright year dynamically
     document.getElementById('copyright-year').textContent = new Date().getFullYear();
+
+    // Fetch last update time from GitHub API
+    async function updateLastCommitBadge() {
+      const badge = document.getElementById('last-updated-badge');
+      if (!badge) return;
+
+      try {
+        const response = await fetch('https://api.github.com/repos/andrespontt/andrespontt.github.io/commits?per_page=1', {
+          headers: {
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch');
+        
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const commitDate = new Date(data[0].commit.committer.date);
+          const timeAgo = getTimeAgo(commitDate);
+          badge.textContent = `· Last updated ${timeAgo}`;
+          badge.style.display = 'inline';
+        }
+      } catch (error) {
+        console.log('Could not fetch last update time:', error);
+        // Silently fail - badge just won't show
+      }
+    }
+
+    function getTimeAgo(date) {
+      const now = new Date();
+      const diffMs = now - date;
+      const diffSecs = Math.floor(diffMs / 1000);
+      const diffMins = Math.floor(diffSecs / 60);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      const diffWeeks = Math.floor(diffDays / 7);
+      const diffMonths = Math.floor(diffDays / 30);
+      const diffYears = Math.floor(diffDays / 365);
+
+      if (diffSecs < 60) return 'just now';
+      if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+      if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+      if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks !== 1 ? 's' : ''} ago`;
+      if (diffMonths < 12) return `${diffMonths} month${diffMonths !== 1 ? 's' : ''} ago`;
+      return `${diffYears} year${diffYears !== 1 ? 's' : ''} ago`;
+    }
+
+    // Load badge on page load
+    updateLastCommitBadge();
   </script>
 </body>
 </html>

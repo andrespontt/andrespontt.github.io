@@ -115,6 +115,9 @@ footer{ text-align:center; color: var(--muted); padding: 22px 0; border-top: 1px
 .social-links{ display:flex; justify-content:center; gap:10px; margin: 4px 0 8px; }
 .social-links a{ color: var(--muted); text-decoration:none; }
 .social-links a:hover{ color: var(--accent); }
+.update-badge{ color: var(--accent); font-weight: 600; margin-left: 8px; }
+.badges img{ border-radius: 4px; opacity: 0.9; transition: opacity 0.2s ease; }
+.badges img:hover{ opacity: 1; }
 
 /* Experiments */
 canvas{ border-radius: 8px; background: #0b0b0c; }
