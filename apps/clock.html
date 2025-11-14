@@ -19,6 +19,7 @@
             min-height: 100vh;
             padding: 20px;
             color: #fff;
+            overscroll-behavior: none; /* Prevent pull-to-refresh on mobile */
         }
 
         .container {
@@ -62,6 +63,7 @@
             font-size: 1em;
             font-family: 'Courier New', monospace;
             cursor: pointer;
+            autocomplete: off;
         }
 
         .datetime-input input:focus {
@@ -218,6 +220,10 @@
             .clocks-grid {
                 grid-template-columns: 1fr;
             }
+
+            .datetime-input input {
+                font-size: 0.9em;
+            }
         }
     </style>
 </head>
@@ -227,8 +233,8 @@
         
         <div class="datetime-input">
             <label>ISO DateTime (Click to edit and freeze time - Refresh page to reset):</label>
-            <input type="text" id="customDateTime" readonly>
-            <div class="time-diff" id="timeDiff"></div>
+            <input type="text" id="customDateTime" placeholder="YYYY-MM-DDTHH:mm:ss.sssZ" autocomplete="off">
+            <div class="time-diff" id="timeDiff">Live time</div>
         </div>
 
         <div class="clocks-grid" id="clocksGrid"></div>
@@ -259,7 +265,7 @@
         function updateISOInput() {
             const input = document.getElementById('customDateTime');
             if (!isEditing && !customDate) {
-                input.value = new Date().toISOString();
+                input.value = new Date().toISOString().slice(0, -1) + 'Z';
             }
             updateTimeDiff();
         }
@@ -268,7 +274,7 @@
             const diffMs = targetDate - referenceDate;
             const absDiff = Math.abs(diffMs);
             const isFuture = diffMs > 0;
-            
+
             const msPerSecond = 1000;
             const msPerMinute = msPerSecond * 60;
             const msPerHour = msPerMinute * 60;
@@ -280,8 +286,7 @@
             let value, unit;
 
             if (absDiff < msPerSecond) {
-                value = absDiff;
-                unit = 'ms';
+                return 'now';
             } else if (absDiff < msPerMinute) {
                 value = Math.floor(absDiff / msPerSecond);
                 unit = 'sec';
@@ -305,16 +310,12 @@
                 unit = 'y';
             }
 
-            if (absDiff < 100) {
-                return 'now';
-            }
-
             return isFuture ? `in ${value} ${unit}` : `${value} ${unit} ago`;
         }
 
         function updateTimeDiff() {
             const diffEl = document.getElementById('timeDiff');
-            if (!customDate) {
+            if (!customDate || isNaN(customDate.getTime())) {
                 diffEl.textContent = 'Live time';
                 diffEl.className = 'time-diff now';
                 return;
@@ -322,7 +323,7 @@
 
             const diff = getHumanTimeDiff(customDate);
             diffEl.textContent = diff;
-            
+
             if (diff === 'now') {
                 diffEl.className = 'time-diff now';
             } else if (diff.startsWith('in ')) {
@@ -363,13 +364,13 @@
         }
 
         function updateClocks() {
-            const now = customDate || new Date();
+            const now = customDate && !isNaN(customDate.getTime()) ? customDate : new Date();
             const grid = document.getElementById('clocksGrid');
-            
-            const timezonesToShow = showAll ? TIMEZONES : TIMEZONES.filter(tz => 
+
+            const timezonesToShow = showAll ? TIMEZONES : TIMEZONES.filter(tz =>
                 tz.name === 'US Eastern' || tz.name === 'UTC'
             );
-            
+
             grid.innerHTML = timezonesToShow.map(tz => `
                 <div class="clock-card">
                     <div class="timezone-name">${tz.name}</div>
@@ -393,7 +394,7 @@
             isEditing = false;
             const input = document.getElementById('customDateTime');
             input.classList.remove('editing');
-            input.readOnly = true;
+            input.readOnly = false;
             updateISOInput();
             startAutoUpdate();
         }
@@ -403,14 +404,15 @@
             const value = input.value.trim();
             if (value) {
                 try {
-                    customDate = new Date(value);
-                    if (isNaN(customDate.getTime())) {
-                        alert('Invalid ISO date format');
+                    const newDate = new Date(value);
+                    if (isNaN(newDate.getTime())) {
+                        alert('Invalid ISO date format. Please use YYYY-MM-DDTHH:mm:ss.sssZ');
                         return;
                     }
+                    customDate = newDate;
                     isEditing = false;
                     input.classList.remove('editing');
-                    input.readOnly = true;
+                    input.readOnly = false;
                     if (updateInterval) {
                         clearInterval(updateInterval);
                     }
@@ -418,9 +420,12 @@
                         clearInterval(isoUpdateInterval);
                     }
                     updateClocks();
+                    updateTimeDiff();
                 } catch (e) {
-                    alert('Invalid ISO date format');
+                    alert('Invalid ISO date format. Please use YYYY-MM-DDTHH:mm:ss.sssZ');
                 }
+            } else {
+                resetToNow();
             }
         }
 
@@ -433,15 +438,16 @@
             }
             updateClocks();
             updateISOInput();
+            updateTimeDiff();
             updateInterval = setInterval(() => {
-                if (!customDate) {
+                if (!customDate || isNaN(customDate.getTime())) {
                     updateClocks();
-                } else {
-                    updateTimeDiff();
+                    updateISOInput();
                 }
+                updateTimeDiff();
             }, 1000);
             isoUpdateInterval = setInterval(() => {
-                if (!isEditing && !customDate) {
+                if (!isEditing && (!customDate || isNaN(customDate.getTime()))) {
                     updateISOInput();
                 }
             }, 1000);
@@ -450,12 +456,27 @@
         // Setup input event handlers
         document.addEventListener('DOMContentLoaded', () => {
             const input = document.getElementById('customDateTime');
-            
+            // Detect mobile device for input type
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                input.type = 'datetime-local';
+                input.addEventListener('change', () => {
+                    if (input.value) {
+                        // Convert datetime-local to ISO format
+                        input.value = new Date(input.value).toISOString().slice(0, -1) + 'Z';
+                        applyCustomTime();
+                    }
+                });
+            } else {
+                input.type = 'text';
+                input.pattern = '\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z';
+            }
+
             input.addEventListener('click', () => {
                 if (!isEditing) {
                     isEditing = true;
-                    input.readOnly = false;
                     input.classList.add('editing');
+                    input.focus();
                     input.select();
                     if (isoUpdateInterval) {
                         clearInterval(isoUpdateInterval);
@@ -473,7 +494,6 @@
 
             input.addEventListener('blur', () => {
                 if (isEditing && input.value !== (customDate ? customDate.toISOString() : '')) {
-                    // User clicked away without applying, ask if they want to apply
                     setTimeout(() => {
                         if (isEditing && confirm('Apply this time?')) {
                             applyCustomTime();
@@ -483,10 +503,10 @@
                     }, 100);
                 }
             });
-        });
 
-        // Initialize
-        startAutoUpdate();
+            // Initialize
+            startAutoUpdate();
+        });
 
         // PWA Service Worker registration
         if ('serviceWorker' in navigator) {
