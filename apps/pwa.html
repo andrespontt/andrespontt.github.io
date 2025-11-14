@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PWA Capabilities Demo — Dark Purple</title>
+
+<!-- Basic PWA meta for iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+<!-- Link to manifest (downloadable by the page) -->
+<link rel="manifest" href="manifest.webmanifest">
+
+<!-- Prism.js for syntax highlighting (CDN) -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0b0310;
+    --panel:#12061a;
+    --muted:#bfb8cf;
+    --accent:#a06bff; /* purple tint */
+    --accent-2:#7b3cff;
+    --glass: rgba(255,255,255,0.03);
+    --success:#7ee787;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  body{background:linear-gradient(180deg,#050007 0%, #0b0310 100%); color:var(--muted); padding:28px; -webkit-font-smoothing:antialiased;}
+  .container{max-width:1100px;margin:0 auto; display:grid; grid-template-columns: 1fr 360px; gap:20px;}
+  header{grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  h1{margin:0;color:white; font-size:20px;}
+  p.lead{margin:0;color: #d9d0ff;}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:16px; box-shadow: 0 6px 24px rgba(10,6,14,0.6); border:1px solid rgba(255,255,255,0.03);}
+  .panel{padding:12px; border-radius:10px; background:var(--panel); }
+  .btn{background:linear-gradient(90deg,var(--accent),var(--accent-2)); border:none; color:white; padding:10px 12px; border-radius:8px; cursor:pointer; font-weight:600; box-shadow:0 6px 20px rgba(123,60,255,0.18); }
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06); color:var(--muted);}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  .feature{margin-bottom:14px;}
+  .status{display:inline-block;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,0.2); color:#e6dfff; font-weight:600;}
+  pre {max-height:320px; overflow:auto; border-radius:8px; }
+  code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;}
+  footer{color:#9b89c7; font-size:13px; margin-top:10px; grid-column:1/-1;}
+  .right-col{position:sticky; top:28px; align-self:start;}
+  .hint{font-size:13px; color:#d0c6ff;}
+  .green{color:var(--success); font-weight:700;}
+  .grid-feat{display:grid; grid-template-columns: 1fr 1fr; gap:12px;}
+  .big-output{background:var(--glass); padding:10px; border-radius:8px; min-height:90px; color:#fff; font-family:monospace; font-size:13px;}
+  .code-title{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:6px;}
+  a.link{color:var(--accent); text-decoration:none;}
+  small.meta{color:#bba9ff;}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div>
+    <h1>PWA Capabilities — Interactive Demo</h1>
+    <p class="lead">Dark mode with purple tints — test many features here. Best experience on <strong>localhost</strong> or HTTPS.</p>
+  </div>
+  <div class="row">
+    <button id="downloadFiles" class="btn">Download manifest & service worker</button>
+    <button id="regSW" class="btn ghost">Attempt register SW (auto)</button>
+  </div>
+</header>
+
+<!-- Left column: feature demos and explanation -->
+<main class="card">
+  <section class="feature">
+    <div class="code-title"><strong>Install / beforeinstallprompt</strong><span class="hint">PWA install prompt</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="btnPrompt" class="btn">Trigger install prompt</button>
+      <span id="installStatus" class="status">unknown</span>
+    </div>
+    <p class="hint">The browser fires a `beforeinstallprompt` event when the PWA is eligible. iOS controls "Add to Home Screen" via share sheet (manual).</p>
+    <pre><code class="language-javascript">
+// Example: listen for beforeinstallprompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // show your install UI
+});
+document.getElementById('btnPrompt').addEventListener('click', async () => {
+  if(deferredPrompt){ await deferredPrompt.prompt(); let res = await deferredPrompt.userChoice; console.log(res); }
+});
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>Service Worker / Offline Caching</strong><span class="hint">Requires service-worker.js + HTTPS or localhost</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="btnCacheTest" class="btn ghost">Test fetch (online → offline)</button>
+      <span id="swStatus" class="status">sw: unknown</span>
+    </div>
+    <p class="hint">This demo can attempt to register a temporary worker. For full offline caching, download the provided service-worker.js and serve it from the same folder.</p>
+    <pre><code class="language-javascript">
+// Simplified service worker caching flow (service-worker.js)
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open('demo-v1').then(c => c.addAll(['/','/pwa-demo.html'])));
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>Storage: localStorage & IndexedDB</strong><span class="hint">Persistent storage</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <input id="lsKey" placeholder="key" style="padding:8px;border-radius:6px;background:#0a0710;border:1px solid rgba(255,255,255,0.03);color:var(--muted)"/>
+      <input id="lsVal" placeholder="value" style="padding:8px;border-radius:6px;background:#0a0710;border:1px solid rgba(255,255,255,0.03);color:var(--muted)"/>
+      <button id="saveLS" class="btn ghost">Save localStorage</button>
+      <button id="readLS" class="btn">Read</button>
+    </div>
+    <div class="big-output" id="lsOut">localStorage output</div>
+
+    <p class="hint">IndexedDB demo also included (small wrapper). Use it for larger structured storage.</p>
+    <pre><code class="language-javascript">
+// localStorage usage
+localStorage.setItem('demoKey','demoValue');
+let v = localStorage.getItem('demoKey');
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>Camera & Microphone</strong><span class="hint">getUserMedia</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="camBtn" class="btn">Open Camera (video)</button>
+      <button id="micBtn" class="btn ghost">Open Microphone (audio)</button>
+      <button id="stopMedia" class="btn ghost">Stop</button>
+    </div>
+    <video id="video" style="width:100%;max-height:320px;border-radius:8px;background:#000" autoplay muted playsinline></video>
+    <div class="big-output" id="mediaOut">Camera / mic state</div>
+    <pre><code class="language-javascript">
+// getUserMedia
+const stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+video.srcObject = stream;
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>Geolocation</strong><span class="hint">One-time location fetch</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="geoBtn" class="btn">Get Location</button>
+      <span id="geoOut" class="status">—</span>
+    </div>
+    <p class="hint">iOS shows a permission dialog. Background tracking while closed is not available in PWAs on iOS.</p>
+    <pre><code class="language-javascript">
+// Geolocation
+navigator.geolocation.getCurrentPosition(pos => console.log(pos.coords));
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>Notifications & Push (explain)</strong><span class="hint">Permission + subscription</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="notifyPerm" class="btn">Request Notification Permission</button>
+      <button id="showNotif" class="btn ghost">Show Local Notification</button>
+      <button id="subscribePush" class="btn">Show Push Snippet</button>
+      <span id="notifStatus" class="status">perm: ?</span>
+    </div>
+    <p class="hint">Server required for real push. On iOS Safari it uses APNs behind the scenes. Use the provided snippet to subscribe and send a test push from a server.</p>
+    <pre><code class="language-javascript">
+// client: subscribe (example)
+const reg = await navigator.serviceWorker.ready;
+const sub = await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey: '...VAPID key...'});
+// send `sub` to your server and call push via web-push / APNs.
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>Web Share / File Picker / Clipboard</strong><span class="hint">share text/files</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="shareBtn" class="btn">Share Text (Web Share)</button>
+      <button id="pickFile" class="btn ghost">Pick File</button>
+      <button id="clipWrite" class="btn">Copy ↗ Clipboard</button>
+    </div>
+    <div class="big-output" id="shareOut">Share output</div>
+    <pre><code class="language-javascript">
+// Web Share
+if(navigator.canShare) await navigator.share({title:'Hello',text:'Share from demo'});
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>Vibration / Haptics & Media</strong><span class="hint">vibrate, media playback</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="vibe" class="btn">Vibrate pattern</button>
+      <button id="playAudio" class="btn ghost">Play sample audio</button>
+    </div>
+    <audio id="sampleAudio" src="data:audio/mp3;base64,//uQZAA..."></audio>
+    <pre><code class="language-javascript">
+// Vibration
+navigator.vibrate([200,100,200]);
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>Bluetooth & WebUSB (notes)</strong><span class="hint">very limited on iOS</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="btBtn" class="btn ghost">Try Web Bluetooth</button>
+      <span class="hint">Most iOS builds restrict Web Bluetooth; Desktop Chrome gives best experience.</span>
+    </div>
+    <pre><code class="language-javascript">
+// Web Bluetooth (desktop Chromium)
+// const dev = await navigator.bluetooth.requestDevice({filters:[{services:['battery_service']}]});
+    </code></pre>
+  </section>
+
+  <section class="feature">
+    <div class="code-title"><strong>WebSocket test (echo)</strong><span class="hint">connect to public echo (if allowed)</span></div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="wsConnect" class="btn">Connect Echo</button>
+      <button id="wsSend" class="btn ghost">Send "hello"</button>
+      <div id="wsState" class="status">disconnected</div>
+    </div>
+    <div class="big-output" id="wsOut">ws messages</div>
+    <pre><code class="language-javascript">
+// WebSocket simple
+// const ws = new WebSocket('wss://echo.websocket.org/');
+// ws.onmessage = e => console.log(e.data);
+    </code></pre>
+  </section>
+
+</main>
+
+<!-- Right column: status, tips, and code downloads -->
+<aside class="right-col">
+  <div class="card panel">
+    <h3 style="margin:0 0 8px 0;">Status</h3>
+    <div style="display:grid; gap:6px;">
+      <div><small class="meta">Service worker</small> <div id="statusSW" class="hint">unknown</div></div>
+      <div><small class="meta">Push support</small> <div id="statusPush" class="hint">unknown</div></div>
+      <div><small class="meta">Web Share</small> <div id="statusShare" class="hint">unknown</div></div>
+      <div><small class="meta">Media Devices</small> <div id="statusMedia" class="hint">unknown</div></div>
+    </div>
+    <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:12px 0;">
+    <div>
+      <strong>Quick tips</strong>
+      <ul style="padding-left:18px;margin:8px 0;color:var(--muted);">
+        <li>Serve on <code>localhost</code> or HTTPS for install & SW.</li>
+        <li>iOS: "Add to Home Screen" is via share sheet (manual) — no beforeinstallprompt.</li>
+        <li>Push notifications need a backend (VAPID/APNs bridge).</li>
+      </ul>
+    </div>
+    <div style="margin-top:12px">
+      <button id="showManifest" class="btn ghost">Show manifest</button>
+      <button id="showSWCode" class="btn">Show SW code</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <h4 style="margin:0 0 8px 0">Saved snippets</h4>
+    <p class="hint">Download the manifest & service worker files for a complete test. Then reload from <code>localhost</code>.</p>
+    <div class="row">
+      <button id="downloadBoth" class="btn">Download both</button>
+      <a id="manualLink" class="link" href="#" style="margin-left:8px">Manual instructions</a>
+    </div>
+  </div>
+
+  <footer>
+    <small>© PWA demo • Built for testing many browser APIs. Some features require server & HTTPS.</small>
+  </footer>
+</aside>
+
+</div>
+
+<!-- Hidden containers for generated content -->
+<textarea id="manifestContent" style="display:none">
+{
+  "name":"PWA Capabilities Demo",
+  "short_name":"PWA Demo",
+  "start_url":".",
+  "display":"standalone",
+  "background_color":"#0b0310",
+  "theme_color":"#a06bff",
+  "icons":[
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png"}
+  ]
+}
+</textarea>
+
+<textarea id="swContent" style="display:none">
+/* Simple service-worker.js generated by demo */
+const CACHE = 'pwa-demo-v1';
+const ASSETS = [
+  '/',
+  '/pwa-demo.html'
+];
+
+self.addEventListener('install', event => {
+  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(
+    caches.match(event.request).then(cacheRes => {
+      if (cacheRes) return cacheRes;
+      return fetch(event.request).then(fetchRes => {
+        // optionally cache dynamic responses
+        return fetchRes;
+      }).catch(()=> caches.match('/pwa-demo.html'));
+    })
+  );
+});
+
+self.addEventListener('push', event => {
+  const data = event.data?.text() || 'Push message';
+  event.waitUntil(self.registration.showNotification('PWA Demo', { body: data }));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow('/'));
+});
+</textarea>
+
+<script>
+/* ---------- Utilities ---------- */
+const out = id => (document.getElementById(id).textContent = '');
+const setText = (id, txt) => document.getElementById(id).textContent = txt;
+
+/* ---------- Download manifest & service worker ---------- */
+document.getElementById('downloadFiles').addEventListener('click', () => {
+  download('manifest.webmanifest', document.getElementById('manifestContent').value);
+  download('service-worker.js', document.getElementById('swContent').value);
+  alert('Downloaded manifest.webmanifest and service-worker.js. Place them next to this HTML and serve via localhost or HTTPS, then reload.');
+});
+document.getElementById('downloadBoth').addEventListener('click', () => {
+  download('manifest.webmanifest', document.getElementById('manifestContent').value);
+  download('service-worker.js', document.getElementById('swContent').value);
+  alert('Files downloaded.');
+});
+function download(filename, text){
+  const blob = new Blob([text], {type:'application/javascript'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/* ---------- Try to register a blob-based service worker (may be blocked by some browsers) ---------- */
+document.getElementById('regSW').addEventListener('click', async () => {
+  if(!('serviceWorker' in navigator)){ setText('swStatus','not supported'); return; }
+  const code = document.getElementById('swContent').value;
+  try {
+    const blob = new Blob([code], {type:'application/javascript'});
+    const url = URL.createObjectURL(blob);
+    const reg = await navigator.serviceWorker.register(url);
+    setText('swStatus', 'registered (blob)');
+    setText('statusSW','registered (blob)');
+  } catch (e) {
+    console.error(e);
+    setText('swStatus','register failed: ' + (e.message||e));
+  }
+});
+
+/* ---------- Listen for beforeinstallprompt ---------- */
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  setText('installStatus','prompt-available');
+});
+document.getElementById('btnPrompt').addEventListener('click', async () => {
+  if (!deferredPrompt) { alert('No install prompt available (iOS uses "Add to Home Screen" in share sheet).'); return; }
+  deferredPrompt.prompt();
+  const choice = await deferredPrompt.userChoice;
+  setText('installStatus','choice: ' + choice.outcome);
+  deferredPrompt = null;
+});
+
+/* ---------- LocalStorage ---------- */
+document.getElementById('saveLS').addEventListener('click', () => {
+  const k = document.getElementById('lsKey').value || 'demoKey';
+  const v = document.getElementById('lsVal').value || 'demoValue';
+  localStorage.setItem(k, v);
+  document.getElementById('lsOut').textContent = `Saved ${k} = ${v}`;
+});
+document.getElementById('readLS').addEventListener('click', () => {
+  const k = document.getElementById('lsKey').value || 'demoKey';
+  const v = localStorage.getItem(k);
+  document.getElementById('lsOut').textContent = (v===null) ? 'No value' : `${k} = ${v}`;
+});
+
+/* ---------- Media devices ---------- */
+let currentStream = null;
+document.getElementById('camBtn').addEventListener('click', async () => {
+  try {
+    currentStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+    document.getElementById('video').srcObject = currentStream;
+    setText('mediaOut','camera active');
+    setText('statusMedia','camera available');
+  } catch (e) {
+    setText('mediaOut','camera error: '+e.message);
+    setText('statusMedia','camera denied/error');
+  }
+});
+document.getElementById('micBtn').addEventListener('click', async () => {
+  try {
+    currentStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    setText('mediaOut','microphone active');
+    setText('statusMedia','mic available');
+  } catch(e){
+    setText('mediaOut','mic error: '+e.message);
+  }
+});
+document.getElementById('stopMedia').addEventListener('click', () => {
+  if(currentStream){ currentStream.getTracks().forEach(t => t.stop()); document.getElementById('video').srcObject = null; setText('mediaOut','stopped'); }
+});
+
+/* ---------- Geolocation ---------- */
+document.getElementById('geoBtn').addEventListener('click', () => {
+  if(!navigator.geolocation){ setText('geoOut','not supported'); return; }
+  navigator.geolocation.getCurrentPosition(p => {
+    setText('geoOut', `lat:${p.coords.latitude.toFixed(5)} lon:${p.coords.longitude.toFixed(5)}`);
+  }, err => setText('geoOut','err:'+err.message));
+});
+
+/* ---------- Notifications & Push (client side) ---------- */
+document.getElementById('notifyPerm').addEventListener('click', async () => {
+  if(!('Notification' in window)){ setText('notifStatus','not supported'); return; }
+  const perm = await Notification.requestPermission();
+  setText('notifStatus','perm: '+perm);
+});
+document.getElementById('showNotif').addEventListener('click', async () => {
+  if(Notification.permission !== 'granted'){ alert('Grant permission first.'); return; }
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    navigator.serviceWorker.getRegistration().then(reg => reg.showNotification('Hello from demo', {body:'Local notification'}));
+  } else {
+    new Notification('Hello from demo', {body:'Local notification (no SW)'});
+  }
+});
+document.getElementById('subscribePush').addEventListener('click', () => {
+  alert('Push requires a server (VAPID keys) and service-worker registration. The snippet is in the page. You must implement server-side send.');
+});
+
+/* ---------- Web Share / File picker / Clipboard ---------- */
+document.getElementById('shareBtn').addEventListener('click', async () => {
+  if(navigator.share){
+    try{
+      await navigator.share({title:'PWA Demo', text:'Testing Web Share from demo', url: location.href});
+      setText('shareOut','shared successfully');
+    } catch(e){
+      setText('shareOut','share canceled');
+    }
+  } else setText('shareOut','Web Share not supported');
+});
+document.getElementById('pickFile').addEventListener('click', async () => {
+  if(window.showOpenFilePicker){
+    try{
+      const [fileHandle] = await window.showOpenFilePicker();
+      const file = await fileHandle.getFile();
+      setText('shareOut','Picked: ' + file.name);
+    }catch(e){ setText('shareOut','picker canceled'); }
+  } else {
+    // fallback input
+    const inp = document.createElement('input'); inp.type='file';
+    inp.onchange = ()=> setText('shareOut','Picked: '+ inp.files[0].name);
+    inp.click();
+  }
+});
+document.getElementById('clipWrite').addEventListener('click', async () => {
+  try{
+    await navigator.clipboard.writeText('Copied from PWA demo ✨');
+    setText('shareOut','copied to clipboard');
+  }catch(e){ setText('shareOut','clipboard failed: '+e.message); }
+});
+
+/* ---------- Vibration & audio ---------- */
+document.getElementById('vibe').addEventListener('click', () => {
+  if(navigator.vibrate){ navigator.vibrate([100,60,200]); setText('mediaOut','vibrated'); } else setText('mediaOut','vibration not supported');
+});
+document.getElementById('playAudio').addEventListener('click', () => {
+  const a = document.getElementById('sampleAudio');
+  // audio data is omitted for brevity; some browsers block autoplay without user gesture
+  try{ a.play(); setText('mediaOut','playing audio'); }catch(e){ setText('mediaOut','audio play failed: '+e.message); }
+});
+
+/* ---------- WebSocket (simple) ---------- */
+let _ws = null;
+document.getElementById('wsConnect').addEventListener('click', () => {
+  if(_ws && _ws.readyState === WebSocket.OPEN){ setText('wsState','open'); return; }
+  try {
+    // Many public echo servers are deprecated. For demo, try wss.ifelse or test server.
+    _ws = new WebSocket('wss://ws.postman-echo.com/raw');
+    _ws.onopen = () => { setText('wsState','open'); appendWS('connected'); };
+    _ws.onmessage = (e) => appendWS('recv: '+e.data);
+    _ws.onclose = () => setText('wsState','closed');
+    _ws.onerror = (e) => appendWS('error');
+  } catch(e){ appendWS('ws error: '+e.message); }
+});
+document.getElementById('wsSend').addEventListener('click', () => {
+  if(!_ws || _ws.readyState !== WebSocket.OPEN){ appendWS('not open'); return; }
+  _ws.send('hello from demo');
+  appendWS('sent: hello');
+});
+function appendWS(t){ const el = document.getElementById('wsOut'); el.textContent = (el.textContent ? el.textContent + '\n' : '') + t; }
+
+/* ---------- Web Bluetooth (note) ---------- */
+document.getElementById('btBtn').addEventListener('click', async () => {
+  if(!navigator.bluetooth){ alert('Web Bluetooth not supported here'); return; }
+  try{
+    const dev = await navigator.bluetooth.requestDevice({acceptAllDevices:true});
+    setText('statusSW','BT device: '+dev.name||dev.id);
+  }catch(e){ setText('statusSW','bt canceled/err'); }
+});
+
+/* ---------- Show code actions ---------- */
+document.getElementById('showManifest').addEventListener('click', () => {
+  alert(document.getElementById('manifestContent').value);
+});
+document.getElementById('showSWCode').addEventListener('click', () => {
+  const w = window.open('','_blank');
+  w.document.write('<pre><code>'+escapeHtml(document.getElementById('swContent').value)+'</code></pre>');
+});
+
+/* ---------- Small feature detection ---------- */
+setText('statusPush', (('PushManager' in window) ? 'available' : 'not available'));
+setText('statusShare', (('share' in navigator) ? 'available' : 'not available'));
+setText('statusMedia', (navigator.mediaDevices ? 'available' : 'no media'));
+
+/* ---------- Helpers ---------- */
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ---------- Manual instructions link ---------- */
+document.getElementById('manualLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  alert('Manual: 1) Save manifest.webmanifest and service-worker.js next to this HTML. 2) Serve folder via `python -m http.server` and open http://localhost:8000/pwa-demo.html 3) Reload and test install & offline. Push requires a server with VAPID keys.');
+});
+
+</script>
+</body>
+</html>

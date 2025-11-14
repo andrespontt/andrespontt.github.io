@@ -35,7 +35,6 @@
     var links = [
       { href: toHome(), label: 'Home', key: 'home' },
       { href: toPage('experiments.html'), label: 'Experiments', key: 'experiments' },
-      { href: toPage('bio.html'), label: 'About Me', key: 'bio' },
       { href: toAppsIndex(), label: 'Apps', key: 'apps' }
     ];
 
