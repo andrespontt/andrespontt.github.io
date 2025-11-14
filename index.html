@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Andres Pontt - Software Engineer & Developer</title>
   <meta name="description" content="Software Engineer, Gamer, and Musician passionate about Java coding, game modding, and creative problem-solving. Explore my apps, games, and experiments.">
   
@@ -123,6 +126,23 @@
   <script>
     // Set copyright year dynamically
     document.getElementById('copyright-year').textContent = new Date().getFullYear();
+    
+    // Handle service worker updates and cache invalidation
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SW_UPDATED') {
+          // Force reload when service worker updates
+          window.location.reload();
+        }
+      });
+      
+      // Check for service worker updates on page load
+      navigator.serviceWorker.getRegistration().then((registration) => {
+        if (registration) {
+          registration.update();
+        }
+      });
+    }
   </script>
 </body>
 </html>

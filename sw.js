@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ap-site-v1';
+const CACHE_VERSION = 'ap-site-v2';
 const ASSET_CACHE = `assets-${CACHE_VERSION}`;
 const PAGE_CACHE = `pages-${CACHE_VERSION}`;
 
@@ -27,7 +27,14 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(
       keys.filter((k) => ![ASSET_CACHE, PAGE_CACHE].includes(k)).map((k) => caches.delete(k))
-    ))
+    )).then(() => {
+      // Force all clients to reload
+      return self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'SW_UPDATED', cacheVersion: CACHE_VERSION });
+        });
+      });
+    })
   );
   self.clients.claim();
 });
@@ -45,13 +52,16 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   
-  // App HTML pages: Network-first, fallback to cache
+  // App HTML pages: Network-first with cache-busting, fallback to cache
   if (isAppPath(url) && request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-store' })
         .then((response) => {
-          const copy = response.clone();
-          caches.open(PAGE_CACHE).then((cache) => cache.put(request, copy));
+          // Only cache if response is fresh
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(PAGE_CACHE).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         .catch(async () => {
@@ -67,13 +77,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML pages: Network-first, fallback to cache then offline
+  // HTML pages: Network-first with cache-busting, fallback to cache then offline
   if (request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-store' })
         .then((response) => {
-          const copy = response.clone();
-          caches.open(PAGE_CACHE).then((cache) => cache.put(request, copy));
+          // Only cache if response is fresh
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(PAGE_CACHE).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         .catch(async () => {
