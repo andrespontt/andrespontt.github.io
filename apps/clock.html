@@ -26,27 +26,6 @@
             margin: 0 auto;
         }
 
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            padding: 10px 18px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            text-decoration: none;
-            backdrop-filter: blur(10px);
-        }
-        
-        .back-link:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-        }
-
         h1 {
             text-align: center;
             margin-bottom: 30px;
@@ -95,6 +74,27 @@
         .datetime-input input.editing {
             border-color: #f5576c;
             background: rgba(245, 87, 108, 0.1);
+        }
+
+        .time-diff {
+            margin-top: 10px;
+            font-size: 1.1em;
+            color: #667eea;
+            font-weight: 600;
+            text-align: center;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+        }
+
+        .time-diff.future {
+            color: #f5576c;
+            background: rgba(245, 87, 108, 0.1);
+        }
+
+        .time-diff.now {
+            color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
         }
 
         .clocks-grid {
@@ -223,12 +223,12 @@
 </head>
 <body>
     <div class="container">
-        <a href="index.html" class="back-link">← Back to Apps</a>
         <h1>🌍 World Clock</h1>
         
         <div class="datetime-input">
             <label>ISO DateTime (Click to edit and freeze time - Refresh page to reset):</label>
             <input type="text" id="customDateTime" readonly>
+            <div class="time-diff" id="timeDiff"></div>
         </div>
 
         <div class="clocks-grid" id="clocksGrid"></div>
@@ -260,6 +260,75 @@
             const input = document.getElementById('customDateTime');
             if (!isEditing && !customDate) {
                 input.value = new Date().toISOString();
+            }
+            updateTimeDiff();
+        }
+
+        function getHumanTimeDiff(targetDate, referenceDate = new Date()) {
+            const diffMs = targetDate - referenceDate;
+            const absDiff = Math.abs(diffMs);
+            const isFuture = diffMs > 0;
+            
+            const msPerSecond = 1000;
+            const msPerMinute = msPerSecond * 60;
+            const msPerHour = msPerMinute * 60;
+            const msPerDay = msPerHour * 24;
+            const msPerWeek = msPerDay * 7;
+            const msPerMonth = msPerDay * 30.44; // Average month
+            const msPerYear = msPerDay * 365.25; // Account for leap years
+
+            let value, unit;
+
+            if (absDiff < msPerSecond) {
+                value = absDiff;
+                unit = 'ms';
+            } else if (absDiff < msPerMinute) {
+                value = Math.floor(absDiff / msPerSecond);
+                unit = 'sec';
+            } else if (absDiff < msPerHour) {
+                value = Math.floor(absDiff / msPerMinute);
+                unit = 'min';
+            } else if (absDiff < msPerDay) {
+                value = Math.floor(absDiff / msPerHour);
+                unit = 'h';
+            } else if (absDiff < msPerWeek) {
+                value = Math.floor(absDiff / msPerDay);
+                unit = 'd';
+            } else if (absDiff < msPerMonth) {
+                value = Math.floor(absDiff / msPerWeek);
+                unit = 'w';
+            } else if (absDiff < msPerYear) {
+                value = Math.floor(absDiff / msPerMonth);
+                unit = 'm';
+            } else {
+                value = Math.floor(absDiff / msPerYear);
+                unit = 'y';
+            }
+
+            if (absDiff < 100) {
+                return 'now';
+            }
+
+            return isFuture ? `in ${value} ${unit}` : `${value} ${unit} ago`;
+        }
+
+        function updateTimeDiff() {
+            const diffEl = document.getElementById('timeDiff');
+            if (!customDate) {
+                diffEl.textContent = 'Live time';
+                diffEl.className = 'time-diff now';
+                return;
+            }
+
+            const diff = getHumanTimeDiff(customDate);
+            diffEl.textContent = diff;
+            
+            if (diff === 'now') {
+                diffEl.className = 'time-diff now';
+            } else if (diff.startsWith('in ')) {
+                diffEl.className = 'time-diff future';
+            } else {
+                diffEl.className = 'time-diff';
             }
         }
 
@@ -367,6 +436,8 @@
             updateInterval = setInterval(() => {
                 if (!customDate) {
                     updateClocks();
+                } else {
+                    updateTimeDiff();
                 }
             }, 1000);
             isoUpdateInterval = setInterval(() => {
