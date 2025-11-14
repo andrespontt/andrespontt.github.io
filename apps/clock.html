@@ -406,7 +406,7 @@
                 try {
                     const newDate = new Date(value);
                     if (isNaN(newDate.getTime())) {
-                        alert('Invalid ISO date format. Please use YYYY-MM-DDTHH:mm:ss.sssZ');
+                        resetToNow();
                         return;
                     }
                     customDate = newDate;
@@ -422,7 +422,7 @@
                     updateClocks();
                     updateTimeDiff();
                 } catch (e) {
-                    alert('Invalid ISO date format. Please use YYYY-MM-DDTHH:mm:ss.sssZ');
+                    resetToNow();
                 }
             } else {
                 resetToNow();
@@ -457,8 +457,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             const input = document.getElementById('customDateTime');
             // Detect mobile device for input type
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (isMobile) {
+            const isNonIPhoneMobile = /Android|iPad|iPod/i.test(navigator.userAgent);
+            if (isNonIPhoneMobile) {
                 input.type = 'datetime-local';
                 input.addEventListener('change', () => {
                     if (input.value) {
@@ -493,14 +493,8 @@
             });
 
             input.addEventListener('blur', () => {
-                if (isEditing && input.value !== (customDate ? customDate.toISOString() : '')) {
-                    setTimeout(() => {
-                        if (isEditing && confirm('Apply this time?')) {
-                            applyCustomTime();
-                        } else {
-                            resetToNow();
-                        }
-                    }, 100);
+                if (isEditing) {
+                    applyCustomTime();
                 }
             });
 
