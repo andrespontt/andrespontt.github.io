@@ -37,12 +37,13 @@
       place-items: center;
     }
 
-    /* Navigation Styles */
-    nav a:hover {
-      color: #0078d4 !important;
-      background: rgba(0, 120, 212, 0.1) !important;
-      border-color: rgba(0, 120, 212, 0.3) !important;
-      transform: translateY(-2px);
+    /* Back link styles */
+    .back-link {
+      transition: all 0.2s ease;
+    }
+    .back-link:hover {
+      background: rgba(125,211,252,.2) !important;
+      transform: translateY(-1px);
     }
 
     .app {
@@ -175,21 +176,8 @@
 </head>
 <body>
   <div class="app" role="application" aria-label="Kids typing game">
-    <!-- Site Navigation -->
-    <nav id="site-nav">
-      <noscript>
-        <ul>
-          <li><a href="../index.html">Home</a></li>
-          <li><a href="../pages/experiments.html">Experiments</a></li>
-          <li><a href="../pages/music.html">Music</a></li>
-          <li><a href="../pages/bio.html">About Me</a></li>
-          <li><a href="type-quest.html">Games</a></li>
-          <li><a href="perfect-pitch.html">Perfect Pitch</a></li>
-          <li><a href="pomodoro.html">Pomodoro</a></li>
-          <li><a href="math-screener.html">Math Screener</a></li>
-        </ul>
-      </noscript>
-    </nav>
+    <!-- Back to Apps -->
+    <a href="index.html" class="back-link" style="display:inline-block;margin-bottom:12px;color:var(--accent);text-decoration:none;font-weight:700;padding:8px 12px;border-radius:10px;background:rgba(125,211,252,.1);border:1px solid rgba(125,211,252,.2);">← Back to Apps</a>
 
     <header>
       <div class="brand" aria-label="Game title">
@@ -243,7 +231,6 @@
   <!-- Confetti canvas (auto-clears + fades out) -->
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 
-  <script src="../assets/nav.js?v=3da97c2" defer></script>
   <script>
     // ======= Word Lists (editable) =======
     const WORDS = {

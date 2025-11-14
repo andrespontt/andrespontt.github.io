@@ -16,10 +16,8 @@
       background: linear-gradient(180deg, var(--bg), var(--bg2));}
 
     .app{ min-height:100vh; width:min(980px, 96vw); margin:0 auto; padding:12px; display:grid; grid-template-rows:auto 1fr auto; gap:12px; }
-    nav#site-nav{ position: sticky; top: 8px; background: rgba(255,255,255,.04); border:1px solid var(--border); border-radius:12px; padding:8px 10px; backdrop-filter: blur(10px); }
-    nav#site-nav ul{ list-style:none; display:flex; gap:10px; margin:0; padding:0; flex-wrap:wrap; justify-content:center; }
-    nav#site-nav a{ color:var(--fg); text-decoration:none; font-weight:800; padding:6px 10px; border-radius:10px; }
-    nav#site-nav a[aria-current="page"]{ color:#081a14; background:var(--accent); }
+    .back-link{ display:inline-block; margin-bottom:12px; color:var(--accent); text-decoration:none; font-weight:700; padding:8px 14px; border-radius:10px; background:rgba(125,211,252,.1); border:1px solid rgba(125,211,252,.2); transition: all 0.2s ease; }
+    .back-link:hover{ background:rgba(125,211,252,.2); transform: translateY(-1px); }
 
     header{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     .title{ display:flex; align-items:center; gap:10px; }
@@ -67,20 +65,7 @@
 </head>
 <body>
   <div class="app" role="application" aria-label="Math Screener">
-    <nav id="site-nav">
-      <noscript>
-        <ul>
-          <li><a href="../index.html">Home</a></li>
-          <li><a href="../pages/experiments.html">Experiments</a></li>
-          <li><a href="../pages/music.html">Music</a></li>
-          <li><a href="../pages/bio.html">About Me</a></li>
-          <li><a href="type-quest.html">Games</a></li>
-          <li><a href="perfect-pitch.html">Perfect Pitch</a></li>
-          <li><a href="pomodoro.html">Pomodoro</a></li>
-          <li><a href="math-screener.html">Math Screener</a></li>
-        </ul>
-      </noscript>
-    </nav>
+    <a href="index.html" class="back-link">← Back to Apps</a>
 
     <header>
       <div class="title">
@@ -109,7 +94,6 @@
     </footer>
   </div>
 
-  <script src="../assets/nav.js" defer></script>
   <script>
     const SAVE_KEY = 'math_screener_v1';
     const els = { step: document.getElementById('step'), prompt: document.getElementById('prompt'), content: document.getElementById('content'), feedback: document.getElementById('feedback'), prev: document.getElementById('prev'), next: document.getElementById('next'), check: document.getElementById('check') };

@@ -26,20 +26,23 @@
       if (scope === 'pages') return '../apps/' + file;
       return file; // already in apps
     }
+    function toAppsIndex(){
+      if (scope === 'root') return 'apps/index.html';
+      if (scope === 'pages') return '../apps/index.html';
+      return 'index.html'; // already in apps
+    }
 
     var links = [
       { href: toHome(), label: 'Home', key: 'home' },
       { href: toPage('experiments.html'), label: 'Experiments', key: 'experiments' },
       { href: toPage('music.html'), label: 'Music', key: 'music' },
       { href: toPage('bio.html'), label: 'About Me', key: 'bio' },
-      { href: toApp('type-quest.html'), label: 'Games', key: 'games' },
-      { href: toApp('perfect-pitch.html'), label: 'Perfect Pitch', key: 'perfect-pitch' },
-      { href: toApp('pomodoro.html'), label: 'Pomodoro', key: 'pomodoro' },
-      { href: toApp('math-screener.html'), label: 'Math Screener', key: 'math-screener' }
+      { href: toAppsIndex(), label: 'Apps', key: 'apps' }
     ];
 
     // Determine current file to set aria-current
     var here = parts[parts.length-1] || 'index.html';
+    var isInApps = scope === 'apps';
 
     var ul = document.createElement('ul');
     ul.setAttribute('role', 'list');
@@ -49,9 +52,16 @@
       var a = document.createElement('a');
       a.href = item.href;
       a.textContent = item.label;
-      // For current page highlighting, compare filename only
+      // For current page highlighting
       var target = item.href.split('/').pop();
-      if (here === target) a.setAttribute('aria-current', 'page');
+      if (item.key === 'apps') {
+        // Apps link is current if we're in apps directory and on index.html
+        if (isInApps && here === 'index.html') {
+          a.setAttribute('aria-current', 'page');
+        }
+      } else if (here === target) {
+        a.setAttribute('aria-current', 'page');
+      }
       li.appendChild(a);
       ul.appendChild(li);
     });
