@@ -651,6 +651,8 @@
           if (cell === '__') {
             const inp = document.createElement('input');
             inp.type = 'number';
+            inp.setAttribute('inputmode', 'numeric');
+            inp.setAttribute('pattern', '[0-9]*');
             inp.placeholder = '?';
             inp.value = state.t1.answers[idx] || '';
             inp.addEventListener('input', () => {
@@ -729,6 +731,8 @@
         ansRow.appendChild(label);
         const inp = document.createElement('input');
         inp.type = 'number';
+        inp.setAttribute('inputmode', 'numeric');
+        inp.setAttribute('pattern', '[0-9]*');
         inp.placeholder = '?';
         inp.value = state.t5.missing || '';
         inp.addEventListener('input', () => {
@@ -743,6 +747,8 @@
         row.className = 'row';
         const inp = document.createElement('input');
         inp.type = 'number';
+        inp.setAttribute('inputmode', 'numeric');
+        inp.setAttribute('pattern', '[0-9]*');
         inp.placeholder = 'Answer';
         inp.value = state.t6.ans || '';
         inp.addEventListener('input', () => {
