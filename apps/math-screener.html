@@ -1,34 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Math Screener — Unit 1</title>
-  <meta name="theme-color" content="#1e1b4b" />
-  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTWF0aCBTY3JlZW5lciIsInNob3J0X25hbWUiOiJNYXRoIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzFhMTQ0NyIsInRoZW1lX2NvbG9yIjoiIzFlMWI0YiIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWwsJTNDc3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnJTNFJTNDcmVjdCB3aWR0aD0nMTAwJyBoZWlnaHQ9JzEwMCcgZmlsbD0nJTIzN2M3ZGZmJy8lM0UlM0N0ZXh0IHg9JzUwJyB5PSc2NScgZm9udC1zaXplPSc1MCcgZm9udC1mYW1pbHk9J0FyaWFsJyBmaWxsPSdibGFjaycgdGV4dC1hbmNob3I9J21pZGRsZSclM0UxJTNDL3RleHQlM0UlM0Mvc3ZnJTNFIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwiLCJzaXplcyI6IjUxMng1MTIifV19" />
+  <title>Cat Math Screener 🐱</title>
+  <meta name="theme-color" content="#292524" />
+  <link rel="manifest"
+    href="data:application/json;base64,eyJuYW1lIjoiQ2F0IE1hdGgiLCJzaG9ydF9uYW1lIjoiQ2F0TWF0aCIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMyOTI1MjQiLCJ0aGVtZV9jb2xvciI6IiMyOTI1MjQiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sLCUzQ3N2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJyUzRSUzQ3JlY3Qgd2lkdGg9JzEwMCcgaGVpZ2h0PScxMDAnIGZpbGw9JyNmYjkyM2MnLyUzRSUzQ3RleHQgeD0nNTAnIHk9JzY1JyBmb250LXNpemU9JzUwJyBmb250LWZhbWlseT0nQXJpYWwnIGZpbGw9J2JsYWNrJyB0ZXh0LWFuY2hvcj0nbWlkZGxlJyUzRSYjMTI4MDQ5OyUzQy90ZXh0JTNFJTNDL3N2ZyUzRSIsInR5cGUiOiJpbWFnZS9zdmcreG1sIiwic2l6ZXMiOiI1MTJ4NTEyIn1dfQ==" />
   <style>
     :root {
-      --bg: #1a1447;
-      --bg2: #231858;
-      --card: #2d1f6b;
-      --fg: #f3f0ff;
-      --muted: #c4b5fd;
-      --accent: #a78bfa;
+      --bg: #292524;
+      /* Warm Grey 900 */
+      --bg2: #1c1917;
+      /* Warm Grey 950 */
+      --card: #44403c;
+      /* Warm Grey 700 */
+      --fg: #f5f5f4;
+      /* Warm Grey 100 */
+      --muted: #a8a29e;
+      /* Warm Grey 400 */
+      --accent: #fb923c;
+      /* Orange 400 */
+      --accent-hover: #f97316;
+      /* Orange 500 */
       --ok: #86efac;
+      /* Green 300 */
       --bad: #fca5a5;
-      --border: rgba(167, 139, 250, 0.2);
-      --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
+      /* Red 300 */
+      --border: #57534e;
+      /* Warm Grey 600 */
+      --shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
     }
-    
-    * { box-sizing: border-box; }
-    
-    html, body {
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
       height: 100%;
       margin: 0;
       padding: 0;
       overflow-x: hidden;
     }
-    
+
     body {
       color: var(--fg);
       font-family: ui-rounded, system-ui, -apple-system, sans-serif;
@@ -61,55 +77,57 @@
     }
 
     .logo {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 12px;
-      background: linear-gradient(135deg, #a78bfa, #c4b5fd);
-      box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
+      background: linear-gradient(135deg, var(--accent), #fdba74);
+      box-shadow: 0 4px 12px rgba(251, 146, 60, 0.3);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
-      font-weight: 900;
-      color: #1a1447;
+      font-size: 26px;
     }
 
     h1 {
       margin: 0;
       font-size: clamp(18px, 4vw, 24px);
       font-weight: 800;
+      color: #fff;
     }
 
     .pill {
-      background: rgba(167, 139, 250, 0.15);
+      background: rgba(251, 146, 60, 0.15);
       border: 1px solid var(--border);
       border-radius: 999px;
-      padding: 8px 16px;
+      padding: 6px 14px;
       font-weight: 700;
       font-size: 14px;
       color: var(--accent);
     }
 
     .card {
-      background: linear-gradient(135deg, #2d1f6b, #241858);
+      background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 20px;
+      border-radius: 24px;
       box-shadow: var(--shadow);
       padding: 24px;
       flex: 1;
       display: flex;
       flex-direction: column;
       gap: 20px;
+      position: relative;
+      overflow: hidden;
     }
 
     .prompt {
       color: var(--fg);
       font-weight: 700;
-      font-size: clamp(16px, 3vw, 20px);
+      font-size: clamp(18px, 3vw, 22px);
       text-align: center;
-      padding: 12px;
-      background: rgba(167, 139, 250, 0.1);
-      border-radius: 12px;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 16px;
+      border: 1px solid var(--border);
     }
 
     .content {
@@ -118,8 +136,8 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      min-height: 200px;
+      gap: 20px;
+      min-height: 240px;
     }
 
     .row {
@@ -131,45 +149,59 @@
     }
 
     .num-btn {
-      min-width: 100px;
-      padding: 20px;
-      background: rgba(167, 139, 250, 0.15);
-      border: 2px solid var(--accent);
+      min-width: 90px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid var(--border);
       color: var(--fg);
       border-radius: 16px;
       font-weight: 900;
       font-size: 32px;
       cursor: pointer;
       transition: all 0.2s ease;
+      box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .num-btn:active {
+      transform: translateY(4px);
+      box-shadow: none;
     }
 
     .num-btn:hover {
-      background: rgba(167, 139, 250, 0.25);
-      transform: scale(1.05);
+      border-color: var(--accent);
+      background: rgba(251, 146, 60, 0.1);
     }
 
     .num-btn.correct {
-      background: rgba(134, 239, 172, 0.2);
+      background: var(--ok);
       border-color: var(--ok);
+      color: #064e3b;
     }
 
     .num-btn.wrong {
-      background: rgba(252, 165, 165, 0.2);
+      background: var(--bad);
       border-color: var(--bad);
+      color: #7f1d1d;
     }
 
     input[type="number"] {
       appearance: none;
       -moz-appearance: textfield;
-      background: rgba(167, 139, 250, 0.1);
+      background: rgba(0, 0, 0, 0.3);
       color: var(--fg);
       border: 2px solid var(--border);
       border-radius: 12px;
       padding: 16px;
       font-weight: 900;
-      font-size: 24px;
-      width: 100px;
+      font-size: 28px;
+      width: 110px;
       text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
     }
 
     input[type="number"]::-webkit-outer-spin-button,
@@ -183,24 +215,25 @@
       grid-template-rows: 1fr auto 1fr auto;
       gap: 12px;
       width: min(360px, 90vw);
-      background: rgba(167, 139, 250, 0.1);
+      background: rgba(0, 0, 0, 0.2);
       border: 2px solid var(--border);
       border-radius: 20px;
       padding: 16px;
     }
 
     .half {
-      border: 2px dashed rgba(167, 139, 250, 0.3);
+      border: 2px dashed var(--border);
       border-radius: 16px;
       display: grid;
       place-items: center;
       min-height: 140px;
       cursor: pointer;
       transition: all 0.2s ease;
+      background: rgba(255, 255, 255, 0.02);
     }
 
     .half:hover {
-      background: rgba(167, 139, 250, 0.05);
+      background: rgba(251, 146, 60, 0.05);
       border-color: var(--accent);
     }
 
@@ -215,13 +248,17 @@
     }
 
     .pip {
-      width: 20px;
-      height: 20px;
-      background: var(--accent);
-      border-radius: 50%;
-      justify-self: center;
-      align-self: center;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      width: 24px;
+      height: 24px;
+      /* Paw print shape using CSS mask or just a circle for now, let's use emoji content */
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+    }
+
+    .pip::before {
+      content: '🐾';
+      filter: grayscale(100%) brightness(200%);
     }
 
     .helper {
@@ -236,14 +273,15 @@
       justify-content: space-between;
       gap: 12px;
       flex-wrap: wrap;
+      margin-top: auto;
     }
 
     .btn {
-      background: rgba(167, 139, 250, 0.2);
+      background: transparent;
       color: var(--fg);
-      border: 2px solid var(--accent);
+      border: 2px solid var(--border);
       border-radius: 12px;
-      padding: 12px 24px;
+      padding: 12px 20px;
       font-weight: 800;
       font-size: 16px;
       cursor: pointer;
@@ -251,62 +289,138 @@
     }
 
     .btn:hover {
-      background: rgba(167, 139, 250, 0.3);
+      border-color: var(--accent);
+      color: var(--accent);
       transform: translateY(-2px);
     }
 
     .btn.primary {
       background: var(--accent);
-      color: #1a1447;
+      color: #292524;
+      border-color: var(--accent);
+      box-shadow: 0 4px 12px rgba(251, 146, 60, 0.4);
     }
 
     .btn.primary:hover {
-      background: #c4b5fd;
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn.danger {
+      border-color: var(--bad);
+      color: var(--bad);
+    }
+
+    .btn.danger:hover {
+      background: var(--bad);
+      color: #292524;
     }
 
     .feedback {
-      min-height: 30px;
+      min-height: 40px;
       text-align: center;
       font-weight: 800;
       font-size: 18px;
       padding: 12px;
       border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
     .good {
-      color: var(--ok);
-      background: rgba(134, 239, 172, 0.1);
+      color: #064e3b;
+      background: var(--ok);
     }
 
     .bad {
-      color: var(--bad);
-      background: rgba(252, 165, 165, 0.1);
+      color: #7f1d1d;
+      background: var(--bad);
+    }
+
+    /* Cat Reward */
+    .cat-reward {
+      width: 100%;
+      max-width: 300px;
+      height: 200px;
+      border-radius: 16px;
+      overflow: hidden;
+      margin: 0 auto;
+      display: none;
+      border: 4px solid var(--accent);
+      background: #000;
+    }
+
+    .cat-reward img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .cat-reward.show {
+      display: block;
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
     }
 
     @media (max-width: 600px) {
-      .num-btn { min-width: 80px; font-size: 24px; }
-      .card { padding: 16px; }
+      .num-btn {
+        min-width: 70px;
+        font-size: 24px;
+        padding: 12px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .pip {
+        font-size: 16px;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="app">
     <header>
       <div class="title">
-        <div class="logo">1</div>
-        <h1>Math Screener — Unit 1</h1>
+        <div class="logo">🐱</div>
+        <h1>Cat Math</h1>
       </div>
-      <div class="pill">Task <span id="step">1</span> / 6</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="reset" class="btn danger" style="padding: 8px 12px; font-size: 14px;">↺ Reset</button>
+        <div class="pill">Task <span id="step">1</span> / 6</div>
+      </div>
     </header>
 
     <section class="card">
       <div id="prompt" class="prompt"></div>
+
+      <div id="catContainer" class="cat-reward">
+        <img id="catImg" src="" alt="Funny Cat GIF" />
+      </div>
+
       <div id="content" class="content"></div>
+
       <div id="feedback" class="feedback"></div>
+
       <div class="controls">
         <button id="prev" class="btn">⬅ Prev</button>
         <div style="display:flex; gap:12px;">
-          <button id="check" class="btn primary">✓ Check</button>
+          <button id="check" class="btn primary">Check 🐾</button>
           <button id="next" class="btn">Next ➡</button>
         </div>
       </div>
@@ -314,7 +428,7 @@
   </div>
 
   <script>
-    const SAVE_KEY = 'math_screener_v1';
+    const SAVE_KEY = 'cat_math_v2';
     const els = {
       step: document.getElementById('step'),
       prompt: document.getElementById('prompt'),
@@ -322,7 +436,10 @@
       feedback: document.getElementById('feedback'),
       prev: document.getElementById('prev'),
       next: document.getElementById('next'),
-      check: document.getElementById('check')
+      check: document.getElementById('check'),
+      reset: document.getElementById('reset'),
+      catContainer: document.getElementById('catContainer'),
+      catImg: document.getElementById('catImg')
     };
 
     const state = {
@@ -339,7 +456,7 @@
     function save() {
       try {
         localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-      } catch (e) {}
+      } catch (e) { }
     }
 
     function load() {
@@ -349,11 +466,24 @@
           const s = JSON.parse(raw);
           Object.assign(state, s);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     function rng(min, max) {
       return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function showCat() {
+      // Add timestamp to bust cache
+      els.catImg.src = `https://cataas.com/cat/gif?t=${Date.now()}`;
+      els.catContainer.classList.add('show');
+      els.content.style.display = 'none';
+    }
+
+    function hideCat() {
+      els.catContainer.classList.remove('show');
+      els.content.style.display = 'flex';
+      els.catImg.src = ''; // Stop loading
     }
 
     function buildT1() {
@@ -442,14 +572,14 @@
 
       const topLabel = document.createElement('div');
       topLabel.className = 'helper';
-      topLabel.innerHTML = `<span class="pill">Starting: ${existing}</span>`;
+      topLabel.innerHTML = `<span class="pill">Start: ${existing}</span>`;
 
       const bottom = document.createElement('div');
       bottom.className = 'half';
 
       const bottomLabel = document.createElement('div');
       bottomLabel.className = 'helper';
-      bottomLabel.innerHTML = `<span class="pill">Tap to add dots</span><span class="pill">Goal: ${target}</span>`;
+      bottomLabel.innerHTML = `<span class="pill">Tap to add</span><span class="pill">Goal: ${target}</span>`;
 
       let added = state.i === 4 ? (state.t5.bottomAdded || 0) : (state.t4.added || 0);
 
@@ -494,6 +624,7 @@
     }
 
     function render() {
+      hideCat(); // Ensure cat is hidden when rendering new content
       els.step.textContent = String(state.i + 1);
       els.feedback.textContent = '';
       els.feedback.className = 'feedback';
@@ -566,14 +697,14 @@
           highlightPicks(row, state.t3.pick, Math.min(a, b));
         }
       } else if (state.i === 3) {
-        els.prompt.textContent = 'Count the dots, then add more to make 5.';
+        els.prompt.textContent = 'Count the paws, then add more to make 5.';
         const n = ensureT4();
         c.appendChild(dominoUI(n, 5, (added) => {
           state.t4.added = added;
           save();
         }));
       } else if (state.i === 4) {
-        els.prompt.textContent = 'Add dots on bottom to make 10. Write the missing number.';
+        els.prompt.textContent = 'Add paws on bottom to make 10. Write the missing number.';
         const { top } = ensureT5();
         c.appendChild(dominoUI(top, 10, (added) => {
           state.t5.bottomAdded = added;
@@ -597,7 +728,7 @@
         ansRow.appendChild(inp);
         c.appendChild(ansRow);
       } else if (state.i === 5) {
-        els.prompt.textContent = 'There were 5 dominos on the table. 2 fell on the floor. How many are left?';
+        els.prompt.textContent = 'There were 5 cats on the table. 2 jumped off. How many are left?';
         const row = document.createElement('div');
         row.className = 'row';
         const inp = document.createElement('input');
@@ -628,35 +759,40 @@
           }
         });
         ok = good;
-        msg = good ? '🎉 Great counting!' : '❌ Some blanks are incorrect.';
+        msg = good ? 'Purrfect counting! 🐱' : '❌ Some blanks are incorrect.';
       } else if (state.i === 1) {
         const { a, b, pick } = state.t2;
         ok = pick === Math.max(a, b);
-        msg = ok ? '✓ Correct!' : '❌ Try again: tap the bigger number.';
+        msg = ok ? 'Meow-velous! 😺' : '❌ Try again: tap the bigger number.';
       } else if (state.i === 2) {
         const { a, b, pick } = state.t3;
         ok = pick === Math.min(a, b);
-        msg = ok ? '✓ Nice job!' : '❌ Try again: tap the smaller number.';
+        msg = ok ? 'Pawsome job! 🐾' : '❌ Try again: tap the smaller number.';
       } else if (state.i === 3) {
         const have = state.t4.n;
         const add = state.t4.added;
         ok = have + add === 5;
-        msg = ok ? '🎉 You made 5!' : '❌ Keep adding dots to make 5.';
+        msg = ok ? 'High five! 🖐️' : '❌ Keep adding paws to make 5.';
       } else if (state.i === 4) {
         const have = state.t5.top;
         const add = state.t5.bottomAdded;
         const miss = Number(state.t5.missing || NaN);
         ok = have + add === 10 && miss === 10 - have;
-        msg = ok ? '🎉 You made 10!' : '❌ Add dots and write the missing number.';
+        msg = ok ? 'You are the cat\'s pajamas! 😻' : '❌ Add paws and write the missing number.';
       } else if (state.i === 5) {
         ok = Number(state.t6.ans || NaN) === 3;
-        msg = ok ? '✓ Correct: 3 dominos left!' : '💡 Hint: 5 - 2 = ?';
+        msg = ok ? 'Correct: 3 cats left! 🐈' : '💡 Hint: 5 - 2 = ?';
       }
 
       els.feedback.textContent = msg;
       els.feedback.className = 'feedback ' + (ok ? 'good' : 'bad');
       state.results[state.i] = ok;
       save();
+
+      if (ok) {
+        showCat();
+      }
+
       return ok;
     }
 
@@ -675,6 +811,25 @@
       }
     }
 
+    function doReset() {
+      if (confirm('Start a new game with new numbers?')) {
+        localStorage.removeItem(SAVE_KEY);
+        // Reset state object
+        state.i = 0;
+        state.t1 = { seq: [], answers: [] };
+        state.t2 = { a: 0, b: 0, pick: null };
+        state.t3 = { a: 0, b: 0, pick: null };
+        state.t4 = { n: 0, added: 0 };
+        state.t5 = { top: 0, bottomAdded: 0, missing: '' };
+        state.t6 = { ans: '' };
+        state.results = {};
+
+        save();
+        maybeInit();
+        render();
+      }
+    }
+
     function maybeInit() {
       if (state.i === 0 && (!state.t1.seq || !state.t1.seq.length)) buildT1();
       if (state.i === 1) ensureT2();
@@ -685,9 +840,18 @@
 
     els.check.addEventListener('click', check);
     els.next.addEventListener('click', () => {
-      if (check()) next();
+      // If cat is showing (correct answer), allow next
+      if (els.catContainer.classList.contains('show')) {
+        next();
+      } else {
+        if (check()) {
+          // Wait a moment for user to see cat before auto-next? 
+          // No, let them click next manually to see the cat.
+        }
+      }
     });
     els.prev.addEventListener('click', prev);
+    els.reset.addEventListener('click', doReset);
 
     // Init
     load();
@@ -700,4 +864,5 @@
     }
   </script>
 </body>
+
 </html>
