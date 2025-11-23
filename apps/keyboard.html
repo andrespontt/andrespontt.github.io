@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chromatic Keyboard</title>
+  <meta name="theme-color" content="#1e1b4b" />
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} 
+    gtag('js', new Date());
+    gtag('config', 'G-2PFGZZBZ0B');
+  </script>
+  <style>
+    :root {
+      --bg: #1a1447;
+      --bg2: #231858;
+      --card: #2d1f6b;
+      --fg: #f3f0ff;
+      --muted: #c4b5fd;
+      --accent: #a78bfa;
+      --border: rgba(167, 139, 250, 0.2);
+      --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html, body { height: 100%; }
+    
+    body {
+      color: var(--fg);
+      font-family: ui-rounded, system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .app {
+      max-width: 900px;
+      width: 100%;
+      background: linear-gradient(135deg, #2d1f6b, #241858);
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 32px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .back-link {
+      padding: 10px 18px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--fg);
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+    }
+    
+    .back-link:hover {
+      background: rgba(167, 139, 250, 0.25);
+      transform: translateY(-2px);
+    }
+
+    h1 {
+      font-size: clamp(20px, 5vw, 28px);
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .octave-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(167, 139, 250, 0.15);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 20px;
+    }
+
+    .octave-btn {
+      background: var(--accent);
+      color: #1a1447;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-weight: 900;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 50px;
+    }
+
+    .octave-btn:hover {
+      background: #c4b5fd;
+      transform: scale(1.05);
+    }
+
+    .octave-btn:active {
+      transform: scale(0.95);
+    }
+
+    .octave-display {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent);
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .keyboard {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    .key {
+      min-width: 60px;
+      height: 200px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.1s ease;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 12px;
+      font-weight: 800;
+      font-size: 14px;
+      user-select: none;
+      position: relative;
+    }
+
+    .key.white {
+      background: linear-gradient(180deg, #ffffff, #f0f0f0);
+      color: #1a1447;
+    }
+
+    .key.white:hover {
+      background: linear-gradient(180deg, #f0f0f0, #e0e0e0);
+      transform: translateY(-2px);
+    }
+
+    .key.white:active {
+      background: linear-gradient(180deg, #e0e0e0, #d0d0d0);
+      transform: translateY(0);
+    }
+
+    .key.black {
+      background: linear-gradient(180deg, #2d1f6b, #1a1447);
+      color: var(--fg);
+      height: 120px;
+      margin-left: -30px;
+      margin-right: -30px;
+      z-index: 1;
+      min-width: 40px;
+    }
+
+    .key.black:hover {
+      background: linear-gradient(180deg, #3d2f7b, #2a1a57);
+      transform: translateY(-2px);
+    }
+
+    .key.black:active {
+      background: linear-gradient(180deg, #1a1447, #0f0a2e);
+      transform: translateY(0);
+    }
+
+    .key.playing {
+      background: linear-gradient(180deg, var(--accent), #8b6ffa) !important;
+      transform: scale(0.95);
+      box-shadow: 0 0 20px rgba(167, 139, 250, 0.6);
+    }
+
+    @media (max-width: 600px) {
+      .key {
+        min-width: 40px;
+        height: 150px;
+      }
+      .key.black {
+        height: 90px;
+        min-width: 30px;
+        margin-left: -20px;
+        margin-right: -20px;
+      }
+      .app {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <a href="index.html" class="back-link">← Back to Apps</a>
+      <h1>🎹 Chromatic Keyboard</h1>
+      <div class="octave-controls">
+        <button class="octave-btn" id="octaveDown">⬇</button>
+        <div class="octave-display" id="octaveDisplay">C4</div>
+        <button class="octave-btn" id="octaveUp">⬆</button>
+      </div>
+    </header>
+
+    <div class="keyboard" id="keyboard"></div>
+  </div>
+
+  <script>
+    // Chromatic notes
+    const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const WHITE_KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    const BLACK_KEYS = ['C#', 'D#', 'F#', 'G#', 'A#'];
+
+    let currentOctave = 4;
+    let audioContext = null;
+    let activeOscillators = {};
+
+    // Initialize audio context on first user interaction
+    function initAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    }
+
+    // Get frequency for a note
+    function getFrequency(note, octave) {
+      const noteIndex = NOTES.indexOf(note);
+      const semitonesFromA4 = (octave - 4) * 12 + noteIndex - 9; // A4 is reference
+      return 440 * Math.pow(2, semitonesFromA4 / 12);
+    }
+
+    // Play a note
+    function playNote(note, octave) {
+      initAudio();
+      
+      const frequency = getFrequency(note, octave);
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+      
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.5);
+
+      const keyId = `${note}-${octave}`;
+      activeOscillators[keyId] = oscillator;
+      
+      setTimeout(() => {
+        delete activeOscillators[keyId];
+      }, 500);
+    }
+
+    // Create keyboard
+    function createKeyboard() {
+      const keyboard = document.getElementById('keyboard');
+      keyboard.innerHTML = '';
+
+      NOTES.forEach((note, index) => {
+        const isWhite = WHITE_KEYS.includes(note);
+        const key = document.createElement('div');
+        key.className = `key ${isWhite ? 'white' : 'black'}`;
+        key.textContent = note;
+        key.dataset.note = note;
+        
+        key.addEventListener('mousedown', () => {
+          playNote(note, currentOctave);
+          key.classList.add('playing');
+        });
+        
+        key.addEventListener('mouseup', () => {
+          key.classList.remove('playing');
+        });
+        
+        key.addEventListener('mouseleave', () => {
+          key.classList.remove('playing');
+        });
+
+        keyboard.appendChild(key);
+      });
+    }
+
+    // Octave controls
+    document.getElementById('octaveUp').addEventListener('click', () => {
+      if (currentOctave < 8) {
+        currentOctave++;
+        updateOctaveDisplay();
+      }
+    });
+
+    document.getElementById('octaveDown').addEventListener('click', () => {
+      if (currentOctave > 0) {
+        currentOctave--;
+        updateOctaveDisplay();
+      }
+    });
+
+    function updateOctaveDisplay() {
+      document.getElementById('octaveDisplay').textContent = `C${currentOctave}`;
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      
+      const keyMap = {
+        'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E',
+        'f': 'F', 't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A',
+        'u': 'A#', 'j': 'B'
+      };
+
+      if (keyMap[e.key.toLowerCase()]) {
+        const note = keyMap[e.key.toLowerCase()];
+        playNote(note, currentOctave);
+        const key = document.querySelector(`[data-note="${note}"]`);
+        if (key) {
+          key.classList.add('playing');
+        }
+      }
+
+      if (e.key === 'ArrowUp' || e.key === '+') {
+        e.preventDefault();
+        if (currentOctave < 8) {
+          currentOctave++;
+          updateOctaveDisplay();
+        }
+      }
+
+      if (e.key === 'ArrowDown' || e.key === '-') {
+        e.preventDefault();
+        if (currentOctave > 0) {
+          currentOctave--;
+          updateOctaveDisplay();
+        }
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      const keyMap = {
+        'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E',
+        'f': 'F', 't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A',
+        'u': 'A#', 'j': 'B'
+      };
+
+      if (keyMap[e.key.toLowerCase()]) {
+        const note = keyMap[e.key.toLowerCase()];
+        const key = document.querySelector(`[data-note="${note}"]`);
+        if (key) {
+          key.classList.remove('playing');
+        }
+      }
+    });
+
+    // Initialize
+    createKeyboard();
+    updateOctaveDisplay();
+
+    // Unlock audio on first interaction
+    ['click', 'touchstart', 'keydown'].forEach(evt => {
+      window.addEventListener(evt, initAudio, { once: true });
+    });
+  </script>
+</body>
+</html>
+
