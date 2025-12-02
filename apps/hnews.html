@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hacker News Reader</title>
+  <meta name="theme-color" content="#1e1b4b" />
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} 
+    gtag('js', new Date());
+    gtag('config', 'G-2PFGZZBZ0B');
+  </script>
+  <style>
+    :root {
+      --bg: #1a1447;
+      --bg2: #231858;
+      --card: #2d1f6b;
+      --fg: #f3f0ff;
+      --muted: #c4b5fd;
+      --accent: #a78bfa;
+      --border: rgba(167, 139, 250, 0.2);
+      --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html, body { height: 100%; }
+    
+    body {
+      color: var(--fg);
+      font-family: ui-rounded, system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      -webkit-font-smoothing: antialiased;
+      padding: 20px;
+    }
+
+    .app {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .back-link {
+      padding: 10px 18px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--fg);
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+    }
+    
+    .back-link:hover {
+      background: rgba(167, 139, 250, 0.25);
+      transform: translateY(-2px);
+    }
+
+    h1 {
+      font-size: clamp(20px, 5vw, 28px);
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      background: rgba(167, 139, 250, 0.2);
+      color: var(--fg);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(167, 139, 250, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .btn.active {
+      background: var(--accent);
+      color: #1a1447;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .error {
+      background: rgba(252, 165, 165, 0.1);
+      border: 2px solid #fca5a5;
+      border-radius: 12px;
+      padding: 20px;
+      color: #fca5a5;
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .news-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .news-item {
+      background: linear-gradient(135deg, #2d1f6b, #241858);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .news-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(167, 139, 250, 0.2);
+      border-color: var(--accent);
+    }
+
+    .news-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .news-title a {
+      color: var(--fg);
+      text-decoration: none;
+    }
+
+    .news-title a:hover {
+      color: var(--accent);
+    }
+
+    .news-meta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      color: var(--muted);
+      align-items: center;
+    }
+
+    .news-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .news-url {
+      color: var(--accent);
+      font-size: 12px;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .news-url a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .news-url a:hover {
+      text-decoration: underline;
+    }
+
+    .points {
+      color: #86efac;
+      font-weight: 700;
+    }
+
+    .comments {
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .author {
+      color: var(--muted);
+    }
+
+    .time {
+      color: var(--muted);
+    }
+
+    @media (max-width: 600px) {
+      .news-item {
+        padding: 16px;
+      }
+      .news-title {
+        font-size: 16px;
+      }
+      .news-meta {
+        font-size: 12px;
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <a href="index.html" class="back-link">← Back to Apps</a>
+      <h1>📰 Hacker News</h1>
+    </header>
+
+    <div class="controls">
+      <button class="btn active" id="btnTop">Top Stories</button>
+      <button class="btn" id="btnNew">New Stories</button>
+      <button class="btn" id="btnBest">Best Stories</button>
+    </div>
+
+    <div id="content">
+      <div class="loading">Loading stories...</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://hacker-news.firebaseio.com/v0';
+    let currentType = 'top';
+    let stories = [];
+
+    // Get time ago string
+    function getTimeAgo(timestamp) {
+      const now = Math.floor(Date.now() / 1000);
+      const diff = now - timestamp;
+      
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+      return `${Math.floor(diff / 604800)}w ago`;
+    }
+
+    // Get domain from URL
+    function getDomain(url) {
+      try {
+        return new URL(url).hostname.replace('www.', '');
+      } catch {
+        return '';
+      }
+    }
+
+    // Fetch story IDs
+    async function fetchStoryIds(type) {
+      const endpoint = type === 'top' ? 'topstories' : type === 'new' ? 'newstories' : 'beststories';
+      const response = await fetch(`${API_BASE}/${endpoint}.json`);
+      if (!response.ok) throw new Error('Failed to fetch stories');
+      return response.json();
+    }
+
+    // Fetch story details
+    async function fetchStory(id) {
+      const response = await fetch(`${API_BASE}/item/${id}.json`);
+      if (!response.ok) throw new Error('Failed to fetch story');
+      return response.json();
+    }
+
+    // Fetch multiple stories
+    async function fetchStories(ids, limit = 30) {
+      const storyPromises = ids.slice(0, limit).map(id => fetchStory(id));
+      return Promise.all(storyPromises);
+    }
+
+    // Render stories
+    function renderStories(stories) {
+      const content = document.getElementById('content');
+      
+      if (stories.length === 0) {
+        content.innerHTML = '<div class="error">No stories found.</div>';
+        return;
+      }
+
+      content.innerHTML = `
+        <div class="news-list">
+          ${stories.map((story, index) => `
+            <article class="news-item">
+              <div class="news-title">
+                <a href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank" rel="noopener noreferrer">
+                  ${index + 1}. ${story.title || 'Untitled'}
+                </a>
+              </div>
+              <div class="news-meta">
+                <span class="points">⬆ ${story.score || 0} points</span>
+                <span class="author">by ${story.by || 'unknown'}</span>
+                <span class="time">${getTimeAgo(story.time || 0)}</span>
+                <span class="comments">
+                  <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener noreferrer">
+                    💬 ${story.descendants || 0} comments
+                  </a>
+                </span>
+                ${story.url ? `<span class="news-url">(${getDomain(story.url)})</span>` : ''}
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // Load stories
+    async function loadStories(type) {
+      const content = document.getElementById('content');
+      content.innerHTML = '<div class="loading">Loading stories...</div>';
+
+      try {
+        // Update active button
+        document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+        if (type === 'top') document.getElementById('btnTop').classList.add('active');
+        if (type === 'new') document.getElementById('btnNew').classList.add('active');
+        if (type === 'best') document.getElementById('btnBest').classList.add('active');
+
+        const ids = await fetchStoryIds(type);
+        stories = await fetchStories(ids);
+        renderStories(stories);
+        currentType = type;
+      } catch (error) {
+        content.innerHTML = `<div class="error">Error loading stories: ${error.message}</div>`;
+      }
+    }
+
+    // Event listeners
+    document.getElementById('btnTop').addEventListener('click', () => loadStories('top'));
+    document.getElementById('btnNew').addEventListener('click', () => loadStories('new'));
+    document.getElementById('btnBest').addEventListener('click', () => loadStories('best'));
+
+    // Initial load
+    loadStories('top');
+  </script>
+</body>
+</html>
+
