@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>View Comment Thread - Hacker News</title>
+  <meta name="theme-color" content="#1e1b4b" />
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} 
+    gtag('js', new Date());
+    gtag('config', 'G-2PFGZZBZ0B');
+  </script>
+  <style>
+    :root {
+      --bg: #1a1447;
+      --bg2: #231858;
+      --card: #2d1f6b;
+      --fg: #f3f0ff;
+      --muted: #c4b5fd;
+      --accent: #a78bfa;
+      --border: rgba(167, 139, 250, 0.2);
+      --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html, body { height: 100%; }
+    
+    body {
+      color: var(--fg);
+      font-family: ui-rounded, system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      -webkit-font-smoothing: antialiased;
+      padding: 20px;
+    }
+
+    .app {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .back-link {
+      padding: 10px 18px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--fg);
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+    }
+    
+    .back-link:hover {
+      background: rgba(167, 139, 250, 0.25);
+      transform: translateY(-2px);
+    }
+
+    h1 {
+      font-size: clamp(20px, 5vw, 28px);
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .error {
+      background: rgba(252, 165, 165, 0.1);
+      border: 2px solid #fca5a5;
+      border-radius: 12px;
+      padding: 20px;
+      color: #fca5a5;
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .comment {
+      background: linear-gradient(135deg, #2d1f6b, #241858);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .comment-header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .comment-author {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 16px;
+    }
+
+    .comment-time {
+      color: var(--muted);
+    }
+
+    .comment-text {
+      line-height: 1.8;
+      color: var(--fg);
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    .comment-text p {
+      margin-bottom: 12px;
+    }
+
+    .comment-text a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .comment-text a:hover {
+      text-decoration: underline;
+    }
+
+    .comment-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .comment-replies {
+      margin-left: 32px;
+      margin-top: 16px;
+      border-left: 3px solid var(--accent);
+      padding-left: 20px;
+    }
+
+    .comment-deleted {
+      color: var(--muted);
+      font-style: italic;
+      padding: 12px;
+      background: rgba(167, 139, 250, 0.05);
+      border-radius: 8px;
+    }
+
+    .main-comment {
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 20px rgba(167, 139, 250, 0.3);
+    }
+
+    @media (max-width: 600px) {
+      .comment {
+        padding: 16px;
+      }
+      .comment-replies {
+        margin-left: 16px;
+        padding-left: 12px;
+      }
+      .comment-text {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <a href="hnews.html" class="back-link">← Back to Hacker News</a>
+      <h1>💬 Comment Thread</h1>
+    </header>
+
+    <div id="content">
+      <div class="loading">Loading comment thread...</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://hacker-news.firebaseio.com/v0';
+
+    // Get comment ID from URL
+    function getCommentId() {
+      const params = new URLSearchParams(window.location.search);
+      return parseInt(params.get('id'));
+    }
+
+    // Get time ago string
+    function getTimeAgo(timestamp) {
+      const now = Math.floor(Date.now() / 1000);
+      const diff = now - timestamp;
+      
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+      return `${Math.floor(diff / 604800)}w ago`;
+    }
+
+    // Strip HTML tags from text
+    function stripHtml(html) {
+      const tmp = document.createElement('DIV');
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || '';
+    }
+
+    // Fetch item details
+    async function fetchItem(id) {
+      const response = await fetch(`${API_BASE}/item/${id}.json`);
+      if (!response.ok) throw new Error('Failed to fetch item');
+      return response.json();
+    }
+
+    // Fetch comment tree recursively (all levels)
+    async function fetchCommentTree(commentId) {
+      if (!commentId) return null;
+      
+      const comment = await fetchItem(commentId);
+      if (!comment || comment.deleted || comment.dead) return null;
+
+      if (comment.kids && comment.kids.length > 0) {
+        const replies = await Promise.all(
+          comment.kids.map(kidId => fetchCommentTree(kidId))
+        );
+        comment.replies = replies.filter(r => r !== null);
+      }
+
+      return comment;
+    }
+
+    // Render comment with all nested levels
+    function renderComment(comment, isMain = false) {
+      if (!comment || comment.deleted || comment.dead) {
+        return '<div class="comment comment-deleted">[deleted]</div>';
+      }
+
+      const text = comment.text || '';
+      const replies = comment.replies || [];
+      
+      return `
+        <div class="comment ${isMain ? 'main-comment' : ''}" data-comment-id="${comment.id}">
+          <div class="comment-header">
+            <span class="comment-author">${comment.by || 'unknown'}</span>
+            <span class="comment-time">${getTimeAgo(comment.time || 0)}</span>
+          </div>
+          <div class="comment-text">${text}</div>
+          <div class="comment-meta">
+            <span>⬆ ${comment.score || 0} points</span>
+          </div>
+          ${replies.length > 0 ? `
+            <div class="comment-replies">
+              ${replies.map(reply => renderComment(reply, false)).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // Load and display comment thread
+    async function loadCommentThread() {
+      const content = document.getElementById('content');
+      const commentId = getCommentId();
+
+      if (!commentId) {
+        content.innerHTML = '<div class="error">No comment ID provided.</div>';
+        return;
+      }
+
+      try {
+        const comment = await fetchCommentTree(commentId);
+        
+        if (!comment) {
+          content.innerHTML = '<div class="error">Comment not found or deleted.</div>';
+          return;
+        }
+
+        content.innerHTML = renderComment(comment, true);
+      } catch (error) {
+        content.innerHTML = `<div class="error">Error loading comment: ${error.message}</div>`;
+      }
+    }
+
+    // Initial load
+    loadCommentThread();
+  </script>
+</body>
+</html>
+
