@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hacker News Reader</title>
   <meta name="theme-color" content="#1e1b4b" />
   <link rel="preconnect" href="https://www.googletagmanager.com">
@@ -11,7 +12,7 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);} 
+    function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
     gtag('config', 'G-2PFGZZBZ0B');
   </script>
@@ -26,11 +27,18 @@
       --border: rgba(167, 139, 250, 0.2);
       --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
     }
-    
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    
-    html, body { height: 100%; }
-    
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
     body {
       color: var(--fg);
       font-family: ui-rounded, system-ui, -apple-system, sans-serif;
@@ -67,7 +75,7 @@
       text-decoration: none;
       backdrop-filter: blur(10px);
     }
-    
+
     .back-link:hover {
       background: rgba(167, 139, 250, 0.25);
       transform: translateY(-2px);
@@ -206,6 +214,18 @@
 
     .time {
       color: var(--muted);
+    }
+
+    .hn-link {
+      color: var(--muted);
+      text-decoration: none;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+
+    .hn-link:hover {
+      opacity: 1;
+      text-decoration: underline;
     }
 
     /* Comment view styles */
@@ -389,21 +409,26 @@
       .nav-controls {
         right: 10px;
       }
+
       .nav-arrow {
         width: 40px;
         height: 40px;
         font-size: 20px;
       }
+
       .comment-replies {
         margin-left: 12px;
         padding-left: 12px;
       }
+
       .news-item {
         padding: 16px;
       }
+
       .news-title {
         font-size: 16px;
       }
+
       .news-meta {
         font-size: 12px;
         gap: 12px;
@@ -411,6 +436,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="app">
     <header>
@@ -453,7 +479,7 @@
     function getTimeAgo(timestamp) {
       const now = Math.floor(Date.now() / 1000);
       const diff = now - timestamp;
-      
+
       if (diff < 60) return 'just now';
       if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
       if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -501,7 +527,7 @@
     // Fetch comment tree recursively
     async function fetchCommentTree(commentId, depth = 0) {
       if (!commentId) return null;
-      
+
       const comment = await fetchItem(commentId);
       if (!comment || comment.deleted || comment.dead) return null;
 
@@ -533,13 +559,13 @@
 
       const text = comment.text || '';
       const replies = comment.replies || [];
-      
+
       // Only show first level of replies
       const firstLevelReplies = replies.map(reply => {
         const nestedCount = countNestedReplies(reply);
         return { reply, nestedCount };
       });
-      
+
       return `
         <div class="comment" data-comment-id="${comment.id}" data-depth="${depth}">
           <div class="comment-header">
@@ -549,13 +575,14 @@
           <div class="comment-text">${text}</div>
           <div class="comment-meta">
             <span>⬆ ${comment.score || 0}</span>
+            <a href="https://news.ycombinator.com/item?id=${comment.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
           </div>
           ${firstLevelReplies.length > 0 ? `
             <div class="comment-replies">
               ${firstLevelReplies.map(({ reply, nestedCount }) => {
-                const replyText = reply.text || '';
-                const hasMore = nestedCount > 0;
-                return `
+        const replyText = reply.text || '';
+        const hasMore = nestedCount > 0;
+        return `
                   <div class="comment" data-comment-id="${reply.id}" data-depth="${depth + 1}">
                     <div class="comment-header">
                       <span class="comment-author">${reply.by || 'unknown'}</span>
@@ -564,6 +591,7 @@
                     <div class="comment-text">${replyText}</div>
                     <div class="comment-meta">
                       <span>⬆ ${reply.score || 0}</span>
+                      <a href="https://news.ycombinator.com/item?id=${reply.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
                     </div>
                     ${hasMore ? `
                       <div class="collapsed-replies">
@@ -574,7 +602,7 @@
                     ` : ''}
                   </div>
                 `;
-              }).join('')}
+      }).join('')}
             </div>
           ` : ''}
         </div>
@@ -584,7 +612,7 @@
     // Render stories
     function renderStories(stories) {
       const content = document.getElementById('content');
-      
+
       if (stories.length === 0) {
         content.innerHTML = '<div class="error">No stories found.</div>';
         return;
@@ -604,6 +632,7 @@
                 <span class="author">by ${story.by || 'unknown'}</span>
                 <span class="time">${getTimeAgo(story.time || 0)}</span>
                 <span class="comments">💬 ${story.descendants || 0} comments</span>
+                <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
                 ${story.url ? `<span class="news-url">(${getDomain(story.url)})</span>` : ''}
               </div>
             </article>
@@ -616,6 +645,8 @@
         item.addEventListener('click', async (e) => {
           if (e.target.tagName === 'A') return; // Don't interfere with links
           const storyId = parseInt(item.dataset.storyId);
+          // Push state for history support
+          history.pushState({ storyId: storyId }, '', '#item=' + storyId);
           await showComments(storyId);
         });
       });
@@ -648,6 +679,7 @@
               <span class="points">⬆ ${story.score || 0} points</span>
               <span class="author">by ${story.by || 'unknown'}</span>
               <span class="time">${getTimeAgo(story.time || 0)}</span>
+              <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
               ${story.url ? `<span class="news-url">(${getDomain(story.url)})</span>` : ''}
             </div>
           </div>
@@ -658,17 +690,17 @@
           const commentPromises = story.kids.map(kidId => fetchCommentTree(kidId));
           const comments = await Promise.all(commentPromises);
           topLevelComments = comments.filter(c => c !== null);
-          
+
           // Render all comments
           commentsContainer.innerHTML = topLevelComments.map(comment => renderComment(comment)).join('');
-          
+
           // Find all top-level comment elements
           const topLevelElements = Array.from(document.querySelectorAll('.comment[data-depth="0"]'));
-          
+
           // Initialize navigation
           currentCommentIndex = -1;
           updateNavButtons(topLevelElements.length);
-          
+
           // Scroll to first comment
           if (topLevelElements.length > 0) {
             navigateToComment(0, topLevelElements);
@@ -694,7 +726,14 @@
       currentCommentIndex = index;
 
       // Scroll to comment
-      comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const viewportHeight = window.innerHeight;
+      const commentHeight = comment.offsetHeight;
+
+      // If comment is tall (more than 50% of viewport), align to top
+      // Otherwise align to center
+      const blockAlign = commentHeight > viewportHeight * 0.5 ? 'start' : 'center';
+
+      comment.scrollIntoView({ behavior: 'smooth', block: blockAlign });
 
       // Update nav buttons
       updateNavButtons(topLevelElements.length);
@@ -704,7 +743,7 @@
     function updateNavButtons(total) {
       const navUp = document.getElementById('navUp');
       const navDown = document.getElementById('navDown');
-      
+
       navUp.disabled = currentCommentIndex <= 0;
       navDown.disabled = currentCommentIndex >= total - 1;
     }
@@ -746,9 +785,17 @@
     function backToList() {
       document.getElementById('storiesView').style.display = 'block';
       document.getElementById('commentsView').classList.remove('active');
+      // Don't clear currentStory/comments immediately if we want to cache, but for now we reset
+      // to keep memory usage low, or we could keep them. 
+      // The user just wants back navigation.
       currentStory = null;
       topLevelComments = [];
       currentCommentIndex = -1;
+
+      // Clear hash if it exists and we are not popping state (handled by popstate event)
+      if (window.location.hash) {
+        history.pushState(null, '', window.location.pathname + window.location.search);
+      }
     }
 
     // Event listeners
@@ -775,7 +822,33 @@
     });
 
     // Initial load
-    loadStories('top');
+    // Handle browser back/forward
+    window.addEventListener('popstate', (event) => {
+      if (event.state && event.state.storyId) {
+        showComments(event.state.storyId);
+      } else {
+        // If no state, go back to list
+        document.getElementById('storiesView').style.display = 'block';
+        document.getElementById('commentsView').classList.remove('active');
+        currentStory = null;
+        topLevelComments = [];
+        currentCommentIndex = -1;
+      }
+    });
+
+    // Handle initial load with hash
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#item=')) {
+      const storyId = parseInt(hash.replace('#item=', ''));
+      if (!isNaN(storyId)) {
+        showComments(storyId);
+      } else {
+        loadStories('top');
+      }
+    } else {
+      loadStories('top');
+    }
   </script>
 </body>
+
 </html>
