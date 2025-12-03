@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hacker News Reader</title>
+  <meta name="theme-color" content="#1e1b4b" />
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} 
+    gtag('js', new Date());
+    gtag('config', 'G-2PFGZZBZ0B');
+  </script>
+  <style>
+    :root {
+      --bg: #1a1447;
+      --bg2: #231858;
+      --card: #2d1f6b;
+      --fg: #f3f0ff;
+      --muted: #c4b5fd;
+      --accent: #a78bfa;
+      --border: rgba(167, 139, 250, 0.2);
+      --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html, body { height: 100%; }
+    
+    body {
+      color: var(--fg);
+      font-family: ui-rounded, system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      -webkit-font-smoothing: antialiased;
+      padding: 20px;
+    }
+
+    .app {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .back-link {
+      padding: 10px 18px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--fg);
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+    }
+    
+    .back-link:hover {
+      background: rgba(167, 139, 250, 0.25);
+      transform: translateY(-2px);
+    }
+
+    h1 {
+      font-size: clamp(20px, 5vw, 28px);
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      background: rgba(167, 139, 250, 0.2);
+      color: var(--fg);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(167, 139, 250, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .btn.active {
+      background: var(--accent);
+      color: #1a1447;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .error {
+      background: rgba(252, 165, 165, 0.1);
+      border: 2px solid #fca5a5;
+      border-radius: 12px;
+      padding: 20px;
+      color: #fca5a5;
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .news-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .news-item {
+      background: linear-gradient(135deg, #2d1f6b, #241858);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .news-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(167, 139, 250, 0.2);
+      border-color: var(--accent);
+    }
+
+    .news-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .news-title a {
+      color: var(--fg);
+      text-decoration: none;
+    }
+
+    .news-title a:hover {
+      color: var(--accent);
+    }
+
+    .news-meta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      color: var(--muted);
+      align-items: center;
+    }
+
+    .news-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .news-url {
+      color: var(--accent);
+      font-size: 12px;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .points {
+      color: #86efac;
+      font-weight: 700;
+    }
+
+    .comments {
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .author {
+      color: var(--muted);
+    }
+
+    .time {
+      color: var(--muted);
+    }
+
+    /* Comment view styles */
+    .comment-view {
+      display: none;
+    }
+
+    .comment-view.active {
+      display: block;
+    }
+
+    .story-header {
+      background: linear-gradient(135deg, #2d1f6b, #241858);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .story-header h2 {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .story-header h2 a {
+      color: var(--fg);
+      text-decoration: none;
+    }
+
+    .story-header h2 a:hover {
+      color: var(--accent);
+    }
+
+    .nav-controls {
+      position: fixed;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 100;
+    }
+
+    .nav-arrow {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #1a1447;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(167, 139, 250, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .nav-arrow:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 16px rgba(167, 139, 250, 0.6);
+    }
+
+    .nav-arrow:active {
+      transform: scale(0.95);
+    }
+
+    .nav-arrow:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .comments-container {
+      position: relative;
+    }
+
+    .comment {
+      background: linear-gradient(135deg, #2d1f6b, #241858);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .comment.highlighted {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(167, 139, 250, 0.4);
+      transform: scale(1.02);
+    }
+
+    .comment-header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .comment-author {
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .comment-time {
+      color: var(--muted);
+    }
+
+    .comment-text {
+      line-height: 1.6;
+      color: var(--fg);
+      margin-bottom: 8px;
+    }
+
+    .comment-text p {
+      margin-bottom: 8px;
+    }
+
+    .comment-text a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .comment-text a:hover {
+      text-decoration: underline;
+    }
+
+    .comment-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .comment-replies {
+      margin-left: 24px;
+      margin-top: 12px;
+      border-left: 2px solid var(--border);
+      padding-left: 16px;
+    }
+
+    .comment-deleted {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .expand-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 8px;
+      display: inline-block;
+      cursor: pointer;
+    }
+
+    .expand-link:hover {
+      text-decoration: underline;
+    }
+
+    .collapsed-replies {
+      margin-left: 24px;
+      margin-top: 8px;
+      padding-left: 16px;
+      border-left: 2px dashed var(--border);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .back-to-list {
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .nav-controls {
+        right: 10px;
+      }
+      .nav-arrow {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+      }
+      .comment-replies {
+        margin-left: 12px;
+        padding-left: 12px;
+      }
+      .news-item {
+        padding: 16px;
+      }
+      .news-title {
+        font-size: 16px;
+      }
+      .news-meta {
+        font-size: 12px;
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <a href="index.html" class="back-link">← Back to Apps</a>
+      <h1>📰 Hacker News</h1>
+    </header>
+
+    <div class="controls" id="mainControls">
+      <button class="btn active" id="btnTop">Top Stories</button>
+      <button class="btn" id="btnNew">New Stories</button>
+      <button class="btn" id="btnBest">Best Stories</button>
+    </div>
+
+    <div id="storiesView">
+      <div id="content">
+        <div class="loading">Loading stories...</div>
+      </div>
+    </div>
+
+    <div id="commentsView" class="comment-view">
+      <button class="btn back-to-list" id="backToList">← Back to Stories</button>
+      <div id="storyHeader"></div>
+      <div class="nav-controls">
+        <button class="nav-arrow" id="navUp" title="Previous parent comment (↑)">⬆</button>
+        <button class="nav-arrow" id="navDown" title="Next parent comment (↓)">⬇</button>
+      </div>
+      <div class="comments-container" id="commentsContainer"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://hacker-news.firebaseio.com/v0';
+    let currentType = 'top';
+    let stories = [];
+    let currentStory = null;
+    let topLevelComments = [];
+    let currentCommentIndex = -1;
+
+    // Get time ago string
+    function getTimeAgo(timestamp) {
+      const now = Math.floor(Date.now() / 1000);
+      const diff = now - timestamp;
+      
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+      return `${Math.floor(diff / 604800)}w ago`;
+    }
+
+    // Get domain from URL
+    function getDomain(url) {
+      try {
+        return new URL(url).hostname.replace('www.', '');
+      } catch {
+        return '';
+      }
+    }
+
+    // Strip HTML tags from text
+    function stripHtml(html) {
+      const tmp = document.createElement('DIV');
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || '';
+    }
+
+    // Fetch story IDs
+    async function fetchStoryIds(type) {
+      const endpoint = type === 'top' ? 'topstories' : type === 'new' ? 'newstories' : 'beststories';
+      const response = await fetch(`${API_BASE}/${endpoint}.json`);
+      if (!response.ok) throw new Error('Failed to fetch stories');
+      return response.json();
+    }
+
+    // Fetch item details
+    async function fetchItem(id) {
+      const response = await fetch(`${API_BASE}/item/${id}.json`);
+      if (!response.ok) throw new Error('Failed to fetch item');
+      return response.json();
+    }
+
+    // Fetch multiple stories
+    async function fetchStories(ids, limit = 30) {
+      const storyPromises = ids.slice(0, limit).map(id => fetchItem(id));
+      return Promise.all(storyPromises);
+    }
+
+    // Fetch comment tree recursively
+    async function fetchCommentTree(commentId, depth = 0) {
+      if (!commentId) return null;
+      
+      const comment = await fetchItem(commentId);
+      if (!comment || comment.deleted || comment.dead) return null;
+
+      if (comment.kids && comment.kids.length > 0) {
+        const replies = await Promise.all(
+          comment.kids.map(kidId => fetchCommentTree(kidId, depth + 1))
+        );
+        comment.replies = replies.filter(r => r !== null);
+      }
+
+      return comment;
+    }
+
+    // Count total nested replies
+    function countNestedReplies(comment) {
+      if (!comment || !comment.replies || comment.replies.length === 0) return 0;
+      let count = comment.replies.length;
+      comment.replies.forEach(reply => {
+        count += countNestedReplies(reply);
+      });
+      return count;
+    }
+
+    // Render comment (only 1 level deep)
+    function renderComment(comment, depth = 0) {
+      if (!comment || comment.deleted || comment.dead) {
+        return '<div class="comment comment-deleted">[deleted]</div>';
+      }
+
+      const text = comment.text || '';
+      const replies = comment.replies || [];
+      
+      // Only show first level of replies
+      const firstLevelReplies = replies.map(reply => {
+        const nestedCount = countNestedReplies(reply);
+        return { reply, nestedCount };
+      });
+      
+      return `
+        <div class="comment" data-comment-id="${comment.id}" data-depth="${depth}">
+          <div class="comment-header">
+            <span class="comment-author">${comment.by || 'unknown'}</span>
+            <span class="comment-time">${getTimeAgo(comment.time || 0)}</span>
+          </div>
+          <div class="comment-text">${text}</div>
+          <div class="comment-meta">
+            <span>⬆ ${comment.score || 0}</span>
+          </div>
+          ${firstLevelReplies.length > 0 ? `
+            <div class="comment-replies">
+              ${firstLevelReplies.map(({ reply, nestedCount }) => {
+                const replyText = reply.text || '';
+                const hasMore = nestedCount > 0;
+                return `
+                  <div class="comment" data-comment-id="${reply.id}" data-depth="${depth + 1}">
+                    <div class="comment-header">
+                      <span class="comment-author">${reply.by || 'unknown'}</span>
+                      <span class="comment-time">${getTimeAgo(reply.time || 0)}</span>
+                    </div>
+                    <div class="comment-text">${replyText}</div>
+                    <div class="comment-meta">
+                      <span>⬆ ${reply.score || 0}</span>
+                    </div>
+                    ${hasMore ? `
+                      <div class="collapsed-replies">
+                        <a href="hnews_view_comment.html?id=${reply.id}" class="expand-link" target="_blank">
+                          ↳ ${nestedCount} more ${nestedCount === 1 ? 'reply' : 'replies'}
+                        </a>
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // Render stories
+    function renderStories(stories) {
+      const content = document.getElementById('content');
+      
+      if (stories.length === 0) {
+        content.innerHTML = '<div class="error">No stories found.</div>';
+        return;
+      }
+
+      content.innerHTML = `
+        <div class="news-list">
+          ${stories.map((story, index) => `
+            <article class="news-item" data-story-id="${story.id}">
+              <div class="news-title">
+                <a href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank" rel="noopener noreferrer">
+                  ${index + 1}. ${story.title || 'Untitled'}
+                </a>
+              </div>
+              <div class="news-meta">
+                <span class="points">⬆ ${story.score || 0} points</span>
+                <span class="author">by ${story.by || 'unknown'}</span>
+                <span class="time">${getTimeAgo(story.time || 0)}</span>
+                <span class="comments">💬 ${story.descendants || 0} comments</span>
+                ${story.url ? `<span class="news-url">(${getDomain(story.url)})</span>` : ''}
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      `;
+
+      // Add click handlers to stories
+      document.querySelectorAll('.news-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+          if (e.target.tagName === 'A') return; // Don't interfere with links
+          const storyId = parseInt(item.dataset.storyId);
+          await showComments(storyId);
+        });
+      });
+    }
+
+    // Show comments for a story
+    async function showComments(storyId) {
+      const storiesView = document.getElementById('storiesView');
+      const commentsView = document.getElementById('commentsView');
+      const commentsContainer = document.getElementById('commentsContainer');
+      const storyHeader = document.getElementById('storyHeader');
+
+      storiesView.style.display = 'none';
+      commentsView.classList.add('active');
+      commentsContainer.innerHTML = '<div class="loading">Loading comments...</div>';
+
+      try {
+        const story = await fetchItem(storyId);
+        currentStory = story;
+
+        // Render story header
+        storyHeader.innerHTML = `
+          <div class="story-header">
+            <h2>
+              <a href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank" rel="noopener noreferrer">
+                ${story.title || 'Untitled'}
+              </a>
+            </h2>
+            <div class="news-meta">
+              <span class="points">⬆ ${story.score || 0} points</span>
+              <span class="author">by ${story.by || 'unknown'}</span>
+              <span class="time">${getTimeAgo(story.time || 0)}</span>
+              ${story.url ? `<span class="news-url">(${getDomain(story.url)})</span>` : ''}
+            </div>
+          </div>
+        `;
+
+        // Fetch all top-level comments
+        if (story.kids && story.kids.length > 0) {
+          const commentPromises = story.kids.map(kidId => fetchCommentTree(kidId));
+          const comments = await Promise.all(commentPromises);
+          topLevelComments = comments.filter(c => c !== null);
+          
+          // Render all comments
+          commentsContainer.innerHTML = topLevelComments.map(comment => renderComment(comment)).join('');
+          
+          // Find all top-level comment elements
+          const topLevelElements = Array.from(document.querySelectorAll('.comment[data-depth="0"]'));
+          
+          // Initialize navigation
+          currentCommentIndex = -1;
+          updateNavButtons(topLevelElements.length);
+          
+          // Scroll to first comment
+          if (topLevelElements.length > 0) {
+            navigateToComment(0, topLevelElements);
+          }
+        } else {
+          commentsContainer.innerHTML = '<div class="error">No comments yet.</div>';
+        }
+      } catch (error) {
+        commentsContainer.innerHTML = `<div class="error">Error loading comments: ${error.message}</div>`;
+      }
+    }
+
+    // Navigate to a specific comment
+    function navigateToComment(index, topLevelElements) {
+      if (index < 0 || index >= topLevelElements.length) return;
+
+      // Remove previous highlight
+      document.querySelectorAll('.comment.highlighted').forEach(c => c.classList.remove('highlighted'));
+
+      // Highlight current comment
+      const comment = topLevelElements[index];
+      comment.classList.add('highlighted');
+      currentCommentIndex = index;
+
+      // Scroll to comment
+      comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // Update nav buttons
+      updateNavButtons(topLevelElements.length);
+    }
+
+    // Update navigation buttons
+    function updateNavButtons(total) {
+      const navUp = document.getElementById('navUp');
+      const navDown = document.getElementById('navDown');
+      
+      navUp.disabled = currentCommentIndex <= 0;
+      navDown.disabled = currentCommentIndex >= total - 1;
+    }
+
+    // Navigate to next/previous parent comment
+    function navigateComments(direction) {
+      const topLevelElements = Array.from(document.querySelectorAll('.comment[data-depth="0"]'));
+      if (topLevelElements.length === 0) return;
+
+      let newIndex = currentCommentIndex + direction;
+      if (newIndex < 0) newIndex = 0;
+      if (newIndex >= topLevelElements.length) newIndex = topLevelElements.length - 1;
+
+      navigateToComment(newIndex, topLevelElements);
+    }
+
+    // Load stories
+    async function loadStories(type) {
+      const content = document.getElementById('content');
+      content.innerHTML = '<div class="loading">Loading stories...</div>';
+
+      try {
+        // Update active button
+        document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+        if (type === 'top') document.getElementById('btnTop').classList.add('active');
+        if (type === 'new') document.getElementById('btnNew').classList.add('active');
+        if (type === 'best') document.getElementById('btnBest').classList.add('active');
+
+        const ids = await fetchStoryIds(type);
+        stories = await fetchStories(ids);
+        renderStories(stories);
+        currentType = type;
+      } catch (error) {
+        content.innerHTML = `<div class="error">Error loading stories: ${error.message}</div>`;
+      }
+    }
+
+    // Back to list
+    function backToList() {
+      document.getElementById('storiesView').style.display = 'block';
+      document.getElementById('commentsView').classList.remove('active');
+      currentStory = null;
+      topLevelComments = [];
+      currentCommentIndex = -1;
+    }
+
+    // Event listeners
+    document.getElementById('btnTop').addEventListener('click', () => loadStories('top'));
+    document.getElementById('btnNew').addEventListener('click', () => loadStories('new'));
+    document.getElementById('btnBest').addEventListener('click', () => loadStories('best'));
+    document.getElementById('backToList').addEventListener('click', backToList);
+    document.getElementById('navUp').addEventListener('click', () => navigateComments(-1));
+    document.getElementById('navDown').addEventListener('click', () => navigateComments(1));
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (document.getElementById('commentsView').classList.contains('active')) {
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          navigateComments(-1);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          navigateComments(1);
+        } else if (e.key === 'Escape') {
+          backToList();
+        }
+      }
+    });
+
+    // Initial load
+    loadStories('top');
+  </script>
+</body>
+</html>
