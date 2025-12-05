@@ -314,6 +314,8 @@
       margin-bottom: 12px;
       transition: all 0.3s ease;
       position: relative;
+      scroll-margin-top: 60px;
+      /* Ensure 60px gap when scrolling to start */
     }
 
     .comment.highlighted {
@@ -405,6 +407,32 @@
       margin-bottom: 20px;
     }
 
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(167, 139, 250, 0.05);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(167, 139, 250, 0.3);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(167, 139, 250, 0.5);
+    }
+
+    /* Firefox */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(167, 139, 250, 0.3) rgba(167, 139, 250, 0.05);
+    }
+
     @media (max-width: 600px) {
       .nav-controls {
         right: 10px;
@@ -432,6 +460,74 @@
       .news-meta {
         font-size: 12px;
         gap: 12px;
+      }
+    }
+
+    /* Desktop Split View */
+    @media (min-width: 1024px) {
+      .app {
+        transition: max-width 0.3s ease;
+      }
+
+      .app.split-view {
+        max-width: 1400px;
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        grid-template-rows: auto auto 1fr;
+        grid-template-areas:
+          "header comments"
+          "controls comments"
+          "stories comments";
+        gap: 24px;
+        align-items: start;
+        height: calc(100vh - 40px);
+        /* Constrain height to viewport minus body padding */
+        overflow: hidden;
+        /* Prevent body scroll */
+        padding-bottom: 0;
+      }
+
+      .app.split-view header {
+        grid-area: header;
+        margin-bottom: 10px;
+      }
+
+      .app.split-view #mainControls {
+        grid-area: controls;
+        margin-bottom: 10px;
+      }
+
+      .app.split-view #storiesView {
+        grid-area: stories;
+        display: block !important;
+        overflow-y: auto;
+        /* Adjust height calculation or use flex/grid stretch */
+        height: 100%;
+        padding-right: 10px;
+        scrollbar-width: thin;
+      }
+
+      .app.split-view #commentsView {
+        grid-area: comments;
+        display: block;
+        height: 100%;
+        overflow-y: auto;
+        padding-left: 20px;
+        padding-top: 20px;
+        /* Add breathing room at top */
+        padding-right: 10px;
+        border-left: 1px solid var(--border);
+        /* Ensure it takes full height of container */
+      }
+
+      .app.split-view .back-to-list {
+        display: none;
+      }
+
+      .news-item.active {
+        border-color: var(--accent);
+        background: rgba(167, 139, 250, 0.15);
+        transform: translateX(4px);
       }
     }
   </style>
@@ -474,6 +570,7 @@
     let currentStory = null;
     let topLevelComments = [];
     let currentCommentIndex = -1;
+    let selectedStoryIndex = -1;
 
     // Get time ago string
     function getTimeAgo(timestamp) {
@@ -621,7 +718,7 @@
       content.innerHTML = `
         <div class="news-list">
           ${stories.map((story, index) => `
-            <article class="news-item" data-story-id="${story.id}">
+            <article class="news-item" id="story-${index}" data-story-id="${story.id}" data-index="${index}">
               <div class="news-title">
                 <a href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank" rel="noopener noreferrer">
                   ${index + 1}. ${story.title || 'Untitled'}
@@ -644,28 +741,67 @@
       document.querySelectorAll('.news-item').forEach(item => {
         item.addEventListener('click', async (e) => {
           if (e.target.tagName === 'A') return; // Don't interfere with links
+          const index = parseInt(item.dataset.index);
           const storyId = parseInt(item.dataset.storyId);
+
+          highlightStory(index);
+
           // Push state for history support
           history.pushState({ storyId: storyId }, '', '#item=' + storyId);
           await showComments(storyId);
         });
       });
+
+      // If we have a selected index, re-highlight it
+      if (selectedStoryIndex >= 0 && selectedStoryIndex < stories.length) {
+        highlightStory(selectedStoryIndex, false);
+      }
+    }
+
+    // Highlight a story in the list
+    function highlightStory(index, scroll = false) {
+      document.querySelectorAll('.news-item').forEach(item => item.classList.remove('active'));
+
+      if (index >= 0 && index < stories.length) {
+        selectedStoryIndex = index;
+        const item = document.getElementById(`story-${index}`);
+        if (item) {
+          item.classList.add('active');
+          if (scroll) {
+            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
     }
 
     // Show comments for a story
     async function showComments(storyId) {
+      const app = document.querySelector('.app');
       const storiesView = document.getElementById('storiesView');
       const commentsView = document.getElementById('commentsView');
       const commentsContainer = document.getElementById('commentsContainer');
       const storyHeader = document.getElementById('storyHeader');
 
-      storiesView.style.display = 'none';
+      // Desktop Split View Logic
+      if (window.innerWidth >= 1024) {
+        app.classList.add('split-view');
+        // storiesView stays visible
+      } else {
+        storiesView.style.display = 'none';
+      }
+
       commentsView.classList.add('active');
       commentsContainer.innerHTML = '<div class="loading">Loading comments...</div>';
 
       try {
-        const story = await fetchItem(storyId);
+        const story = stories.find(s => s.id === storyId) || await fetchItem(storyId);
         currentStory = story;
+
+        // Find story index if not set
+        if (selectedStoryIndex === -1 && stories.length > 0) {
+          const idx = stories.findIndex(s => s.id === storyId);
+          if (idx !== -1) highlightStory(idx);
+        }
 
         // Render story header
         storyHeader.innerHTML = `
@@ -776,6 +912,7 @@
         stories = await fetchStories(ids);
         renderStories(stories);
         currentType = type;
+        selectedStoryIndex = -1;
       } catch (error) {
         content.innerHTML = `<div class="error">Error loading stories: ${error.message}</div>`;
       }
@@ -783,71 +920,105 @@
 
     // Back to list
     function backToList() {
+      const app = document.querySelector('.app');
+      app.classList.remove('split-view');
+
       document.getElementById('storiesView').style.display = 'block';
       document.getElementById('commentsView').classList.remove('active');
-      // Don't clear currentStory/comments immediately if we want to cache, but for now we reset
-      // to keep memory usage low, or we could keep them. 
-      // The user just wants back navigation.
       currentStory = null;
       topLevelComments = [];
       currentCommentIndex = -1;
 
-      // Clear hash if it exists and we are not popping state (handled by popstate event)
       if (window.location.hash) {
         history.pushState(null, '', window.location.pathname + window.location.search);
       }
     }
 
-    // Event listeners
-    document.getElementById('btnTop').addEventListener('click', () => loadStories('top'));
-    document.getElementById('btnNew').addEventListener('click', () => loadStories('new'));
-    document.getElementById('btnBest').addEventListener('click', () => loadStories('best'));
-    document.getElementById('backToList').addEventListener('click', backToList);
-    document.getElementById('navUp').addEventListener('click', () => navigateComments(-1));
-    document.getElementById('navDown').addEventListener('click', () => navigateComments(1));
-
-    // Keyboard navigation
+    // Keyboard Navigation
     document.addEventListener('keydown', (e) => {
-      if (document.getElementById('commentsView').classList.contains('active')) {
-        if (e.key === 'ArrowUp') {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      const hasStoryOpen = currentStory !== null;
+
+      // w / s : Navigate news list
+      if (e.key === 'w' || e.key === 's') {
+        const direction = e.key === 'w' ? -1 : 1;
+        let newIndex = selectedStoryIndex + direction;
+
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex >= stories.length) newIndex = stories.length - 1;
+
+        if (stories.length > 0) {
+          highlightStory(newIndex, true);
+        }
+        return;
+      }
+
+      // ArrowUp / ArrowDown
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        if (!hasStoryOpen) {
+          const direction = e.key === 'ArrowUp' ? -1 : 1;
+          let newIndex = selectedStoryIndex + direction;
+          if (newIndex < 0) newIndex = 0;
+          if (newIndex >= stories.length) newIndex = stories.length - 1;
+          if (stories.length > 0) highlightStory(newIndex, true);
           e.preventDefault();
-          navigateComments(-1);
-        } else if (e.key === 'ArrowDown') {
+        } else {
+          const direction = e.key === 'ArrowUp' ? -1 : 1;
+          navigateComments(direction);
           e.preventDefault();
-          navigateComments(1);
-        } else if (e.key === 'Escape') {
+        }
+      }
+
+      // Open Story: d, ArrowRight, Enter
+      if (e.key === 'd' || e.key === 'ArrowRight' || e.key === 'Enter') {
+        if (selectedStoryIndex >= 0 && stories.length > 0) {
+          const story = stories[selectedStoryIndex];
+          if (!currentStory || currentStory.id !== story.id) {
+            history.pushState({ storyId: story.id }, '', '#item=' + story.id);
+            showComments(story.id);
+          }
+        }
+      }
+
+      // Close Story: a, ArrowLeft
+      if (e.key === 'a' || e.key === 'ArrowLeft') {
+        if (hasStoryOpen) {
           backToList();
         }
       }
     });
 
-    // Initial load
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('item=')) {
+        const id = hash.split('=')[1];
+        if (id) {
+          loadStories(currentType).then(() => {
+            showComments(id);
+          });
+        }
+      } else {
+        loadStories(currentType);
+      }
+
+      document.getElementById('btnTop').addEventListener('click', () => loadStories('top'));
+      document.getElementById('btnNew').addEventListener('click', () => loadStories('new'));
+      document.getElementById('btnBest').addEventListener('click', () => loadStories('best'));
+      document.getElementById('backToList').addEventListener('click', backToList);
+      document.getElementById('navUp').addEventListener('click', () => navigateComments(-1));
+      document.getElementById('navDown').addEventListener('click', () => navigateComments(1));
+    });
+
     // Handle browser back/forward
     window.addEventListener('popstate', (event) => {
       if (event.state && event.state.storyId) {
         showComments(event.state.storyId);
       } else {
-        // If no state, go back to list
-        document.getElementById('storiesView').style.display = 'block';
-        document.getElementById('commentsView').classList.remove('active');
-        currentStory = null;
-        topLevelComments = [];
-        currentCommentIndex = -1;
+        backToList();
       }
     });
-
-    // Handle initial load with hash
-    const hash = window.location.hash;
-    if (hash && hash.startsWith('#item=')) {
-      const storyId = parseInt(hash.replace('#item=', ''));
-      if (!isNaN(storyId)) {
-        showComments(storyId);
-      } else {
-        loadStories('top');
-      }
-    } else {
-      loadStories('top');
-    }
   </script>
 </body>
 
