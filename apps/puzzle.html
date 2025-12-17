@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Toddler Puzzle</title>
+    <link rel="manifest" href="puzzle-manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        /* Reset & Base */
+        :root {
+            --bg-color: #FFD700;
+            --text-color: #333;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shape-size: 80px;
+            --slot-size: 100px;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            /* Critical for palm rejection and custom drag */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-color);
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-evenly;
+        }
+
+        /* Game Container */
+        #game-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            align-items: center;
+            padding: 20px;
+            /* Prevent scrolling on game area */
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: var(--text-color);
+            margin: 0;
+            pointer-events: none;
+        }
+
+        .slots-area,
+        .shapes-area {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            min-height: 150px;
+            align-items: center;
+        }
+
+        .slot {
+            width: var(--slot-size);
+            height: var(--slot-size);
+            background: rgba(255, 255, 255, 0.5);
+            border: 4px dashed #666;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .shape {
+            width: var(--shape-size);
+            height: var(--shape-size);
+            cursor: grab;
+            position: absolute;
+            /* Using absolute for easier drag positioning */
+            border-radius: 10px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s;
+            z-index: 10;
+            /* Colors will be set per shape */
+        }
+
+        .shape:active {
+            transform: scale(1.1);
+            cursor: grabbing;
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+        }
+
+        /* Shape Specifics */
+        .shape.square {
+            background-color: #FF4136;
+        }
+
+        .slot.square {
+            border-color: #FF4136;
+            border-radius: 10px;
+        }
+
+        .shape.circle {
+            background-color: #0074D9;
+            border-radius: 50%;
+        }
+
+        .slot.circle {
+            border-color: #0074D9;
+            border-radius: 50%;
+        }
+
+        .shape.triangle {
+            width: 0;
+            height: 0;
+            background-color: transparent;
+            border-left: 50px solid transparent;
+            border-right: 50px solid transparent;
+            border-bottom: 86px solid #2ECC40;
+            box-shadow: none;
+            /* Triangle needs filter shadow */
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+            border-radius: 0;
+        }
+
+        .slot.triangle {
+            border-color: #2ECC40;
+            border-radius: 0;
+            /* Custom dash logic hard to do for triangle, simpler visual for now */
+            border: none;
+            background: none;
+        }
+
+        /* Visual guide for triangle slot */
+        .slot.triangle::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 55px solid transparent;
+            border-right: 55px solid transparent;
+            border-bottom: 95px solid rgba(46, 204, 64, 0.3);
+        }
+
+        .success-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: white;
+            padding: 20px 40px;
+            border-radius: 20px;
+            font-size: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .success-message.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #reset-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            background: #fff;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: none;
+            /* Hidden until won */
+            pointer-events: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <h1>Shapes Puzzle</h1>
+
+        <div class="slots-area">
+            <div class="slot square" data-shape="square"></div>
+            <div class="slot circle" data-shape="circle"></div>
+            <div class="slot triangle" data-shape="triangle"></div>
+        </div>
+
+        <!-- Shapes start area -->
+        <div class="shapes-area" id="start-zone">
+            <!-- Added dynamically or static -->
+        </div>
+
+        <button id="reset-btn">Play Again</button>
+    </div>
+
+    <div class="success-message" id="success-msg">Good Job!</div>
+
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('puzzle-sw.js').catch(console.error);
+        }
+
+        const shapes = ['square', 'circle', 'triangle'];
+        const startZone = document.getElementById('start-zone');
+        const resetBtn = document.getElementById('reset-btn');
+        const successMsg = document.getElementById('success-msg');
+
+        // Prevent default touch behaviors globally
+        document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        function initGame() {
+            startZone.innerHTML = '';
+            resetBtn.style.display = 'none';
+            successMsg.classList.remove('show');
+
+            // Shuffle shapes
+            const shuffled = [...shapes].sort(() => Math.random() - 0.5);
+
+            shuffled.forEach(type => {
+                const shape = document.createElement('div');
+                shape.classList.add('shape', type);
+                shape.dataset.type = type;
+
+                // Random initial rotation for fun?
+                const rotation = (Math.random() * 40 - 20).toFixed(0);
+                shape.style.transform = `rotate(${rotation}deg)`;
+
+                startZone.appendChild(shape);
+                makeDraggable(shape);
+            });
+
+            // Reset slots (visuals if needed)
+            document.querySelectorAll('.slot').forEach(slot => {
+                slot.style.opacity = 1;
+            });
+
+            // Since shapes are positioned absolute during drag, but flex normally,
+            // we don't need initial absolute positioning.
+            // However, drag logic often easier if we assume start positions relative to viewport?
+            // Let's rely on standard move logic.
+        }
+
+        function makeDraggable(el) {
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+            let currentX, currentY;
+
+            const onMove = (clientX, clientY) => {
+                if (!isDragging) return;
+
+                const deltaX = clientX - startX;
+                const deltaY = clientY - startY;
+
+                currentX = initialLeft + deltaX;
+                currentY = initialTop + deltaY;
+
+                el.style.position = 'fixed';
+                el.style.left = `${currentX}px`;
+                el.style.top = `${currentY}px`;
+                el.style.transform = 'scale(1.2) rotate(0deg)'; // Pop up a bit
+                el.style.zIndex = 100;
+            };
+
+            const onEnd = () => {
+                if (!isDragging) return;
+                isDragging = false;
+
+                // Check drop target
+                el.style.zIndex = 10;
+                const rect = el.getBoundingClientRect();
+                const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+
+                let dropped = false;
+                const slots = document.querySelectorAll('.slot');
+
+                for (let slot of slots) {
+                    const sRect = slot.getBoundingClientRect();
+                    if (center.x >= sRect.left && center.x <= sRect.right &&
+                        center.y >= sRect.top && center.y <= sRect.bottom) {
+
+                        if (slot.dataset.shape === el.dataset.type) {
+                            // Success snap
+                            snapTo(el, sRect);
+                            dropped = true;
+                            checkWin();
+                        }
+                        break;
+                    }
+                }
+
+                if (!dropped) {
+                    // Return to start (simplified: remove fixed pos to snap back to flex flow or animation)
+                    // For smoothness, let's animate back.
+                    el.style.transition = 'all 0.3s ease';
+                    el.style.position = 'static'; // Reverts to flex flow
+                    el.style.transform = `rotate(${(Math.random() * 40 - 20)}deg)`;
+                    el.style.width = ''; // Reset if changed
+                    el.style.height = '';
+
+                    setTimeout(() => {
+                        el.style.transition = ''; // clear transition
+                    }, 300);
+                }
+            };
+
+            const snapTo = (element, targetRect) => {
+                // Calculate center position
+                const eRect = element.getBoundingClientRect();
+                // Since triangle is border-based, width/height might be 0.
+                // But for visual centering:
+
+                let w = eRect.width || (element.dataset.type === 'triangle' ? 100 : 80);
+                let h = eRect.height || (element.dataset.type === 'triangle' ? 86 : 80);
+
+                // Special case for triangle visual center
+                if (element.dataset.type === 'triangle') {
+                    // Triangle is tricky due to border construction.
+                    // Just center the bounding box of the element over the slot.
+                }
+
+                const centerX = targetRect.left + targetRect.width / 2 - w / 2;
+                const centerY = targetRect.top + targetRect.height / 2 - h / 2;
+
+                element.style.left = `${centerX}px`;
+                element.style.top = `${centerY}px`;
+                element.style.transform = 'scale(1)';
+                element.dataset.locked = "true";
+
+                // Disable further drag
+                // Remove listeners? Or just flag.
+                // We'll just clone it into the slot visually or leave it fixed there.
+            };
+
+            // Mouse
+            el.addEventListener('mousedown', (e) => {
+                if (el.dataset.locked) return;
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                const rect = el.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+
+                // Set fixed locally immediately to prepare for move
+                el.style.width = rect.width + 'px'; // Freeze size
+                el.style.height = rect.height + 'px';
+                el.style.position = 'fixed';
+                el.style.left = initialLeft + 'px';
+                el.style.top = initialTop + 'px';
+
+                e.preventDefault();
+            });
+
+            // Touch
+            el.addEventListener('touchstart', (e) => {
+                if (el.dataset.locked) return;
+                if (e.touches.length > 1) return; // Ignore multi-touch
+                isDragging = true;
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+                const rect = el.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+
+                el.style.width = rect.width + 'px';
+                el.style.height = rect.height + 'px';
+                el.style.position = 'fixed';
+                el.style.left = initialLeft + 'px';
+                el.style.top = initialTop + 'px';
+
+                e.preventDefault();
+            }, { passive: false });
+
+            // Global Move/Up
+            window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+            window.addEventListener('touchmove', (e) => {
+                if (isDragging && e.touches.length === 1) {
+                    onMove(e.touches[0].clientX, e.touches[0].clientY);
+                }
+            }, { passive: false });
+
+            window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchend', onEnd);
+        }
+
+        function checkWin() {
+            const locked = document.querySelectorAll('.shape[data-locked="true"]');
+            if (locked.length === shapes.length) {
+                successMsg.classList.add('show');
+                resetBtn.style.display = 'block';
+
+                // Celebration confetti (optional, keeping minimal for now)
+            }
+        }
+
+        resetBtn.addEventListener('click', initGame);
+
+        initGame();
+    </script>
+</body>
+
+</html>
