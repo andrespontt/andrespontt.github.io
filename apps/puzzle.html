@@ -13,10 +13,9 @@
         /* Reset & Base */
         :root {
             --bg-color: #FFD700;
+            /* Pastel Colors fallback */
             --text-color: #333;
             --slot-size: 100px;
-            /* Slot is 100px with 4px border -> inner is 92px. 
-         Shape should be 92px to fit perfectly. */
             --shape-size: 92px;
         }
 
@@ -34,12 +33,23 @@
             width: 100vw;
             height: 100vh;
             background-color: var(--bg-color);
+            transition: background-color 0.5s ease;
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: space-evenly;
+        }
+
+        #confetti-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2000;
         }
 
         #game-container {
@@ -75,12 +85,9 @@
         .slot {
             width: var(--slot-size);
             height: var(--slot-size);
-            /* background-color: rgba(255,255,255,0.3); */
             background: none;
-            /* Clear background to emphasize border fit */
             border: 4px dashed #666;
             border-radius: 14px;
-            /* Slightly larger radius for container */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -107,18 +114,14 @@
         .shape.square {
             background-color: #FF4136;
             border-radius: 10px;
-            /* Match slot inner radius */
             box-shadow: 0 5px 0 #b32d25;
             width: 92px;
             height: 92px;
-            /* Explicit fix */
         }
 
         .slot.square {
             border-color: #FF4136;
             border-radius: 14px;
-            /* Outer radius */
-            /* Inner radius will be approx 10px */
         }
 
         /* CIRCLE */
@@ -135,18 +138,13 @@
             border-radius: 50%;
         }
 
-        /* TRIANGLE 
-       - Shape: Equilateral-ish. 
-       - Slot: Needs to match shape's bounding box.
-    */
+        /* TRIANGLE */
         .shape.triangle {
             background-color: #2ECC40;
-            /* Standard Equilateral Triangle clip-path */
             clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
             filter: drop-shadow(0 5px 0 #1e872a);
             border-radius: 0;
             width: 100px;
-            /* Triangle visual width */
             height: 86px;
         }
 
@@ -155,13 +153,12 @@
             background: none;
             width: 100px;
             height: 86px;
-            /* Generated SVG to match the clip-path triangle perfectly */
             background-image: url("data:image/svg+xml,%3Csvg width='100' height='86' viewBox='0 0 100 86' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 2 L2 84 L98 84 Z' fill='rgba(255,255,255,0.0)' stroke='%232ECC40' stroke-width='4' stroke-dasharray='10,5' stroke-linejoin='round'/%3E%3C/svg%3E");
             background-size: 100% 100%;
             background-repeat: no-repeat;
         }
 
-        /* Success Message & GIF */
+        /* Success Message */
         .success-overlay {
             position: absolute;
             top: 0;
@@ -185,14 +182,26 @@
         }
 
         .success-overlay h2 {
-            font-size: 3rem;
-            color: #FF4136;
+            font-size: 5rem;
+            color: #FF851B;
             margin-bottom: 20px;
+            text-shadow: 2px 2px 0px #fff;
+            animation: bounce 0.6s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from {
+                transform: scale(1);
+            }
+
+            to {
+                transform: scale(1.2);
+            }
         }
 
         .cat-gif {
-            width: 250px;
-            height: 250px;
+            width: 280px;
+            height: 280px;
             object-fit: cover;
             border-radius: 20px;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
@@ -208,16 +217,71 @@
             border-radius: 50px;
             box-shadow: 0 5px 0 #005aab;
             cursor: pointer;
+            font-weight: bold;
+            animation: pulse 2s infinite;
         }
 
-        #reset-btn:active {
-            transform: translateY(4px);
-            box-shadow: none;
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Hint Styles */
+        #hint-arrow {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            z-index: 1500;
+            pointer-events: none;
+            display: none;
+            filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.3));
+            animation: floatDown 1s infinite;
+        }
+
+        @keyframes floatDown {
+            0% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(15px);
+            }
+
+            100% {
+                transform: translateY(0);
+            }
+        }
+
+        #hint-arrow svg {
+            width: 100%;
+            height: 100%;
+            fill: #FF4136;
+            /* Bright Red Arrow */
+            stroke: white;
+            stroke-width: 2px;
         }
     </style>
 </head>
 
 <body>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Hint Element -->
+    <div id="hint-arrow">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 21l-12-18h24z" />
+        </svg>
+    </div>
 
     <div id="game-container">
         <h1>Shapes Puzzle</h1>
@@ -236,7 +300,6 @@
 
     <div class="success-overlay" id="success-overlay">
         <h2>YAY!</h2>
-        <!-- Use a reliable random cat gif source or fixed one -->
         <img src="" id="cat-img" class="cat-gif" alt="Happy Cat">
         <button id="reset-btn">Play Again</button>
     </div>
@@ -247,8 +310,16 @@
             navigator.serviceWorker.register('puzzle-sw.js').catch(console.error);
         }
 
-        // Web Audio API synth for "Pop"
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const bgColors = [
+            '#FFD700', // Gold
+            '#FFB3BA', // Pastel Pink
+            '#BAFFC9', // Pastel Green
+            '#BAE1FF', // Pastel Blue
+            '#eecbff', // Pastel Purple
+            '#ffffba'  // Pastel Yellow
+        ];
+
         function playPop() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
@@ -270,21 +341,82 @@
 
         function playWinSound() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            // Happy major chord arpeggio
-            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98].forEach((freq, i) => {
                 setTimeout(() => {
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
                     osc.type = 'triangle';
                     osc.frequency.value = freq;
                     gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
                     osc.start();
-                    osc.stop(audioCtx.currentTime + 0.5);
-                }, i * 100);
+                    osc.stop(audioCtx.currentTime + 0.4);
+                }, i * 80);
             });
+        }
+
+        // Confetti Logic
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const ctx = confettiCanvas.getContext('2d');
+        let confettiParticles = [];
+        let confettiActive = false;
+
+        function resizeConfetti() {
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeConfetti);
+        resizeConfetti();
+
+        function fireConfetti() {
+            confettiActive = true;
+            confettiParticles = [];
+            const colors = ['#f00', '#0f0', '#00f', '#ff0', '#0ff', '#f0f'];
+
+            for (let i = 0; i < 150; i++) {
+                confettiParticles.push({
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    r: Math.random() * 6 + 2,
+                    dx: (Math.random() - 0.5) * 15,
+                    dy: (Math.random() - 0.5) * 15,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    tilt: Math.random() * 10,
+                    tiltAngle: Math.random() * Math.PI,
+                    tiltAngleInv: Math.random() * 0.2
+                });
+            }
+            loopConfetti();
+        }
+
+        function loopConfetti() {
+            if (!confettiActive) return;
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+            let moving = false;
+            confettiParticles.forEach(p => {
+                p.tiltAngle += p.tiltAngleInv;
+                p.y += (Math.cos(p.tiltAngle) + 1 + p.r / 2) / 2;
+                p.x += Math.sin(p.tiltAngle) * 2;
+                p.x += p.dx;
+                p.y += p.dy;
+                p.dy += 0.1; // gravity
+                p.dx *= 0.96; // friction
+
+                if (p.y < confettiCanvas.height) moving = true;
+
+                ctx.beginPath();
+                ctx.lineWidth = p.r;
+                ctx.strokeStyle = p.color;
+                ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+                ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
+                ctx.stroke();
+            });
+
+            if (moving) requestAnimationFrame(loopConfetti);
+            else confettiActive = false;
         }
 
         const shapes = ['square', 'circle', 'triangle'];
@@ -292,29 +424,61 @@
         const resetBtn = document.getElementById('reset-btn');
         const successOverlay = document.getElementById('success-overlay');
         const catImg = document.getElementById('cat-img');
+        const hintArrow = document.getElementById('hint-arrow');
 
-        // Prevent default touch behaviors globally
+        let nextCatUrl = '';
+        let failureCounts = {}; // Track mistakes per shape type
+
+        function preloadNextCat() {
+            const randomNum = Math.floor(Math.random() * 100000);
+            nextCatUrl = `https://cataas.com/cat/gif?t=${randomNum}`;
+            const img = new Image();
+            img.src = nextCatUrl;
+        }
+
         document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
         document.addEventListener('contextmenu', (e) => e.preventDefault());
 
         function initGame() {
             startZone.innerHTML = '';
             successOverlay.classList.remove('show');
+            confettiActive = false;
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            failureCounts = {};
+            hideHint();
 
-            // Shuffle shapes
+            const randomColor = bgColors[Math.floor(Math.random() * bgColors.length)];
+            document.body.style.backgroundColor = randomColor;
+            document.documentElement.style.setProperty('--bg-color', randomColor);
+
+            if (!nextCatUrl) preloadNextCat();
+
             const shuffled = [...shapes].sort(() => Math.random() - 0.5);
 
             shuffled.forEach(type => {
                 const shape = document.createElement('div');
                 shape.classList.add('shape', type);
                 shape.dataset.type = type;
-
                 const rotation = (Math.random() * 40 - 20).toFixed(0);
                 shape.style.transform = `rotate(${rotation}deg)`;
-
                 startZone.appendChild(shape);
                 makeDraggable(shape);
             });
+        }
+
+        function showHint(type) {
+            const slot = document.querySelector(`.slot.${type}`);
+            if (!slot) return;
+
+            const rect = slot.getBoundingClientRect();
+            // Position arrow above the slot
+            hintArrow.style.left = (rect.left + rect.width / 2 - 30) + 'px'; // width is 60px
+            hintArrow.style.top = (rect.top - 70) + 'px'; // 70px above
+            hintArrow.style.display = 'block';
+        }
+
+        function hideHint() {
+            hintArrow.style.display = 'none';
         }
 
         function makeDraggable(el) {
@@ -351,7 +515,6 @@
 
                 for (let slot of slots) {
                     const sRect = slot.getBoundingClientRect();
-                    // Relaxed hit detection (if center is anywhere near slot)
                     if (center.x >= sRect.left - 20 && center.x <= sRect.right + 20 &&
                         center.y >= sRect.top - 20 && center.y <= sRect.bottom + 20) {
 
@@ -360,18 +523,27 @@
                             dropped = true;
                             playPop();
                             checkWin();
+                            hideHint(); // Success hides hint
                         }
                         break;
                     }
                 }
 
                 if (!dropped) {
+                    // Failure Logic
+                    const type = el.dataset.type;
+                    if (!failureCounts[type]) failureCounts[type] = 0;
+                    failureCounts[type]++;
+
+                    if (failureCounts[type] >= 2) {
+                        showHint(type);
+                    }
+
                     el.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                     el.style.position = 'static';
                     el.style.transform = `rotate(${(Math.random() * 40 - 20)}deg)`;
                     el.style.width = '';
                     el.style.height = '';
-
                     setTimeout(() => {
                         el.style.transition = '';
                     }, 300);
@@ -379,22 +551,11 @@
             };
 
             const snapTo = (element, targetRect) => {
-                // Snap directly to the slot's visual center
-                // Target is the slot element. Inner content is exactly centered.
-
-                // For Triangle: The slot is 100x86, Shape is 100x86.
-                // For others: Slot is 100x100 (92x92 inner), Shape is 92x92.
-
-                // If we center the shape's rect on value of center of slot, it works.
                 const tCenterX = targetRect.left + targetRect.width / 2;
                 const tCenterY = targetRect.top + targetRect.height / 2;
 
-                // Use element's current dragged size or natural size?
-                // Shape is currently scaled 1.2. Revert scale first?
-                // Let's force reset style props for perfect alignment
-
                 element.style.transform = 'scale(1) rotate(0deg)';
-                element.style.width = getComputedStyle(element).width; // Should be 92px or 100px
+                element.style.width = getComputedStyle(element).width;
                 element.style.height = getComputedStyle(element).height;
 
                 const w = parseFloat(element.style.width);
@@ -402,8 +563,6 @@
 
                 element.style.left = `${tCenterX - w / 2}px`;
                 element.style.top = `${tCenterY - h / 2}px`;
-
-                // Final lock
                 element.dataset.locked = "true";
                 element.style.pointerEvents = 'none';
             };
@@ -411,8 +570,10 @@
             const startDrag = (e) => {
                 if (el.dataset.locked) return;
 
-                if (audioCtx.state === 'suspended') audioCtx.resume();
+                // Hide hint when user tries again
+                hideHint();
 
+                if (audioCtx.state === 'suspended') audioCtx.resume();
                 let clientX, clientY;
                 if (e.type === 'mousedown') {
                     clientX = e.clientX;
@@ -424,15 +585,12 @@
                     clientY = e.touches[0].clientY;
                     e.preventDefault();
                 }
-
                 isDragging = true;
                 startX = clientX;
                 startY = clientY;
-
                 const rect = el.getBoundingClientRect();
                 initialLeft = rect.left;
                 initialTop = rect.top;
-
                 el.style.width = rect.width + 'px';
                 el.style.height = rect.height + 'px';
                 el.style.position = 'fixed';
@@ -459,8 +617,14 @@
             if (locked.length === shapes.length) {
                 setTimeout(() => {
                     playWinSound();
-                    const randomNum = Math.floor(Math.random() * 100000);
-                    catImg.src = `https://cataas.com/cat/gif?t=${randomNum}`;
+                    fireConfetti();
+                    if (nextCatUrl) {
+                        catImg.src = nextCatUrl;
+                    } else {
+                        preloadNextCat();
+                        catImg.src = nextCatUrl;
+                    }
+                    preloadNextCat();
                     successOverlay.classList.add('show');
                 }, 500);
             }
