@@ -14,9 +14,10 @@
         :root {
             --bg-color: #FFD700;
             --text-color: #333;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --shape-size: 80px;
             --slot-size: 100px;
+            /* Slot is 100px with 4px border -> inner is 92px. 
+         Shape should be 92px to fit perfectly. */
+            --shape-size: 92px;
         }
 
         * {
@@ -25,7 +26,6 @@
             user-select: none;
             -webkit-user-select: none;
             touch-action: none;
-            /* Critical for palm rejection and custom drag */
         }
 
         body {
@@ -42,7 +42,6 @@
             justify-content: space-evenly;
         }
 
-        /* Game Container */
         #game-container {
             width: 100%;
             height: 100%;
@@ -50,8 +49,7 @@
             flex-direction: column;
             justify-content: space-evenly;
             align-items: center;
-            padding: 20px;
-            /* Prevent scrolling on game area */
+            padding: 10px;
             position: absolute;
             top: 0;
             left: 0;
@@ -68,7 +66,7 @@
         .shapes-area {
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 30px;
             width: 100%;
             min-height: 150px;
             align-items: center;
@@ -77,48 +75,59 @@
         .slot {
             width: var(--slot-size);
             height: var(--slot-size);
-            background: rgba(255, 255, 255, 0.5);
+            /* background-color: rgba(255,255,255,0.3); */
+            background: none;
+            /* Clear background to emphasize border fit */
             border: 4px dashed #666;
-            border-radius: 10px;
+            border-radius: 14px;
+            /* Slightly larger radius for container */
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
         }
 
+        /* Shape Base Styles */
         .shape {
             width: var(--shape-size);
             height: var(--shape-size);
             cursor: grab;
             position: absolute;
-            /* Using absolute for easier drag positioning */
-            border-radius: 10px;
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
             transition: transform 0.1s;
             z-index: 10;
-            /* Colors will be set per shape */
         }
 
         .shape:active {
             transform: scale(1.1);
             cursor: grabbing;
-            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.3);
             z-index: 100;
         }
 
-        /* Shape Specifics */
+        /* SQUARE */
         .shape.square {
             background-color: #FF4136;
+            border-radius: 10px;
+            /* Match slot inner radius */
+            box-shadow: 0 5px 0 #b32d25;
+            width: 92px;
+            height: 92px;
+            /* Explicit fix */
         }
 
         .slot.square {
             border-color: #FF4136;
-            border-radius: 10px;
+            border-radius: 14px;
+            /* Outer radius */
+            /* Inner radius will be approx 10px */
         }
 
+        /* CIRCLE */
         .shape.circle {
             background-color: #0074D9;
             border-radius: 50%;
+            box-shadow: 0 5px 0 #0056a3;
+            width: 92px;
+            height: 92px;
         }
 
         .slot.circle {
@@ -126,68 +135,84 @@
             border-radius: 50%;
         }
 
+        /* TRIANGLE 
+       - Shape: Equilateral-ish. 
+       - Slot: Needs to match shape's bounding box.
+    */
         .shape.triangle {
-            width: 0;
-            height: 0;
-            background-color: transparent;
-            border-left: 50px solid transparent;
-            border-right: 50px solid transparent;
-            border-bottom: 86px solid #2ECC40;
-            box-shadow: none;
-            /* Triangle needs filter shadow */
-            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+            background-color: #2ECC40;
+            /* Standard Equilateral Triangle clip-path */
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            filter: drop-shadow(0 5px 0 #1e872a);
             border-radius: 0;
+            width: 100px;
+            /* Triangle visual width */
+            height: 86px;
         }
 
         .slot.triangle {
-            border-color: #2ECC40;
-            border-radius: 0;
-            /* Custom dash logic hard to do for triangle, simpler visual for now */
             border: none;
             background: none;
+            width: 100px;
+            height: 86px;
+            /* Generated SVG to match the clip-path triangle perfectly */
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='86' viewBox='0 0 100 86' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 2 L2 84 L98 84 Z' fill='rgba(255,255,255,0.0)' stroke='%232ECC40' stroke-width='4' stroke-dasharray='10,5' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
         }
 
-        /* Visual guide for triangle slot */
-        .slot.triangle::after {
-            content: '';
+        /* Success Message & GIF */
+        .success-overlay {
             position: absolute;
-            width: 0;
-            height: 0;
-            border-left: 55px solid transparent;
-            border-right: 55px solid transparent;
-            border-bottom: 95px solid rgba(46, 204, 64, 0.3);
-        }
-
-        .success-message {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0);
-            background: white;
-            padding: 20px 40px;
-            border-radius: 20px;
-            font-size: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1000;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
             pointer-events: none;
+            transition: opacity 0.5s;
+            z-index: 1000;
         }
 
-        .success-message.show {
-            transform: translate(-50%, -50%) scale(1);
+        .success-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .success-overlay h2 {
+            font-size: 3rem;
+            color: #FF4136;
+            margin-bottom: 20px;
+        }
+
+        .cat-gif {
+            width: 250px;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
 
         #reset-btn {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 1.2rem;
-            background: #fff;
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            background: #0074D9;
+            color: white;
             border: none;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            display: none;
-            /* Hidden until won */
-            pointer-events: auto;
+            border-radius: 50px;
+            box-shadow: 0 5px 0 #005aab;
+            cursor: pointer;
+        }
+
+        #reset-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
         }
     </style>
 </head>
@@ -205,13 +230,16 @@
 
         <!-- Shapes start area -->
         <div class="shapes-area" id="start-zone">
-            <!-- Added dynamically or static -->
+            <!-- Added dynamically -->
         </div>
-
-        <button id="reset-btn">Play Again</button>
     </div>
 
-    <div class="success-message" id="success-msg">Good Job!</div>
+    <div class="success-overlay" id="success-overlay">
+        <h2>YAY!</h2>
+        <!-- Use a reliable random cat gif source or fixed one -->
+        <img src="" id="cat-img" class="cat-gif" alt="Happy Cat">
+        <button id="reset-btn">Play Again</button>
+    </div>
 
     <script>
         // Register Service Worker
@@ -219,10 +247,51 @@
             navigator.serviceWorker.register('puzzle-sw.js').catch(console.error);
         }
 
+        // Web Audio API synth for "Pop"
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playPop() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playWinSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            // Happy major chord arpeggio
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.5);
+                }, i * 100);
+            });
+        }
+
         const shapes = ['square', 'circle', 'triangle'];
         const startZone = document.getElementById('start-zone');
         const resetBtn = document.getElementById('reset-btn');
-        const successMsg = document.getElementById('success-msg');
+        const successOverlay = document.getElementById('success-overlay');
+        const catImg = document.getElementById('cat-img');
 
         // Prevent default touch behaviors globally
         document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
@@ -230,8 +299,7 @@
 
         function initGame() {
             startZone.innerHTML = '';
-            resetBtn.style.display = 'none';
-            successMsg.classList.remove('show');
+            successOverlay.classList.remove('show');
 
             // Shuffle shapes
             const shuffled = [...shapes].sort(() => Math.random() - 0.5);
@@ -241,23 +309,12 @@
                 shape.classList.add('shape', type);
                 shape.dataset.type = type;
 
-                // Random initial rotation for fun?
                 const rotation = (Math.random() * 40 - 20).toFixed(0);
                 shape.style.transform = `rotate(${rotation}deg)`;
 
                 startZone.appendChild(shape);
                 makeDraggable(shape);
             });
-
-            // Reset slots (visuals if needed)
-            document.querySelectorAll('.slot').forEach(slot => {
-                slot.style.opacity = 1;
-            });
-
-            // Since shapes are positioned absolute during drag, but flex normally,
-            // we don't need initial absolute positioning.
-            // However, drag logic often easier if we assume start positions relative to viewport?
-            // Let's rely on standard move logic.
         }
 
         function makeDraggable(el) {
@@ -277,7 +334,7 @@
                 el.style.position = 'fixed';
                 el.style.left = `${currentX}px`;
                 el.style.top = `${currentY}px`;
-                el.style.transform = 'scale(1.2) rotate(0deg)'; // Pop up a bit
+                el.style.transform = 'scale(1.2) rotate(0deg)';
                 el.style.zIndex = 100;
             };
 
@@ -285,7 +342,6 @@
                 if (!isDragging) return;
                 isDragging = false;
 
-                // Check drop target
                 el.style.zIndex = 10;
                 const rect = el.getBoundingClientRect();
                 const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
@@ -295,13 +351,14 @@
 
                 for (let slot of slots) {
                     const sRect = slot.getBoundingClientRect();
-                    if (center.x >= sRect.left && center.x <= sRect.right &&
-                        center.y >= sRect.top && center.y <= sRect.bottom) {
+                    // Relaxed hit detection (if center is anywhere near slot)
+                    if (center.x >= sRect.left - 20 && center.x <= sRect.right + 20 &&
+                        center.y >= sRect.top - 20 && center.y <= sRect.bottom + 20) {
 
                         if (slot.dataset.shape === el.dataset.type) {
-                            // Success snap
                             snapTo(el, sRect);
                             dropped = true;
+                            playPop();
                             checkWin();
                         }
                         break;
@@ -309,76 +366,69 @@
                 }
 
                 if (!dropped) {
-                    // Return to start (simplified: remove fixed pos to snap back to flex flow or animation)
-                    // For smoothness, let's animate back.
-                    el.style.transition = 'all 0.3s ease';
-                    el.style.position = 'static'; // Reverts to flex flow
+                    el.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    el.style.position = 'static';
                     el.style.transform = `rotate(${(Math.random() * 40 - 20)}deg)`;
-                    el.style.width = ''; // Reset if changed
+                    el.style.width = '';
                     el.style.height = '';
 
                     setTimeout(() => {
-                        el.style.transition = ''; // clear transition
+                        el.style.transition = '';
                     }, 300);
                 }
             };
 
             const snapTo = (element, targetRect) => {
-                // Calculate center position
-                const eRect = element.getBoundingClientRect();
-                // Since triangle is border-based, width/height might be 0.
-                // But for visual centering:
+                // Snap directly to the slot's visual center
+                // Target is the slot element. Inner content is exactly centered.
 
-                let w = eRect.width || (element.dataset.type === 'triangle' ? 100 : 80);
-                let h = eRect.height || (element.dataset.type === 'triangle' ? 86 : 80);
+                // For Triangle: The slot is 100x86, Shape is 100x86.
+                // For others: Slot is 100x100 (92x92 inner), Shape is 92x92.
 
-                // Special case for triangle visual center
-                if (element.dataset.type === 'triangle') {
-                    // Triangle is tricky due to border construction.
-                    // Just center the bounding box of the element over the slot.
-                }
+                // If we center the shape's rect on value of center of slot, it works.
+                const tCenterX = targetRect.left + targetRect.width / 2;
+                const tCenterY = targetRect.top + targetRect.height / 2;
 
-                const centerX = targetRect.left + targetRect.width / 2 - w / 2;
-                const centerY = targetRect.top + targetRect.height / 2 - h / 2;
+                // Use element's current dragged size or natural size?
+                // Shape is currently scaled 1.2. Revert scale first?
+                // Let's force reset style props for perfect alignment
 
-                element.style.left = `${centerX}px`;
-                element.style.top = `${centerY}px`;
-                element.style.transform = 'scale(1)';
+                element.style.transform = 'scale(1) rotate(0deg)';
+                element.style.width = getComputedStyle(element).width; // Should be 92px or 100px
+                element.style.height = getComputedStyle(element).height;
+
+                const w = parseFloat(element.style.width);
+                const h = parseFloat(element.style.height);
+
+                element.style.left = `${tCenterX - w / 2}px`;
+                element.style.top = `${tCenterY - h / 2}px`;
+
+                // Final lock
                 element.dataset.locked = "true";
-
-                // Disable further drag
-                // Remove listeners? Or just flag.
-                // We'll just clone it into the slot visually or leave it fixed there.
+                element.style.pointerEvents = 'none';
             };
 
-            // Mouse
-            el.addEventListener('mousedown', (e) => {
+            const startDrag = (e) => {
                 if (el.dataset.locked) return;
+
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                let clientX, clientY;
+                if (e.type === 'mousedown') {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                    e.preventDefault();
+                } else {
+                    if (e.touches.length > 1) return;
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                    e.preventDefault();
+                }
+
                 isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                const rect = el.getBoundingClientRect();
-                initialLeft = rect.left;
-                initialTop = rect.top;
+                startX = clientX;
+                startY = clientY;
 
-                // Set fixed locally immediately to prepare for move
-                el.style.width = rect.width + 'px'; // Freeze size
-                el.style.height = rect.height + 'px';
-                el.style.position = 'fixed';
-                el.style.left = initialLeft + 'px';
-                el.style.top = initialTop + 'px';
-
-                e.preventDefault();
-            });
-
-            // Touch
-            el.addEventListener('touchstart', (e) => {
-                if (el.dataset.locked) return;
-                if (e.touches.length > 1) return; // Ignore multi-touch
-                isDragging = true;
-                const touch = e.touches[0];
-                startX = touch.clientX;
-                startY = touch.clientY;
                 const rect = el.getBoundingClientRect();
                 initialLeft = rect.left;
                 initialTop = rect.top;
@@ -388,11 +438,11 @@
                 el.style.position = 'fixed';
                 el.style.left = initialLeft + 'px';
                 el.style.top = initialTop + 'px';
+            };
 
-                e.preventDefault();
-            }, { passive: false });
+            el.addEventListener('mousedown', startDrag);
+            el.addEventListener('touchstart', startDrag, { passive: false });
 
-            // Global Move/Up
             window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
             window.addEventListener('touchmove', (e) => {
                 if (isDragging && e.touches.length === 1) {
@@ -407,10 +457,12 @@
         function checkWin() {
             const locked = document.querySelectorAll('.shape[data-locked="true"]');
             if (locked.length === shapes.length) {
-                successMsg.classList.add('show');
-                resetBtn.style.display = 'block';
-
-                // Celebration confetti (optional, keeping minimal for now)
+                setTimeout(() => {
+                    playWinSound();
+                    const randomNum = Math.floor(Math.random() * 100000);
+                    catImg.src = `https://cataas.com/cat/gif?t=${randomNum}`;
+                    successOverlay.classList.add('show');
+                }, 500);
             }
         }
 
