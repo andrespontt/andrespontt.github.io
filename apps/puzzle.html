@@ -428,6 +428,7 @@
 
         let nextCatUrl = '';
         let failureCounts = {}; // Track mistakes per shape type
+        const ENABLE_HINTS = false;
 
         function preloadNextCat() {
             const randomNum = Math.floor(Math.random() * 100000);
@@ -535,12 +536,12 @@
                     if (!failureCounts[type]) failureCounts[type] = 0;
                     failureCounts[type]++;
 
-                    if (failureCounts[type] >= 2) {
+                    if (failureCounts[type] >= 2 && ENABLE_HINTS) {
                         showHint(type);
                     }
 
                     // Leave where it is, do not reset to static
-                    el.style.transition = 'transform 0.2s ease-out';
+                    el.style.transition = 'transform 0.2s ease-out, left 0.1s ease-out, top 0.1s ease-out';
                     el.style.transform = `scale(1) rotate(${(Math.random() * 40 - 20)}deg)`;
                     el.style.width = '';
                     el.style.height = '';
@@ -597,6 +598,8 @@
                 el.style.position = 'fixed';
                 el.style.left = initialLeft + 'px';
                 el.style.top = initialTop + 'px';
+                // Add inertia
+                el.style.transition = 'transform 0.1s, left 0.1s ease-out, top 0.1s ease-out';
             };
 
             el.addEventListener('mousedown', startDrag);
