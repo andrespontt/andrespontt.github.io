@@ -539,14 +539,15 @@
                         showHint(type);
                     }
 
-                    el.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-                    el.style.position = 'static';
-                    el.style.transform = `rotate(${(Math.random() * 40 - 20)}deg)`;
+                    // Leave where it is, do not reset to static
+                    el.style.transition = 'transform 0.2s ease-out';
+                    el.style.transform = `scale(1) rotate(${(Math.random() * 40 - 20)}deg)`;
                     el.style.width = '';
                     el.style.height = '';
+
                     setTimeout(() => {
                         el.style.transition = '';
-                    }, 300);
+                    }, 200);
                 }
             };
 
