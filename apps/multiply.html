@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#8B5CF6">
+    <meta name="description" content="Visual learning tool for multiplication and division">
+    <title>Math Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #ede9fe 50%, #fce7f3 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #7c3aed;
+            font-size: 3rem;
+            margin-bottom: 30px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .mode-btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            color: #6b7280;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .mode-btn.active {
+            background: #7c3aed;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .controls {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .number-control {
+            margin-bottom: 25px;
+        }
+
+        .number-control label {
+            display: block;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #4b5563;
+            margin-bottom: 10px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: #e5e7eb;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #7c3aed;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #7c3aed;
+            cursor: pointer;
+            border: none;
+            transition: background 0.3s;
+        }
+
+        .number-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #7c3aed;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .equation {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #1f2937;
+            margin: 25px 0;
+        }
+
+        .explanation {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #6b7280;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+
+        .show-answer-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .show-answer-btn:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .answer {
+            text-align: center;
+            font-size: 3rem;
+            font-weight: bold;
+            color: #7c3aed;
+            margin-top: 15px;
+            min-height: 60px;
+        }
+
+        .visualization {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            min-height: 400px;
+        }
+
+        .basket-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .basket {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .basket-label {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #7c3aed;
+            padding: 8px 16px;
+            background: #ede9fe;
+            border-radius: 20px;
+        }
+
+        .basket-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+            border-radius: 20px;
+            border: 3px dashed #cbd5e1;
+            min-width: 120px;
+            min-height: 100px;
+            align-items: center;
+        }
+
+        .apple {
+            font-size: 2.5rem;
+            animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .apple:hover {
+            transform: scale(1.2) rotate(10deg);
+        }
+
+        .total-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .total-label {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .total-apples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .total-apples .apple {
+            font-size: 2rem;
+        }
+
+        .leftover-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fee2e2;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .leftover-label {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #991b1b;
+            margin-bottom: 10px;
+        }
+
+        .error-message {
+            text-align: center;
+            font-size: 1.5rem;
+            color: #ef4444;
+            padding: 40px;
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0) rotate(-180deg);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .equation {
+                font-size: 1.8rem;
+            }
+
+            .apple {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎯 Math Explorer</h1>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setMode('multiply')">
+                ✖️ Multiplication
+            </button>
+            <button class="mode-btn" onclick="setMode('divide')">
+                ➗ Division
+            </button>
+        </div>
+
+        <div class="controls">
+            <div class="number-control">
+                <label id="label1">Number of Baskets:</label>
+                <div class="slider-container">
+                    <input type="range" id="num1" min="1" max="10" value="3" oninput="updateVisualization()">
+                    <span class="number-display" id="num1-display">3</span>
+                </div>
+            </div>
+
+            <div class="number-control">
+                <label id="label2">Apples per Basket:</label>
+                <div class="slider-container">
+                    <input type="range" id="num2" min="1" max="10" value="4" oninput="updateVisualization()">
+                    <span class="number-display" id="num2-display">4</span>
+                </div>
+            </div>
+
+            <div class="equation" id="equation">3 × 4 = ?</div>
+            <div class="explanation" id="explanation">3 baskets with 4 apples each</div>
+
+            <button class="show-answer-btn" onclick="toggleAnswer()">
+                <span id="answer-btn-text">Show Answer</span>
+            </button>
+
+            <div class="answer" id="answer"></div>
+        </div>
+
+        <div class="visualization" id="visualization"></div>
+    </div>
+
+    <script>
+        let currentMode = 'multiply';
+        let showingAnswer = false;
+
+        function setMode(mode) {
+            currentMode = mode;
+            showingAnswer = false;
+
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            if (mode === 'multiply') {
+                document.getElementById('label1').textContent = 'Number of Baskets:';
+                document.getElementById('label2').textContent = 'Apples per Basket:';
+            } else {
+                document.getElementById('label1').textContent = 'Total Apples:';
+                document.getElementById('label2').textContent = 'Apples per Basket:';
+                document.getElementById('num1').max = '30';
+            }
+
+            updateVisualization();
+        }
+
+        function toggleAnswer() {
+            showingAnswer = !showingAnswer;
+            document.getElementById('answer-btn-text').textContent =
+                showingAnswer ? 'Hide Answer' : 'Show Answer';
+            updateVisualization();
+        }
+
+        function updateVisualization() {
+            const num1 = parseInt(document.getElementById('num1').value);
+            const num2 = parseInt(document.getElementById('num2').value);
+
+            document.getElementById('num1-display').textContent = num1;
+            document.getElementById('num2-display').textContent = num2;
+
+            const symbol = currentMode === 'multiply' ? '×' : '÷';
+            document.getElementById('equation').textContent = `${num1} ${symbol} ${num2} = ?`;
+
+            if (currentMode === 'multiply') {
+                const plural1 = num1 === 1 ? 'basket' : 'baskets';
+                const plural2 = num2 === 1 ? 'apple' : 'apples';
+                document.getElementById('explanation').textContent =
+                    `${num1} ${plural1} with ${num2} ${plural2} each`;
+                renderMultiplication(num1, num2);
+            } else {
+                const plural1 = num1 === 1 ? 'apple' : 'apples';
+                const plural2 = num2 === 1 ? 'basket' : 'baskets';
+                document.getElementById('explanation').textContent =
+                    `${num1} ${plural1} divided into ${plural2} of ${num2}`;
+                renderDivision(num1, num2);
+            }
+        }
+
+        function renderMultiplication(baskets, applesPerBasket) {
+            const container = document.getElementById('visualization');
+            const total = baskets * applesPerBasket;
+
+            let html = '<div class="basket-container">';
+
+            for (let b = 0; b < baskets; b++) {
+                html += `
+                    <div class="basket">
+                        <div class="basket-label">Basket ${b + 1}</div>
+                        <div class="basket-items">`;
+
+                for (let a = 0; a < applesPerBasket; a++) {
+                    const delay = (b * applesPerBasket + a) * 0.08;
+                    html += `<div class="apple" style="animation-delay: ${delay}s">🍎</div>`;
+                }
+
+                html += '</div></div>';
+            }
+
+            html += '</div>';
+
+            if (showingAnswer) {
+                const pluralApples = total === 1 ? 'apple' : 'apples';
+                html += `
+                    <div class="total-container">
+                        <div class="total-label">Total: ${total} ${pluralApples}</div>
+                        <div class="total-apples">`;
+
+                for (let i = 0; i < total; i++) {
+                    const delay = i * 0.03;
+                    html += `<div class="apple" style="animation-delay: ${delay}s">🍎</div>`;
+                }
+
+                html += '</div></div>';
+            }
+
+            container.innerHTML = html;
+
+            if (showingAnswer) {
+                document.getElementById('answer').textContent = `= ${total}`;
+            } else {
+                document.getElementById('answer').textContent = '';
+            }
+        }
+
+        function renderDivision(totalApples, applesPerBasket) {
+            const container = document.getElementById('visualization');
+
+            if (applesPerBasket === 0) {
+                container.innerHTML = '<div class="error-message">Cannot divide by zero!</div>';
+                document.getElementById('answer').textContent = '';
+                return;
+            }
+
+            const baskets = Math.floor(totalApples / applesPerBasket);
+            const leftover = totalApples % applesPerBasket;
+
+            let html = '<div class="basket-container">';
+
+            let appleIndex = 0;
+            for (let b = 0; b < baskets; b++) {
+                html += `
+                    <div class="basket">
+                        <div class="basket-label">Basket ${b + 1}</div>
+                        <div class="basket-items">`;
+
+                for (let a = 0; a < applesPerBasket; a++) {
+                    const delay = appleIndex * 0.08;
+                    html += `<div class="apple" style="animation-delay: ${delay}s">🍎</div>`;
+                    appleIndex++;
+                }
+
+                html += '</div></div>';
+            }
+
+            html += '</div>';
+
+            if (leftover > 0) {
+                const pluralApples = leftover === 1 ? 'apple' : 'apples';
+                html += `
+                    <div class="leftover-container">
+                        <div class="leftover-label">${leftover} ${pluralApples} left over</div>
+                        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 10px;">`;
+
+                for (let i = 0; i < leftover; i++) {
+                    const delay = appleIndex * 0.08;
+                    html += `<div class="apple" style="animation-delay: ${delay}s">🍎</div>`;
+                    appleIndex++;
+                }
+
+                html += '</div></div>';
+            }
+
+            container.innerHTML = html;
+
+            if (showingAnswer) {
+                const pluralBaskets = baskets === 1 ? 'basket' : 'baskets';
+                const answerText = leftover > 0
+                    ? `= ${baskets} ${pluralBaskets} (${leftover} left over)`
+                    : `= ${baskets} ${pluralBaskets}`;
+                document.getElementById('answer').textContent = answerText;
+            } else {
+                document.getElementById('answer').textContent = '';
+            }
+        }
+
+        // Initialize
+        updateVisualization();
+    </script>
+</body>
+
+</html>
