@@ -29,7 +29,8 @@
             margin: 0;
             padding: 0;
             width: 100vw;
-            height: 100vh;
+            height: 100vh; /* Fallback for older browsers */
+            height: 100dvh; /* Dynamic viewport height supports iOS bottom bar */
             background-color: var(--bg-color);
             transition: background-color 0.5s ease;
             font-family: system-ui, -apple-system, sans-serif;
@@ -58,7 +59,8 @@
             flex-grow: 1;
             width: 100%;
             justify-content: flex-end;
-            padding-bottom: max(6vh, env(safe-area-inset-bottom, 40px));
+            /* Extra padding to lift it above Safari's URL bar */
+            padding-bottom: max(10vh, calc(env(safe-area-inset-bottom, 20px) + 80px));
         }
 
         h1 {
