@@ -96,6 +96,7 @@
       align-items: center;
       flex-wrap: wrap;
       margin-bottom: 24px;
+      justify-content: space-between;
     }
 
     .btn {
@@ -541,9 +542,12 @@
     </header>
 
     <div class="controls" id="mainControls">
-      <button class="btn active" id="btnTop">Top Stories</button>
-      <button class="btn" id="btnNew">New Stories</button>
-      <button class="btn" id="btnBest">Best Stories</button>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button class="btn active feed-btn" id="btnTop">Top Stories</button>
+        <button class="btn feed-btn" id="btnNew">New Stories</button>
+        <button class="btn feed-btn" id="btnBest">Best Stories</button>
+      </div>
+      <button class="btn toggle-btn" id="btnToggleSort">💬 Sort by Comments</button>
     </div>
 
     <div id="storiesView">
@@ -567,6 +571,8 @@
     const API_BASE = 'https://hacker-news.firebaseio.com/v0';
     let currentType = 'top';
     let stories = [];
+    let originalStories = [];
+    let isSortByComments = false;
     let currentStory = null;
     let topLevelComments = [];
     let currentCommentIndex = -1;
@@ -896,6 +902,15 @@
       navigateToComment(newIndex, topLevelElements);
     }
 
+    function applySortAndRender() {
+      if (isSortByComments) {
+        stories = [...originalStories].sort((a, b) => (b.descendants || 0) - (a.descendants || 0));
+      } else {
+        stories = [...originalStories];
+      }
+      renderStories(stories);
+    }
+
     // Load stories
     async function loadStories(type) {
       const content = document.getElementById('content');
@@ -903,14 +918,14 @@
 
       try {
         // Update active button
-        document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.feed-btn').forEach(btn => btn.classList.remove('active'));
         if (type === 'top') document.getElementById('btnTop').classList.add('active');
         if (type === 'new') document.getElementById('btnNew').classList.add('active');
         if (type === 'best') document.getElementById('btnBest').classList.add('active');
 
         const ids = await fetchStoryIds(type);
-        stories = await fetchStories(ids);
-        renderStories(stories);
+        originalStories = await fetchStories(ids);
+        applySortAndRender();
         currentType = type;
         selectedStoryIndex = -1;
       } catch (error) {
@@ -1006,6 +1021,18 @@
       document.getElementById('btnTop').addEventListener('click', () => loadStories('top'));
       document.getElementById('btnNew').addEventListener('click', () => loadStories('new'));
       document.getElementById('btnBest').addEventListener('click', () => loadStories('best'));
+      
+      document.getElementById('btnToggleSort').addEventListener('click', (e) => {
+        isSortByComments = !isSortByComments;
+        if (isSortByComments) {
+          e.target.classList.add('active');
+        } else {
+          e.target.classList.remove('active');
+        }
+        applySortAndRender();
+        selectedStoryIndex = -1;
+      });
+
       document.getElementById('backToList').addEventListener('click', backToList);
       document.getElementById('navUp').addEventListener('click', () => navigateComments(-1));
       document.getElementById('navDown').addEventListener('click', () => navigateComments(1));
