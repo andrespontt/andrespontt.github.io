@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Shape Trace</title>
+    <link rel="manifest" href="shape-trace-manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#FFD700">
+    <style>
+        :root {
+            --bg-color: #FFD700;
+            --text-color: #333;
+            --circle-size: 60px;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-color);
+            transition: background-color 0.5s ease;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #confetti-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2000;
+        }
+
+        #game-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-grow: 1;
+            width: 100%;
+            justify-content: flex-end;
+            padding-bottom: max(6vh, env(safe-area-inset-bottom, 40px));
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--text-color);
+            pointer-events: none;
+            text-align: center;
+            margin: 0;
+            margin-top: 12vh;
+            margin-bottom: auto; /* Pushes the grid grid down */
+        }
+
+        .letter-grid {
+            display: grid;
+            grid-template-columns: repeat(5, var(--circle-size));
+            grid-template-rows: repeat(7, var(--circle-size));
+            gap: 10px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .grid-cell {
+            width: var(--circle-size);
+            height: var(--circle-size);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .circle {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px dashed rgba(0, 0, 0, 0.2);
+            background-color: transparent;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        .circle.active {
+            border-style: solid;
+            border-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(255, 255, 255, 0.7);
+            transform: scale(1.05);
+        }
+
+        .circle.filled {
+            border-style: solid;
+            border-color: #fff;
+            background-color: #FF4136;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+            transform: scale(1.1);
+            pointer-events: none;
+        }
+
+        .success-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+            z-index: 1000;
+        }
+
+        .success-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .success-overlay h2 {
+            font-size: 4rem;
+            color: #FF851B;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 0px #fff;
+            animation: bounce 0.6s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+
+        .cat-gif {
+            width: 300px;
+            height: 300px;
+            object-fit: cover;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        #next-btn {
+            margin-top: 40px;
+            padding: 15px 50px;
+            font-size: 1.5rem;
+            background: #0074D9;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            box-shadow: 0 5px 0 #005aab;
+            cursor: pointer;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        #next-btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 0px 0 #005aab;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        #hand-hint {
+            position: absolute;
+            font-size: 4rem;
+            z-index: 2000;
+            pointer-events: none;
+            opacity: 0;
+            display: none;
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+            /* Transitions added dynamically in JS to avoid startup jumps */
+        }
+
+        /* Adjust sizing for smaller screens */
+        @media (max-width: 500px) {
+            :root {
+                --circle-size: 11vw;
+            }
+            .letter-grid {
+                gap: 2vw;
+                padding: 4vw;
+            }
+            h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="confetti-canvas"></canvas>
+    
+    <div id="hand-hint">👆</div>
+
+    <div id="game-container">
+        <h1 id="level-title">Tap to trace!</h1>
+        <div class="letter-grid" id="letter-grid">
+            <!-- Circles generated dynamically -->
+        </div>
+    </div>
+
+    <div class="success-overlay" id="success-overlay">
+        <h2>YAY!</h2>
+        <img src="" id="cat-img" class="cat-gif" alt="Happy Cat">
+        <button id="next-btn">Next Letter</button>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('shape-trace-sw.js').catch(console.error);
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playPop(pitchMultiplier = 1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            const freqStart = 400 * pitchMultiplier;
+            const freqEnd = 100 * pitchMultiplier;
+            
+            osc.frequency.setValueAtTime(freqStart, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime + 0.1);
+
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playWinSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98].forEach((freq, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.4);
+                }, i * 80);
+            });
+        }
+
+        // --- Confetti ---
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const ctx = confettiCanvas.getContext('2d');
+        let confettiParticles = [];
+        let confettiActive = false;
+
+        function resizeConfetti() {
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeConfetti);
+        resizeConfetti();
+
+        function fireConfetti() {
+            confettiActive = true;
+            confettiParticles = [];
+            const colors = ['#FF4136', '#2ECC40', '#0074D9', '#FFDC00', '#B10DC9', '#FF851B'];
+
+            for (let i = 0; i < 150; i++) {
+                confettiParticles.push({
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    r: Math.random() * 8 + 4,
+                    dx: (Math.random() - 0.5) * 20,
+                    dy: (Math.random() - 0.5) * 20 - 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    tilt: Math.random() * 10,
+                    tiltAngle: Math.random() * Math.PI,
+                    tiltAngleInv: Math.random() * 0.2
+                });
+            }
+            loopConfetti();
+        }
+
+        function loopConfetti() {
+            if (!confettiActive) return;
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+            let moving = false;
+            confettiParticles.forEach(p => {
+                p.tiltAngle += p.tiltAngleInv;
+                p.y += (Math.cos(p.tiltAngle) + 1 + p.r / 2) / 2;
+                p.x += Math.sin(p.tiltAngle) * 2;
+                p.x += p.dx;
+                p.y += p.dy;
+                p.dy += 0.15; // gravity
+                p.dx *= 0.95; // friction
+
+                if (p.y < confettiCanvas.height) moving = true;
+
+                ctx.beginPath();
+                ctx.lineWidth = p.r;
+                ctx.strokeStyle = p.color;
+                ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+                ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
+                ctx.stroke();
+            });
+
+            if (moving) requestAnimationFrame(loopConfetti);
+            else confettiActive = false;
+        }
+
+        // --- Letter Data (ordered stroke paths) ---
+        // 'a-z' dictates the order in which dots should be drawn
+        const orderedTemplates = {
+            A: ["..g..", ".f.h.", "e...i", "dnopj", "c...k", "b...l", "a...m"],
+            B: ["ahij.", "b...k", "c...l", "dnom.", "e...p", "f...q", "gtsr."],
+            C: [".dcb.", "e...a", "f....", "g....", "h....", "i...m", ".jkl."],
+            D: ["ahij.", "b...k", "c...l", "d...m", "e...n", "f...o", "gqpn."],
+            E: ["ahijk", "b....", "c....", "dlmn.", "e....", "f....", "gopqr"],
+            F: ["ahijk", "b....", "c....", "dlmn.", "e....", "f....", "g...."],
+            G: [".dcb.", "e...a", "f....", "g..po", "h...n", "i...m", ".jkl."],
+            H: ["a...h", "b...i", "c...j", "dopqk", "e...l", "f...m", "g...n"],
+            I: ["fghij", "..a..", "..b..", "..c..", "..d..", "..e..", "klmno"],
+            J: ["....a", "....b", "....c", "....d", "j...e", "i...f", ".hg.."],
+            K: ["a...h", "b..i.", "c.j..", "dk...", "e.l..", "f..m.", "g...n"],
+            L: ["a....", "b....", "c....", "d....", "e....", "f....", "ghijk"],
+            M: ["g...k", "fh.jl", "e.i.m", "d...n", "c...o", "b...p", "a...q"],
+            N: ["g...q", "fh..p", "e.i.o", "d..jn", "c...m", "b...l", "a...k"],
+            O: [".cba.", "d...p", "e...o", "f...n", "g...m", "h...l", ".ijk."],
+            P: ["ahij.", "b...k", "c...l", "donm.", "e....", "f....", "g...."],
+            Q: [".cba.", "d...p", "e...o", "f...n", "g.q.m", "h..rl", ".ijks"],
+            R: ["ahij.", "b...k", "c...l", "donm.", "e.p..", "f..q.", "g...r"],
+            S: [".dcba", "e....", "f....", ".ghi.", "....j", "....k", "onml."],
+            T: ["hiajk", "..b..", "..c..", "..d..", "..e..", "..f..", "..g.."],
+            U: ["a...o", "b...n", "c...m", "d...l", "e...k", "f...j", ".ghi."],
+            V: ["a...m", "b...l", "c...k", "d...j", "e...i", ".f.h.", "..g.."],
+            W: ["a...r", "b...q", "c...p", "d.j.o", "e.i.n", "fh.km", "g...l"],
+            X: ["a...n", "b...m", ".c.l.", "..d..", ".e.k.", "f...j", "g...i"],
+            Y: ["a...d", "b...e", ".c.f.", "..g..", "..h..", "..i..", "..j.."],
+            Z: ["abcde", "....f", "...g.", "..h..", ".i...", "j....", "klmno"]
+        };
+
+        const bgColors = [
+            '#FFD700', // Gold
+            '#FFB3BA', // Pastel Pink
+            '#BAFFC9', // Pastel Green
+            '#BAE1FF', // Pastel Blue
+            '#eecbff', // Pastel Purple
+            '#ffffba'  // Pastel Yellow
+        ];
+
+        let currentLetterQueue = [];
+        let totalCircles = 0;
+        let activeCircles = 0;
+        let nextCatUrl = '';
+        let currentLetterPath = []; // Stores DOM elements in their drawing order
+        
+        let hintTimer = null;
+        let hintInterval = null;
+
+        const gridEl = document.getElementById('letter-grid');
+        const titleEl = document.getElementById('level-title');
+        const successOverlay = document.getElementById('success-overlay');
+        const catImg = document.getElementById('cat-img');
+        const nextBtn = document.getElementById('next-btn');
+        const handHint = document.getElementById('hand-hint');
+
+        function startHintTimer(delay = 5000) {
+            clearTimeout(hintTimer);
+            clearInterval(hintInterval);
+            hintTimer = setTimeout(playHint, delay);
+        }
+
+        function resetHintAndTimer() {
+            clearTimeout(hintTimer);
+            clearInterval(hintInterval);
+            handHint.style.opacity = '0';
+            startHintTimer();
+        }
+
+        function playHint() {
+            if (activeCircles >= totalCircles || totalCircles === 0) return;
+            
+            // Filter the strictly ordered path array for unfilled circles
+            const unfilled = currentLetterPath.filter(el => !el.classList.contains('filled'));
+            if (unfilled.length === 0) return;
+            
+            // Use the entire remaining path
+            const points = unfilled.map(el => {
+                const rect = el.getBoundingClientRect();
+                return {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top + rect.height / 2
+                };
+            });
+            
+            // Start position
+            handHint.style.transition = 'none';
+            handHint.style.left = (points[0].x - 20) + 'px';
+            handHint.style.top = (points[0].y) + 'px';
+            handHint.style.display = 'block';
+            
+            // Force reflow
+            void handHint.offsetWidth;
+            
+            // Fade in hand over first point
+            handHint.style.transition = 'opacity 0.2s ease';
+            handHint.style.opacity = '1';
+            
+            // Wait slightly then trace quickly along the path
+            setTimeout(() => {
+                handHint.style.transition = 'left 0.15s linear, top 0.15s linear';
+                let step = 1;
+                hintInterval = setInterval(() => {
+                    if (step < points.length) {
+                        handHint.style.left = (points[step].x - 20) + 'px';
+                        handHint.style.top = (points[step].y) + 'px';
+                        step++;
+                    } else {
+                        clearInterval(hintInterval);
+                        // Fade out
+                        handHint.style.transition = 'opacity 0.4s ease';
+                        handHint.style.opacity = '0';
+                        startHintTimer();
+                    }
+                }, 180); // 180ms per dot allows visual tracing of the entire path
+            }, 200);
+        }
+
+        function preloadNextCat() {
+            const randomNum = Math.floor(Math.random() * 100000);
+            nextCatUrl = `https://cataas.com/cat/gif?t=${randomNum}`;
+            const img = new Image();
+            img.src = nextCatUrl;
+        }
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function loadNextLetter() {
+            if (currentLetterQueue.length === 0) {
+                currentLetterQueue = shuffle(Object.keys(orderedTemplates));
+            }
+            const letter = currentLetterQueue.shift();
+            renderLetter(letter);
+        }
+
+        function renderLetter(letter) {
+            gridEl.innerHTML = '';
+            successOverlay.classList.remove('show');
+            confettiActive = false;
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            totalCircles = 0;
+            activeCircles = 0;
+            currentLetterPath = [];
+
+            const randomColor = bgColors[Math.floor(Math.random() * bgColors.length)];
+            document.body.style.backgroundColor = randomColor;
+            document.documentElement.style.setProperty('--bg-color', randomColor);
+
+            if (!nextCatUrl) preloadNextCat();
+
+            const rows = orderedTemplates[letter];
+            let tempDots = [];
+            
+            for (let r = 0; r < 7; r++) {
+                for (let c = 0; c < 5; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    const charMarker = rows[r][c];
+                    
+                    if (charMarker !== '.') {
+                        const circle = document.createElement('div');
+                        circle.className = 'circle';
+                        // Touch / Click events
+                        const triggerFill = (e) => {
+                            if (e.type === 'touchstart') e.preventDefault();
+                            if (!circle.classList.contains('filled')) {
+                                circle.classList.add('filled');
+                                activeCircles++;
+                                
+                                // Increase pitch as they fill more circles
+                                const pitch = 1 + (activeCircles / totalCircles) * 1.5;
+                                playPop(pitch);
+
+                                checkWin();
+                            }
+                        };
+
+                        const triggerHover = (e) => {
+                            if (!circle.classList.contains('filled')) {
+                                circle.classList.add('active');
+                            }
+                        };
+
+                        const triggerLeave = (e) => {
+                            circle.classList.remove('active');
+                        };
+
+                        circle.addEventListener('mousedown', (e) => {
+                            resetHintAndTimer();
+                            triggerFill(e);
+                        });
+                        circle.addEventListener('touchstart', (e) => {
+                            resetHintAndTimer();
+                            triggerFill(e);
+                        });
+                        circle.addEventListener('mouseenter', triggerHover);
+                        circle.addEventListener('mouseleave', triggerLeave);
+
+                        cell.appendChild(circle);
+                        totalCircles++;
+                        
+                        tempDots.push({
+                            charMarker,
+                            el: circle
+                        });
+                    }
+                    
+                    gridEl.appendChild(cell);
+                }
+            }
+            
+            // Sort dots into proper drawing sequence based on alphabetical markers (a, b, c...)
+            tempDots.sort((a, b) => a.charMarker.charCodeAt(0) - b.charMarker.charCodeAt(0));
+            currentLetterPath = tempDots.map(d => d.el);
+
+            titleEl.textContent = `Trace the letter ${letter}!`;
+
+            // Start hint timer (show a hint immediately after 1.5s for the very first attempt)
+            resetHintAndTimer();
+            startHintTimer(1500);
+
+            // Setup global touch event handler to let kids "paint" across the screen easily
+            // Note: Use an active listener, replacing any previous assignment.
+            document.body.ontouchmove = (e) => {
+                e.preventDefault(); // Prevent scrolling
+                // Iterate over all touches so multiple fingers swiping works smoothly
+                for (let i = 0; i < e.touches.length; i++) {
+                    const touch = e.touches[i];
+                    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (el && el.classList.contains('circle') && !el.classList.contains('filled')) {
+                        el.classList.add('filled');
+                        activeCircles++;
+                        const pitch = 1 + (activeCircles / totalCircles) * 1.5;
+                        playPop(pitch);
+                        resetHintAndTimer(); // Reset hint if user interacted
+                        checkWin();
+                    }
+                }
+            };
+        }
+
+        function checkWin() {
+            if (activeCircles >= totalCircles && totalCircles > 0) {
+                resetHintAndTimer();
+                setTimeout(() => {
+                    playWinSound();
+                    fireConfetti();
+                    catImg.src = nextCatUrl || 'https://cataas.com/cat/gif';
+                    preloadNextCat();
+                    successOverlay.classList.add('show');
+                }, 300);
+            }
+        }
+
+        nextBtn.addEventListener('click', loadNextLetter);
+
+        // Pre-fill queue
+        currentLetterQueue = shuffle(Object.keys(orderedTemplates));
+        loadNextLetter();
+    </script>
+</body>
+
+</html>

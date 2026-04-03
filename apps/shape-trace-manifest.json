@@ -1,0 +1,16 @@
+{
+  "name": "Shape Trace",
+  "short_name": "Shape Trace",
+  "start_url": "shape-trace.html",
+  "display": "standalone",
+  "background_color": "#FFD700",
+  "theme_color": "#FFD700",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "../assets/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
