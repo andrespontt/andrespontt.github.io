@@ -6,8 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cat Math Screener 🐱</title>
   <meta name="theme-color" content="#292524" />
-  <link rel="manifest"
-    href="data:application/json;base64,eyJuYW1lIjoiQ2F0IE1hdGgiLCJzaG9ydF9uYW1lIjoiQ2F0TWF0aCIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMyOTI1MjQiLCJ0aGVtZV9jb2xvciI6IiMyOTI1MjQiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sLCUzQ3N2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJyUzRSUzQ3JlY3Qgd2lkdGg9JzEwMCcgaGVpZ2h0PScxMDAnIGZpbGw9JyNmYjkyM2MnLyUzRSUzQ3RleHQgeD0nNTAnIHk9JzY1JyBmb250LXNpemU9JzUwJyBmb250LWZhbWlseT0nQXJpYWwnIGZpbGw9J2JsYWNrJyB0ZXh0LWFuY2hvcj0nbWlkZGxlJyUzRSYjMTI4MDQ5OyUzQy90ZXh0JTNFJTNDL3N2ZyUzRSIsInR5cGUiOiJpbWFnZS9zdmcreG1sIiwic2l6ZXMiOiI1MTJ4NTEyIn1dfQ==" />
+  <link rel="manifest" href="math-screener-manifest.json" />
   <link rel="preconnect" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
   <!-- Google tag (gtag.js) -->
@@ -60,6 +59,9 @@
       font-family: ui-rounded, system-ui, -apple-system, sans-serif;
       background: linear-gradient(180deg, var(--bg), var(--bg2));
       -webkit-font-smoothing: antialiased;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
 
     .app {
@@ -198,6 +200,8 @@
       appearance: none;
       -moz-appearance: textfield;
       background: rgba(0, 0, 0, 0.3);
+      -webkit-user-select: auto;
+      user-select: auto;
       color: var(--fg);
       border: 2px solid var(--border);
       border-radius: 12px;
@@ -412,7 +416,7 @@
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
         <button id="reset" class="btn danger" style="padding: 8px 12px; font-size: 14px;">↺ Reset</button>
-        <div class="pill">Task <span id="step">1</span> / 6</div>
+        <div class="pill">Task <span id="step">1</span> / 7</div>
       </div>
     </header>
 
@@ -429,10 +433,7 @@
 
       <div class="controls">
         <button id="prev" class="btn">⬅ Prev</button>
-        <div style="display:flex; gap:12px;">
-          <button id="check" class="btn primary">Check 🐾</button>
-          <button id="next" class="btn">Next ➡</button>
-        </div>
+        <button id="check" class="btn primary">Check 🐾</button>
       </div>
     </section>
   </div>
@@ -445,7 +446,6 @@
       content: document.getElementById('content'),
       feedback: document.getElementById('feedback'),
       prev: document.getElementById('prev'),
-      next: document.getElementById('next'),
       check: document.getElementById('check'),
       reset: document.getElementById('reset'),
       catContainer: document.getElementById('catContainer'),
@@ -455,11 +455,12 @@
     const state = {
       i: 0,
       t1: { seq: [], answers: [] },
-      t2: { a: 0, b: 0, pick: null },
-      t3: { a: 0, b: 0, pick: null },
-      t4: { n: 0, added: 0 },
-      t5: { top: 0, bottomAdded: 0, missing: '' },
-      t6: { ans: '' },
+      t2: { a: null, b: null, pick: null },
+      t3: { a: null, b: null, pick: null },
+      t4: { n: null, added: 0 },
+      t5: { top: null, bottomAdded: 0, missing: '' },
+      t6: { cats: null, jumped: null, ans: '' },
+      t7: { a: null, b: null, c: null, d: null, miss: null, ans: '' },
       results: {}
     };
 
@@ -483,17 +484,21 @@
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
+    let canAdvance = false;
+
     function showCat() {
       // Add timestamp to bust cache
       els.catImg.src = `https://cataas.com/cat/gif?t=${Date.now()}`;
       els.catContainer.classList.add('show');
       els.content.style.display = 'none';
+      setTimeout(() => { canAdvance = true; }, 100);
     }
 
     function hideCat() {
       els.catContainer.classList.remove('show');
       els.content.style.display = 'flex';
       els.catImg.src = ''; // Stop loading
+      canAdvance = false;
     }
 
     function buildT1() {
@@ -511,7 +516,7 @@
     }
 
     function ensureT2() {
-      if (!state.t2.a && !state.t2.b) {
+      if (state.t2.a == null || state.t2.b == null || state.t2.a === state.t2.b) {
         state.t2.a = rng(0, 20);
         state.t2.b = rng(0, 20);
         if (state.t2.a === state.t2.b) state.t2.b = (state.t2.b + 1) % 21;
@@ -521,7 +526,7 @@
     }
 
     function ensureT3() {
-      if (!state.t3.a && !state.t3.b) {
+      if (state.t3.a == null || state.t3.b == null || state.t3.a === state.t3.b) {
         state.t3.a = rng(0, 20);
         state.t3.b = rng(0, 20);
         if (state.t3.a === state.t3.b) state.t3.b = (state.t3.b + 2) % 21;
@@ -531,19 +536,41 @@
     }
 
     function ensureT4() {
-      if (!state.t4.n) {
-        state.t4.n = rng(0, 4);
+      if (state.t4.n == null || state.t4.n === 0) {
+        state.t4.n = rng(1, 4);
         save();
       }
       return state.t4.n;
     }
 
     function ensureT5() {
-      if (!state.t5.top && state.t5.top !== 0) {
-        state.t5.top = rng(0, 9);
+      if (state.t5.top == null || state.t5.top === 0) {
+        state.t5.top = rng(1, 9);
         save();
       }
       return state.t5;
+    }
+
+    function ensureT6() {
+      if (state.t6.cats == null) {
+        state.t6.cats = rng(4, 9);
+        state.t6.jumped = rng(1, state.t6.cats - 1);
+        save();
+      }
+      return state.t6;
+    }
+
+    function ensureT7() {
+      if (state.t7.a == null) {
+        let sum = rng(4, 10);
+        state.t7.a = rng(1, sum - 1);
+        state.t7.b = sum - state.t7.a;
+        state.t7.c = rng(1, sum - 1);
+        state.t7.d = sum - state.t7.c;
+        state.t7.miss = rng(0, 3);
+        save();
+      }
+      return state.t7;
     }
 
     function pips(n) {
@@ -636,6 +663,7 @@
     function render() {
       hideCat(); // Ensure cat is hidden when rendering new content
       els.step.textContent = String(state.i + 1);
+      els.check.style.display = '';
       els.feedback.textContent = '';
       els.feedback.className = 'feedback';
       els.content.innerHTML = '';
@@ -716,7 +744,7 @@
           save();
         }));
       } else if (state.i === 4) {
-        els.prompt.textContent = 'Add paws on bottom to make 10. Write the missing number.';
+        els.prompt.textContent = 'Add paws to make 10. Write how many paws are missing.';
         const { top } = ensureT5();
         c.appendChild(dominoUI(top, 10, (added) => {
           state.t5.bottomAdded = added;
@@ -727,7 +755,7 @@
         ansRow.style.marginTop = '16px';
         const label = document.createElement('span');
         label.className = 'pill';
-        label.textContent = 'Missing number:';
+        label.textContent = 'Missing paws:';
         ansRow.appendChild(label);
         const inp = document.createElement('input');
         inp.type = 'number';
@@ -742,7 +770,8 @@
         ansRow.appendChild(inp);
         c.appendChild(ansRow);
       } else if (state.i === 5) {
-        els.prompt.textContent = 'There were 5 cats on the table. 2 jumped off. How many are left?';
+        const { cats, jumped } = ensureT6();
+        els.prompt.textContent = `There were ${cats} cats on the table. ${jumped} jumped off. How many are left?`;
         const row = document.createElement('div');
         row.className = 'row';
         const inp = document.createElement('input');
@@ -757,6 +786,58 @@
         });
         row.appendChild(inp);
         c.appendChild(row);
+      } else if (state.i === 6) {
+        els.prompt.textContent = 'Solve the equation to make both sides equal.';
+        const { a, b, c: valC, d, miss } = ensureT7();
+        
+        const eqDiv = document.createElement('div');
+        eqDiv.style.fontSize = '32px';
+        eqDiv.style.fontWeight = '900';
+        eqDiv.style.display = 'flex';
+        eqDiv.style.gap = '12px';
+        eqDiv.style.alignItems = 'center';
+        
+        const terms = [a, b, valC, d];
+        const ops = ['+', '=', '+'];
+        
+        for (let j = 0; j < 4; j++) {
+          if (j === miss) {
+            const inp = document.createElement('input');
+            inp.type = 'number';
+            inp.id = 't7-inp';
+            inp.setAttribute('pattern', '[0-9]*');
+            inp.setAttribute('inputmode', 'numeric');
+            inp.placeholder = '?';
+            inp.style.width = '80px';
+            inp.style.padding = '8px';
+            inp.style.fontSize = '24px';
+            inp.value = state.t7.ans || '';
+            inp.addEventListener('input', () => {
+              state.t7.ans = inp.value;
+              save();
+            });
+            eqDiv.appendChild(inp);
+          } else {
+            const span = document.createElement('span');
+            span.textContent = terms[j];
+            eqDiv.appendChild(span);
+          }
+          if (j < 3) {
+            const opSpan = document.createElement('span');
+            opSpan.style.color = 'var(--accent)';
+            opSpan.textContent = ops[j];
+            eqDiv.appendChild(opSpan);
+          }
+        }
+        c.appendChild(eqDiv);
+      } else if (state.i === 7) {
+        els.prompt.textContent = 'All done! Great job! 🎉';
+        const div = document.createElement('div');
+        div.style.fontSize = '80px';
+        div.textContent = '🏆';
+        c.appendChild(div);
+        els.check.style.display = 'none';
+        els.step.textContent = 'Done';
       }
     }
 
@@ -794,10 +875,18 @@
         const add = state.t5.bottomAdded;
         const miss = Number(state.t5.missing || NaN);
         ok = have + add === 10 && miss === 10 - have;
-        msg = ok ? 'You are the cat\'s pajamas! 😻' : '❌ Add paws and write the missing number.';
+        msg = ok ? 'You are the cat\'s pajamas! 😻' : '❌ Add paws and write how many are missing.';
       } else if (state.i === 5) {
-        ok = Number(state.t6.ans || NaN) === 3;
-        msg = ok ? 'Correct: 3 cats left! 🐈' : '💡 Hint: 5 - 2 = ?';
+        const { cats, jumped } = state.t6;
+        const want = cats - jumped;
+        ok = Number(state.t6.ans || NaN) === want;
+        msg = ok ? `Correct: ${want} cats left! 🐈` : `💡 Hint: ${cats} - ${jumped} = ?`;
+      } else if (state.i === 6) {
+        const { a, b, c, d, miss } = state.t7;
+        const terms = [a, b, c, d];
+        const want = terms[miss];
+        ok = Number(state.t7.ans || NaN) === want;
+        msg = ok ? 'Balanced perfectly! ⚖️' : '❌ Try again. Both sides should add up to the same number.';
       }
 
       els.feedback.textContent = msg;
@@ -813,7 +902,7 @@
     }
 
     function next() {
-      if (state.i < 5) {
+      if (state.i < 7) {
         state.i++;
         maybeInit();
         render();
@@ -833,11 +922,12 @@
         // Reset state object
         state.i = 0;
         state.t1 = { seq: [], answers: [] };
-        state.t2 = { a: 0, b: 0, pick: null };
-        state.t3 = { a: 0, b: 0, pick: null };
-        state.t4 = { n: 0, added: 0 };
-        state.t5 = { top: 0, bottomAdded: 0, missing: '' };
-        state.t6 = { ans: '' };
+        state.t2 = { a: null, b: null, pick: null };
+        state.t3 = { a: null, b: null, pick: null };
+        state.t4 = { n: null, added: 0 };
+        state.t5 = { top: null, bottomAdded: 0, missing: '' };
+        state.t6 = { cats: null, jumped: null, ans: '' };
+        state.t7 = { a: null, b: null, c: null, d: null, miss: null, ans: '' };
         state.results = {};
 
         save();
@@ -852,20 +942,25 @@
       if (state.i === 2) ensureT3();
       if (state.i === 3) ensureT4();
       if (state.i === 4) ensureT5();
+      if (state.i === 5) ensureT6();
+      if (state.i === 6) ensureT7();
     }
 
-    els.check.addEventListener('click', check);
-    els.next.addEventListener('click', () => {
-      // If cat is showing (correct answer), allow next
-      if (els.catContainer.classList.contains('show')) {
-        next();
-      } else {
-        if (check()) {
-          // Wait a moment for user to see cat before auto-next? 
-          // No, let them click next manually to see the cat.
+    document.addEventListener('click', (e) => {
+      if (canAdvance) {
+        if (e.target.closest) {
+          if (e.target.closest('#prev') || e.target.closest('#reset')) return;
         }
+        next();
       }
     });
+
+    els.check.addEventListener('click', (e) => {
+      if (!canAdvance) {
+        check();
+      }
+    });
+
     els.prev.addEventListener('click', prev);
     els.reset.addEventListener('click', doReset);
 
@@ -876,7 +971,7 @@
 
     // PWA Service Worker Registration
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZSA9PiBzZWxmLnNraXBXYWl0aW5nKCkpOwpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2FjdGl2YXRlJywgZSA9PiBzZWxmLmNsaWVudHMuY2xhaW0oKSk7CnNlbGYuYWRkRXZlbnRMaXN0ZW5lcignZmV0Y2gnLCBlID0+IGUucmVzcG9uZFdpdGgoZmV0Y2goZS5yZXF1ZXN0KSkpOw==');
+      navigator.serviceWorker.register('math-screener-sw.js');
     }
   </script>
 </body>
