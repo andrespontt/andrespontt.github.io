@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#5b21b6" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Flag Millionaire" />
+  <meta name="description" content="Guess the country from the flag — quiz-show style with Coach Mittens." />
+  <title>Flag Millionaire</title>
+  <link rel="manifest" href="flag-millionaire.webmanifest" />
+  <link rel="apple-touch-icon" href="/assets/icons/icon.svg" />
+  <link rel="preconnect" href="https://flagcdn.com" crossorigin />
+  <link rel="preconnect" href="https://cataas.com" crossorigin />
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-2PFGZZBZ0B');
+  </script>
+  <style>
+    :root {
+      --stage: #0f0518;
+      --spot: #1e0a3c;
+      --gold: #fbbf24;
+      --gold-dim: #b45309;
+      --panel: linear-gradient(165deg, #1d4ed8 0%, #312e81 55%, #0f172a 100%);
+      --glow: rgba(251, 191, 36, 0.35);
+      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-x: max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      height: 100%;
+      background: var(--stage);
+      color-scheme: dark;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      min-height: 100dvh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(ellipse 120% 80% at 50% -20%, var(--glow), transparent 55%),
+        radial-gradient(ellipse 80% 50% at 50% 100%, #4c1d95 0%, transparent 45%),
+        var(--stage);
+      color: #f8fafc;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      touch-action: manipulation;
+      padding: calc(12px + var(--safe-t)) var(--safe-x) calc(16px + var(--safe-b));
+      overflow-x: hidden;
+    }
+
+    .app {
+      max-width: 520px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    header.top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      font-size: clamp(1.1rem, 4vw, 1.35rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      background: linear-gradient(90deg, #fde68a, #fbbf24, #f59e0b);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 40px rgba(251, 191, 36, 0.4);
+    }
+
+    .brand span {
+      display: block;
+      font-size: 0.72em;
+      font-weight: 600;
+      color: #94a3b8;
+      -webkit-background-clip: unset;
+      background-clip: unset;
+      background: none;
+    }
+
+    .stats {
+      text-align: right;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+    }
+
+    .stats strong { color: var(--gold); }
+
+    .ladder {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      padding: 8px 0;
+    }
+
+    .rung {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(30, 27, 75, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: #64748b;
+    }
+
+    .rung.active {
+      color: var(--gold);
+      border-color: var(--gold-dim);
+      box-shadow: 0 0 12px var(--glow);
+    }
+
+    .rung.done {
+      color: #34d399;
+      border-color: rgba(52, 211, 153, 0.4);
+    }
+
+    .stage-card {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 16px;
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      box-shadow:
+        0 24px 48px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      position: relative;
+    }
+
+    .question-label {
+      text-align: center;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #a5b4fc;
+      margin-bottom: 10px;
+    }
+
+    .flag-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: clamp(140px, 38vw, 200px);
+      background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.08), transparent 60%);
+      border-radius: 12px;
+      margin-bottom: 14px;
+    }
+
+    .flag-wrap img {
+      width: min(88vw, 320px);
+      height: auto;
+      max-height: 200px;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.15));
+    }
+
+    .answers {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .answer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      font: inherit;
+      font-size: clamp(0.95rem, 3.5vw, 1.05rem);
+      font-weight: 600;
+      color: #f1f5f9;
+      text-align: left;
+      background: linear-gradient(180deg, #2563eb 0%, #1e3a8a 100%);
+      border: 2px solid rgba(96, 165, 250, 0.35);
+      box-shadow: 0 4px 0 #1e3a8a, 0 8px 20px rgba(0, 0, 0, 0.25);
+      transition: transform 0.08s ease, filter 0.15s ease, opacity 0.2s;
+    }
+
+    .answer:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #1e3a8a, 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .answer:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    .answer .key {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      background: var(--gold);
+      color: #1e1b4b;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+
+    .answer.correct {
+      background: linear-gradient(180deg, #059669 0%, #065f46 100%);
+      border-color: #34d399;
+      opacity: 1 !important;
+    }
+
+    .answer.wrong {
+      background: linear-gradient(180deg, #dc2626 0%, #7f1d1d 100%);
+      border-color: #f87171;
+      opacity: 1 !important;
+    }
+
+    .answer.removed {
+      display: none !important;
+    }
+
+    .lifelines {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .life-btn {
+      min-height: 48px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 2px solid rgba(167, 139, 250, 0.4);
+      background: rgba(30, 27, 75, 0.6);
+      color: #e9d5ff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.08s;
+    }
+
+    .life-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .life-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .coach {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.75);
+      border-radius: 16px;
+      padding: 10px 12px;
+      border: 1px solid rgba(251, 191, 36, 0.15);
+    }
+
+    .coach-gif {
+      width: 72px;
+      height: 72px;
+      border-radius: 12px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #1e293b;
+    }
+
+    .coach-bubble {
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #cbd5e1;
+    }
+
+    .coach-bubble em {
+      color: var(--gold);
+      font-style: normal;
+      font-weight: 700;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.92);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: var(--safe-x);
+      padding-top: calc(24px + var(--safe-t));
+      z-index: 100;
+    }
+
+    .overlay.show { display: flex; }
+
+    .modal {
+      background: linear-gradient(180deg, #312e81, #1e1b4b);
+      border-radius: 24px;
+      padding: 28px 22px;
+      max-width: 360px;
+      text-align: center;
+      border: 2px solid var(--gold-dim);
+      box-shadow: 0 0 60px var(--glow);
+    }
+
+    .modal h2 {
+      margin: 0 0 12px;
+      font-size: 1.5rem;
+      color: var(--gold);
+    }
+
+    .modal p {
+      margin: 0 0 20px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    .modal .big-cat {
+      width: min(200px, 70vw);
+      height: min(200px, 70vw);
+      object-fit: cover;
+      border-radius: 16px;
+      margin: 0 auto 16px;
+      display: block;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 28px;
+      border-radius: 999px;
+      border: none;
+      font: inherit;
+      font-weight: 800;
+      font-size: 1rem;
+      cursor: pointer;
+      background: linear-gradient(180deg, #fbbf24, #d97706);
+      color: #1e1b4b;
+      box-shadow: 0 6px 0 #92400e;
+    }
+
+    .cta:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #92400e;
+    }
+
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  </style>
+</head>
+<body>
+  <canvas id="confetti-canvas" aria-hidden="true"></canvas>
+
+  <div class="app">
+    <header class="top">
+      <div class="brand">Flag Millionaire <span>Whose flag is it anyway?</span></div>
+      <div class="stats" aria-live="polite">
+        Streak: <strong id="streak">0</strong><br />
+        Best: <strong id="best">0</strong>
+      </div>
+    </header>
+
+    <div class="ladder" id="ladder" aria-hidden="true"></div>
+
+    <div class="stage-card">
+      <div class="question-label" id="q-meta">Question 1 · $100</div>
+      <div class="flag-wrap">
+        <img id="flag-img" alt="Flag to guess" width="320" height="200" decoding="async" />
+      </div>
+      <p class="sr" id="live-region" aria-live="assertive"></p>
+      <div class="answers" id="answers" role="group" aria-label="Country choices"></div>
+    </div>
+
+    <div class="lifelines">
+      <button type="button" class="life-btn" id="half">Hairball 50:50 — drop three wrong</button>
+      <button type="button" class="life-btn" id="skip">Zoomies — skip (cat’s prerogative)</button>
+    </div>
+
+    <div class="coach">
+      <img class="coach-gif" id="coach-gif" src="" alt="" width="72" height="72" />
+      <div class="coach-bubble" id="coach-text">
+        <em>Coach Mittens:</em> Pick the country. Wrong answers cost a life — you have three. Meow luck!
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay show" id="overlay-start" role="dialog" aria-modal="true" aria-labelledby="start-title">
+    <div class="modal">
+      <h2 id="start-title">Welcome to the hot seat</h2>
+      <p>Five countries, one flag. Three lives. Use lifelines once each. Nail the streak — celebrate with confetti and cats.</p>
+      <img class="big-cat" id="start-cat" src="" alt="Decorative cat animation" />
+      <button type="button" class="cta" id="btn-start">Let’s play</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay-end" role="dialog" aria-modal="true" aria-labelledby="end-title" hidden>
+    <div class="modal">
+      <h2 id="end-title">Game over</h2>
+      <p id="end-msg"></p>
+      <img class="big-cat" id="end-cat" src="" alt="" />
+      <button type="button" class="cta" id="btn-again">Play again</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const COUNTRIES = [
+        ['Afghanistan', 'af'], ['Algeria', 'dz'], ['Argentina', 'ar'], ['Australia', 'au'],
+        ['Austria', 'at'], ['Bangladesh', 'bd'], ['Belgium', 'be'], ['Brazil', 'br'],
+        ['Canada', 'ca'], ['Chile', 'cl'], ['China', 'cn'], ['Colombia', 'co'],
+        ['Croatia', 'hr'], ['Czechia', 'cz'], ['Denmark', 'dk'], ['Egypt', 'eg'],
+        ['Finland', 'fi'], ['France', 'fr'], ['Germany', 'de'], ['Greece', 'gr'],
+        ['Iceland', 'is'], ['India', 'in'], ['Indonesia', 'id'], ['Iran', 'ir'],
+        ['Ireland', 'ie'], ['Israel', 'il'], ['Italy', 'it'], ['Jamaica', 'jm'],
+        ['Japan', 'jp'], ['Kenya', 'ke'], ['Malaysia', 'my'], ['Mexico', 'mx'],
+        ['Morocco', 'ma'], ['Netherlands', 'nl'], ['New Zealand', 'nz'], ['Nigeria', 'ng'],
+        ['Norway', 'no'], ['Pakistan', 'pk'], ['Peru', 'pe'], ['Philippines', 'ph'],
+        ['Poland', 'pl'], ['Portugal', 'pt'], ['Romania', 'ro'], ['Russia', 'ru'],
+        ['Saudi Arabia', 'sa'], ['Singapore', 'sg'], ['South Africa', 'za'], ['South Korea', 'kr'],
+        ['Spain', 'es'], ['Sweden', 'se'], ['Switzerland', 'ch'], ['Thailand', 'th'],
+        ['Turkey', 'tr'], ['Ukraine', 'ua'], ['United Arab Emirates', 'ae'],
+        ['United Kingdom', 'gb'], ['United States', 'us'], ['Venezuela', 've'], ['Vietnam', 'vn']
+      ];
+
+      const KEYS = ['A', 'B', 'C', 'D', 'E'];
+      const PRIZES = [100, 200, 300, 500, 750, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000];
+
+      const flagImg = document.getElementById('flag-img');
+      const answersEl = document.getElementById('answers');
+      const streakEl = document.getElementById('streak');
+      const bestEl = document.getElementById('best');
+      const qMeta = document.getElementById('q-meta');
+      const liveRegion = document.getElementById('live-region');
+      const ladderEl = document.getElementById('ladder');
+      const halfBtn = document.getElementById('half');
+      const skipBtn = document.getElementById('skip');
+      const coachGif = document.getElementById('coach-gif');
+      const coachText = document.getElementById('coach-text');
+      const overlayStart = document.getElementById('overlay-start');
+      const overlayEnd = document.getElementById('overlay-end');
+      const startCat = document.getElementById('start-cat');
+      const endCat = document.getElementById('end-cat');
+      const endMsg = document.getElementById('end-msg');
+      const endTitle = document.getElementById('end-title');
+
+      const BEST_KEY = 'flag-millionaire-best';
+
+      let streak = 0;
+      let best = Number(localStorage.getItem(BEST_KEY) || 0);
+      let lives = 3;
+      let questionIndex = 0;
+      let currentCorrect = null;
+      let options = [];
+      let locked = false;
+      let halfUsed = false;
+      let skipUsed = false;
+
+      bestEl.textContent = String(best);
+
+      function flagUrl(code) {
+        return 'https://flagcdn.com/w320/' + code + '.png';
+      }
+
+      function randomCatGif(seed) {
+        return 'https://cataas.com/cat/gif?t=' + encodeURIComponent(String(seed) + '-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+      }
+
+      function setCoach(url, html) {
+        coachGif.src = url;
+        coachGif.alt = 'Animated cat coach';
+        coachText.innerHTML = html;
+      }
+
+      function shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function pickQuestion() {
+        const correct = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
+        const pool = COUNTRIES.filter((c) => c[1] !== correct[1]);
+        const wrong = shuffle(pool).slice(0, 4);
+        options = shuffle([correct, ...wrong]);
+        currentCorrect = correct;
+        flagImg.src = flagUrl(correct[1]);
+        flagImg.srcset = 'https://flagcdn.com/w160/' + correct[1] + '.png 1x, ' + flagUrl(correct[1]) + ' 2x';
+        renderAnswers();
+        halfBtn.disabled = halfUsed;
+        skipBtn.disabled = skipUsed;
+        locked = false;
+        const step = Math.min(questionIndex, PRIZES.length - 1);
+        qMeta.textContent = 'Question ' + (questionIndex + 1) + ' · $' + PRIZES[step].toLocaleString();
+        renderLadder();
+      }
+
+      function renderLadder() {
+        ladderEl.innerHTML = '';
+        const show = Math.min(8, PRIZES.length);
+        const offset = Math.max(0, Math.min(questionIndex - 3, PRIZES.length - show));
+        for (let i = 0; i < show; i++) {
+          const idx = PRIZES.length - 1 - i - offset;
+          if (idx < 0) break;
+          const span = document.createElement('span');
+          span.className = 'rung';
+          span.textContent = '$' + PRIZES[idx].toLocaleString();
+          if (idx < questionIndex) span.classList.add('done');
+          else if (idx === questionIndex) span.classList.add('active');
+          ladderEl.appendChild(span);
+        }
+      }
+
+      function renderAnswers() {
+        answersEl.innerHTML = '';
+        options.forEach((opt, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'answer';
+          btn.dataset.code = opt[1];
+          btn.innerHTML = '<span class="key">' + KEYS[i] + '</span><span>' + opt[0] + '</span>';
+          btn.addEventListener('click', () => onPick(opt[1]));
+          answersEl.appendChild(btn);
+        });
+      }
+
+      function onPick(code) {
+        if (locked) return;
+        locked = true;
+        const buttons = answersEl.querySelectorAll('.answer');
+        buttons.forEach((btn) => {
+          btn.disabled = true;
+          if (btn.dataset.code === currentCorrect[1]) btn.classList.add('correct');
+          else if (btn.dataset.code === code && code !== currentCorrect[1]) btn.classList.add('wrong');
+        });
+
+        if (code === currentCorrect[1]) {
+          streak += 1;
+          if (streak > best) {
+            best = streak;
+            localStorage.setItem(BEST_KEY, String(best));
+            bestEl.textContent = String(best);
+          }
+          streakEl.textContent = String(streak);
+          liveRegion.textContent = 'Correct! ' + currentCorrect[0];
+          fireConfetti();
+          setCoach(randomCatGif('win'), '<em>Coach Mittens:</em> Purrfection! That streak is looking tasty.');
+          questionIndex += 1;
+          if (questionIndex >= PRIZES.length) {
+            setTimeout(() => gameOver(true), 700);
+            return;
+          }
+          setTimeout(() => pickQuestion(), 900);
+          return;
+        }
+
+        lives -= 1;
+        liveRegion.textContent = 'Wrong. The answer was ' + currentCorrect[0] + '.';
+        setCoach(randomCatGif('lose'), '<em>Coach Mittens:</em> Oof. Even land cats miss sometimes. Lives left: ' + lives);
+        if (lives <= 0) {
+          setTimeout(() => gameOver(false), 1200);
+          return;
+        }
+        questionIndex += 1;
+        setTimeout(() => pickQuestion(), 1400);
+      }
+
+      function gameOver(won) {
+        overlayEnd.hidden = false;
+        overlayEnd.classList.add('show');
+        endCat.src = randomCatGif(won ? 'finalwin' : 'final');
+        endCat.alt = won ? 'Celebration cat' : 'Sympathetic cat';
+        if (won) {
+          endTitle.textContent = 'You’re a legend';
+          endMsg.textContent =
+            'You cleared all ' +
+            PRIZES.length +
+            ' rungs on the money ladder. Coach Mittens is speechless (rare).';
+        } else {
+          endTitle.textContent = 'Lights dim on the stage';
+          endMsg.textContent = 'Final streak: ' + streak + '. Best ever: ' + best + '. The cat still believes in you.';
+        }
+      }
+
+      function resetGame() {
+        streak = 0;
+        lives = 3;
+        questionIndex = 0;
+        halfUsed = false;
+        skipUsed = false;
+        streakEl.textContent = '0';
+        overlayEnd.classList.remove('show');
+        overlayEnd.hidden = true;
+        pickQuestion();
+        setCoach(randomCatGif('go'), '<em>Coach Mittens:</em> Fresh game. Three lives. Steal the show.');
+      }
+
+      halfBtn.addEventListener('click', () => {
+        if (halfUsed || locked) return;
+        halfUsed = true;
+        halfBtn.disabled = true;
+        const wrongBtns = shuffle(
+          Array.from(answersEl.querySelectorAll('.answer')).filter((b) => b.dataset.code !== currentCorrect[1])
+        ).slice(0, 3);
+        wrongBtns.forEach((b) => {
+          b.disabled = true;
+          b.classList.add('removed');
+        });
+        liveRegion.textContent = 'Hairball 50:50 used. Two choices left.';
+        setCoach(randomCatGif('half'), '<em>Coach Mittens:</em> I hacked off the fluff. Think hard.');
+      });
+
+      skipBtn.addEventListener('click', () => {
+        if (skipUsed || locked) return;
+        skipUsed = true;
+        skipBtn.disabled = true;
+        liveRegion.textContent = 'Skipped. New flag.';
+        setCoach(randomCatGif('skip'), '<em>Coach Mittens:</em> This one’s free. Don’t tell the producers.');
+        locked = false;
+        pickQuestion();
+      });
+
+      document.getElementById('btn-start').addEventListener('click', () => {
+        overlayStart.classList.remove('show');
+        resetGame();
+      });
+
+      document.getElementById('btn-again').addEventListener('click', () => {
+        resetGame();
+      });
+
+      /* Confetti — tuned for gold / violet show vibe */
+      const confettiCanvas = document.getElementById('confetti-canvas');
+      const ctx = confettiCanvas.getContext('2d');
+      let confettiParticles = [];
+      let confettiActive = false;
+
+      function resizeConfetti() {
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resizeConfetti);
+      resizeConfetti();
+
+      function fireConfetti() {
+        confettiActive = true;
+        confettiParticles = [];
+        const colors = ['#fbbf24', '#f59e0b', '#a78bfa', '#818cf8', '#34d399', '#f472b6', '#38bdf8'];
+        for (let i = 0; i < 160; i++) {
+          confettiParticles.push({
+            x: window.innerWidth / 2,
+            y: window.innerHeight * 0.35,
+            r: Math.random() * 6 + 2,
+            dx: (Math.random() - 0.5) * 16,
+            dy: (Math.random() - 0.5) * 14,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            tilt: Math.random() * 10,
+            tiltAngle: Math.random() * Math.PI,
+            tiltAngleInv: Math.random() * 0.2
+          });
+        }
+        loopConfetti();
+      }
+
+      function loopConfetti() {
+        if (!confettiActive) return;
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        let moving = false;
+        confettiParticles.forEach((p) => {
+          p.tiltAngle += p.tiltAngleInv;
+          p.y += (Math.cos(p.tiltAngle) + 1 + p.r / 2) / 2;
+          p.x += Math.sin(p.tiltAngle) * 2 + p.dx;
+          p.y += p.dy;
+          p.dy += 0.12;
+          p.dx *= 0.96;
+          if (p.y < confettiCanvas.height) moving = true;
+          ctx.beginPath();
+          ctx.lineWidth = p.r;
+          ctx.strokeStyle = p.color;
+          ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+          ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
+          ctx.stroke();
+        });
+        if (moving) requestAnimationFrame(loopConfetti);
+        else confettiActive = false;
+      }
+
+      startCat.src = randomCatGif('intro');
+      setCoach(randomCatGif('idle'), '<em>Coach Mittens:</em> Tap “Let’s play” when you’re ready under the spotlight.');
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('flag-millionaire-sw.js').catch(() => {});
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

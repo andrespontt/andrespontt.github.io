@@ -1,0 +1,19 @@
+{
+  "name": "Flag Millionaire",
+  "short_name": "Flags",
+  "description": "Guess the country from the flag — quiz show style, with Coach Mittens the cat.",
+  "start_url": "flag-millionaire.html",
+  "display": "standalone",
+  "background_color": "#0f0518",
+  "theme_color": "#5b21b6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/assets/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "education"]
+}
