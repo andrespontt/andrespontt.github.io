@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flag-millionaire-v1';
+const CACHE_NAME = 'flag-millionaire-v2';
 const ASSETS = [
   'flag-millionaire.html',
   'flag-millionaire.webmanifest',

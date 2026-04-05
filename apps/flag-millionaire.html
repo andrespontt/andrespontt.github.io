@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Flag Millionaire" />
-  <meta name="description" content="Guess the country from the flag — quiz-show style with Coach Mittens." />
+  <meta name="description" content="Guess the country from the flag — four choices, 50:50 helper, quiz-show style with Coach Mittens." />
   <title>Flag Millionaire</title>
   <link rel="manifest" href="flag-millionaire.webmanifest" />
   <link rel="apple-touch-icon" href="/assets/icons/icon.svg" />
@@ -176,7 +176,7 @@
     .answers {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     .answer {
@@ -184,8 +184,8 @@
       align-items: center;
       gap: 12px;
       width: 100%;
-      min-height: 48px;
-      padding: 12px 14px;
+      min-height: 46px;
+      padding: 10px 12px;
       border: none;
       border-radius: 14px;
       cursor: pointer;
@@ -402,14 +402,14 @@
     </div>
 
     <div class="lifelines">
-      <button type="button" class="life-btn" id="half">Hairball 50:50 — drop three wrong</button>
+      <button type="button" class="life-btn" id="half">50:50 helper — remove two wrong answers</button>
       <button type="button" class="life-btn" id="skip">Zoomies — skip (cat’s prerogative)</button>
     </div>
 
     <div class="coach">
       <img class="coach-gif" id="coach-gif" src="" alt="" width="72" height="72" />
       <div class="coach-bubble" id="coach-text">
-        <em>Coach Mittens:</em> Pick the country. Wrong answers cost a life — you have three. Meow luck!
+        <em>Coach Mittens:</em> Four choices per flag. Stuck? Tap <em>50:50</em> (once). Wrong answers cost a life — three total.
       </div>
     </div>
   </div>
@@ -417,7 +417,7 @@
   <div class="overlay show" id="overlay-start" role="dialog" aria-modal="true" aria-labelledby="start-title">
     <div class="modal">
       <h2 id="start-title">Welcome to the hot seat</h2>
-      <p>Five countries, one flag. Three lives. Use lifelines once each. Nail the streak — celebrate with confetti and cats.</p>
+      <p>Four countries, one flag. Three lives. Use the 50:50 helper or skip once each. Nail the streak — celebrate with confetti and cats.</p>
       <img class="big-cat" id="start-cat" src="" alt="Decorative cat animation" />
       <button type="button" class="cta" id="btn-start">Let’s play</button>
     </div>
@@ -452,7 +452,7 @@
         ['United Kingdom', 'gb'], ['United States', 'us'], ['Venezuela', 've'], ['Vietnam', 'vn']
       ];
 
-      const KEYS = ['A', 'B', 'C', 'D', 'E'];
+      const KEYS = ['A', 'B', 'C', 'D'];
       const PRIZES = [100, 200, 300, 500, 750, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000];
 
       const flagImg = document.getElementById('flag-img');
@@ -513,7 +513,7 @@
       function pickQuestion() {
         const correct = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
         const pool = COUNTRIES.filter((c) => c[1] !== correct[1]);
-        const wrong = shuffle(pool).slice(0, 4);
+        const wrong = shuffle(pool).slice(0, 3);
         options = shuffle([correct, ...wrong]);
         currentCorrect = correct;
         flagImg.src = flagUrl(correct[1]);
@@ -633,13 +633,13 @@
         halfBtn.disabled = true;
         const wrongBtns = shuffle(
           Array.from(answersEl.querySelectorAll('.answer')).filter((b) => b.dataset.code !== currentCorrect[1])
-        ).slice(0, 3);
+        ).slice(0, 2);
         wrongBtns.forEach((b) => {
           b.disabled = true;
           b.classList.add('removed');
         });
-        liveRegion.textContent = 'Hairball 50:50 used. Two choices left.';
-        setCoach(randomCatGif('half'), '<em>Coach Mittens:</em> I hacked off the fluff. Think hard.');
+        liveRegion.textContent = '50:50 helper used. Two answers left.';
+        setCoach(randomCatGif('half'), '<em>Coach Mittens:</em> Classic 50:50 — pick between the two left.');
       });
 
       skipBtn.addEventListener('click', () => {
