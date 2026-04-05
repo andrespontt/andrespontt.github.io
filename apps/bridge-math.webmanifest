@@ -1,0 +1,17 @@
+{
+  "name": "Cat Bridge Math",
+  "short_name": "BridgeMath",
+  "start_url": "bridge-math.html",
+  "display": "standalone",
+  "background_color": "#4ade80",
+  "theme_color": "#22c55e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

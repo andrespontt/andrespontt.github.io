@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Bridge Math 🌉</title>
+  <meta name="theme-color" content="#22c55e" />
+  <link rel="manifest" href="bridge-math.webmanifest" />
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-2PFGZZBZ0B');
+  </script>
+  <style>
+    :root {
+      --bg: #87ceeb; /* Sky blue */
+      --grass: #4ade80; /* Light green */
+      --dirt: #78350f; /* Dark brown */
+      --plank: #b45309; /* Wood */
+      --accent: #f59e0b;
+      --card: #ffffff;
+      --text: #1e293b;
+    }
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0; height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      user-select: none; -webkit-user-select: none;
+    }
+    
+    header {
+      padding: 16px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+    h1 {
+      margin: 0; font-size: 24px; color: var(--accent);
+      display: flex; align-items: center; gap: 8px;
+    }
+    
+    .game-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px;
+    }
+    
+    .equation-card {
+      background: var(--card);
+      padding: 24px 32px;
+      border-radius: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      border: 4px solid var(--accent);
+      text-align: center;
+      margin-top: 20px;
+      position: relative;
+    }
+    
+    .equation {
+      font-size: clamp(32px, 8vw, 48px);
+      font-weight: bold;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      justify-content: center;
+    }
+    
+    input[type="number"] {
+      width: 80px;
+      height: 60px;
+      font-size: 36px;
+      font-weight: bold;
+      text-align: center;
+      border: 3px solid #cbd5e1;
+      border-radius: 12px;
+      outline: none;
+      color: var(--text);
+      background: #f8fafc;
+      transition: all 0.2s;
+    }
+    
+    input[type="number"]:focus {
+      border-color: var(--accent);
+      background: #fff;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    }
+    
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    
+    .btn {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 20px;
+      font-weight: bold;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #b45309;
+      transition: transform 0.1s;
+    }
+    .btn:active {
+      transform: translateY(4px);
+      box-shadow: none;
+    }
+    
+    .feedback {
+      height: 30px;
+      margin-top: 10px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .good { color: #15803d; }
+    .bad { color: #b91c1c; }
+
+    /* Scene Styling */
+    .scene {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      height: 30vh;
+      margin-top: auto;
+      display: flex;
+      align-items: flex-end;
+    }
+    
+    .cliff {
+      width: 20%;
+      height: 50%;
+      background: var(--dirt);
+      position: relative;
+      border-top: 10px solid var(--grass);
+    }
+    
+    .gap {
+      width: 60%;
+      height: 50%;
+      position: relative;
+    }
+    
+    .bridge {
+      position: absolute;
+      top: -10px;
+      left: 0;
+      width: 100%;
+      height: 20px;
+      display: flex;
+    }
+    
+    .plank {
+      flex: 1;
+      height: 100%;
+      background: var(--plank);
+      border-right: 2px solid #78350f;
+      border-bottom: 4px solid #78350f;
+      opacity: 0;
+      transform: translateY(-50px);
+      transition: all 0.5s bounce;
+    }
+    
+    .plank.show {
+      opacity: 1;
+      transform: translateY(0);
+      /* Bouncy drop in animation */
+      animation: drop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    
+    @keyframes drop {
+      0% { opacity: 0; transform: translateY(-50px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    
+    .cat {
+      position: absolute;
+      top: -60px;
+      left: 10px; /* start on the edge of the cliff */
+      font-size: 50px;
+      transition: transform 3s ease-in-out;
+      z-index: 5;
+    }
+
+    #confetti {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+      visibility: hidden;
+      opacity: 0;
+      transition: all 0.3s;
+    }
+    .modal.show {
+      visibility: visible;
+      opacity: 1;
+    }
+    .modal-content {
+      background: white; padding: 40px;
+      border-radius: 20px; text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .modal h2 { margin-top: 0; font-size: 32px; color: var(--accent); }
+    
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🌉 Cat Bridge Math</h1>
+    <div style="font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 16px;">
+      <button id="music-toggle" title="Toggle Music" style="background: none; border: none; font-size: 24px; cursor: pointer;">🎵</button>
+      <div>Planks: <span id="progress">0</span> / 10</div>
+    </div>
+  </header>
+
+  <div class="game-area">
+    <div class="equation-card">
+      <div id="equation" class="equation">
+        <!-- Equation goes here -->
+      </div>
+      <button class="btn" id="check-btn" onclick="checkAnswer()">Build Plank 🔨</button>
+      <div class="feedback" id="feedback"></div>
+    </div>
+    
+    <div class="scene">
+      <div class="cliff">
+        <div class="cat" id="cat">🐈</div>
+      </div>
+      <div class="gap">
+        <div class="bridge" id="bridge">
+          <!-- 10 Planks -->
+          <div class="plank"></div>
+          <div class="plank"></div>
+          <div class="plank"></div>
+          <div class="plank"></div>
+          <div class="plank"></div>
+          <div class="plank"></div>
+          <div class="plank"></div>
+          <div class="plank"></div>
+          <div class="plank"></div>
+          <div class="plank"></div>
+        </div>
+      </div>
+      <div class="cliff"></div>
+    </div>
+  </div>
+
+  <canvas id="confetti"></canvas>
+  
+  <div class="modal" id="win-modal">
+    <div class="modal-content">
+      <h2>You Did It! 🏆</h2>
+      <p style="font-size: 20px">The cat safely crossed the bridge.</p>
+      <img src="https://cataas.com/cat/gif" alt="Happy Cat" style="width:200px; height:200px; object-fit:cover; border-radius:12px; margin: 20px 0; border: 4px solid var(--accent); display:none;" id="reward-cat" />
+      <button class="btn" onclick="resetGame()" style="width: 100%">Play Again ↺</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://unpkg.com/midi-player-js@2.0.16/build/index.browser.js"></script>
+  <script>
+    const TOTAL_PLANKS = 10;
+    let earnedPlanks = 0;
+    let currentAnswer = 0;
+    
+    // --- Audio System ---
+    let musicEnabled = true;
+    let audioCtx = null;
+    let masterGain = null;
+    let midiPlayer = null;
+    let activeOscillators = {};
+    let hasInteracted = false;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      
+      // Resume AudioContext synchronously during user gesture!
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.05; // lower retro volume
+      masterGain.connect(audioCtx.destination);
+
+      midiPlayer = new MidiPlayer.Player(function(event) {
+        if (!musicEnabled) return;
+        if (event.name === 'Note on' && event.velocity > 0) {
+          const osc = audioCtx.createOscillator();
+          osc.type = 'square'; // retro 8-bit tetris feel
+          osc.frequency.value = 440 * Math.pow(2, (event.noteNumber - 69) / 12);
+          osc.connect(masterGain);
+          osc.start();
+          activeOscillators[event.noteNumber] = osc;
+        } else if (event.name === 'Note off' || (event.name === 'Note on' && event.velocity === 0)) {
+          if (activeOscillators[event.noteNumber]) {
+            activeOscillators[event.noteNumber].stop();
+            activeOscillators[event.noteNumber].disconnect();
+            delete activeOscillators[event.noteNumber];
+          }
+        }
+      });
+
+      midiPlayer.on('endOfFile', () => {
+        if(musicEnabled) {
+          midiPlayer.play(); // Loop
+        }
+      });
+
+      fetch('../assets/songs/tetris.mid')
+        .then(response => response.arrayBuffer())
+        .then(data => {
+            midiPlayer.loadArrayBuffer(data);
+            if (musicEnabled) {
+              midiPlayer.play();
+            }
+        });
+    }
+
+    const ui = {
+      eq: document.getElementById('equation'),
+      feedback: document.getElementById('feedback'),
+      progress: document.getElementById('progress'),
+      planks: document.querySelectorAll('.plank'),
+      cat: document.getElementById('cat'),
+      modal: document.getElementById('win-modal'),
+      rewardCat: document.getElementById('reward-cat'),
+      checkBtn: document.getElementById('check-btn'),
+      musicToggle: document.getElementById('music-toggle')
+    };
+
+    ui.musicToggle.addEventListener('click', () => {
+      musicEnabled = !musicEnabled;
+      ui.musicToggle.style.opacity = musicEnabled ? '1' : '0.5';
+      if (!musicEnabled && midiPlayer) {
+        midiPlayer.pause();
+        // Stop dangling notes
+        Object.values(activeOscillators).forEach(osc => {
+          osc.stop(); osc.disconnect();
+        });
+        activeOscillators = {};
+      } else if (musicEnabled && midiPlayer) {
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        midiPlayer.play();
+      }
+    });
+
+    document.addEventListener('click', () => {
+      if (!hasInteracted) {
+        hasInteracted = true;
+        if (musicEnabled) {
+          initAudio();
+        }
+      }
+    }, { once: true });
+
+    function rng(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function generateEquation() {
+      ui.feedback.textContent = '';
+      ui.feedback.className = 'feedback';
+      
+      // 0: a + b = c (25%)
+      // 1: a - b = c (25%)
+      // 2 or 3: a + b = c + d (50%)
+      const type = rng(0, 3); 
+      let terms = [];
+      let ops = [];
+      
+      if (type === 0) { 
+        let a = rng(1, 9);
+        let b = rng(1, 10 - a); 
+        let c = a + b;
+        terms = [a, b, c];
+        ops = ['+', '='];
+      } else if (type === 1) { 
+        let a = rng(2, 10);
+        let b = rng(1, a - 1);
+        let c = a - b;
+        terms = [a, b, c];
+        ops = ['-', '='];
+      } else { 
+        // a + b = c + d
+        let sum = rng(4, 10);
+        let a = rng(1, sum - 1);
+        let b = sum - a;
+        let c = rng(1, sum - 1);
+        let d = sum - c;
+        terms = [a, b, c, d];
+        ops = ['+', '=', '+'];
+      }
+      
+      // Select hidden term
+      const hiddenIdx = rng(0, terms.length - 1);
+      currentAnswer = terms[hiddenIdx];
+      
+      // Render
+      ui.eq.innerHTML = '';
+      for (let i = 0; i < terms.length; i++) {
+        if (i === hiddenIdx) {
+          const inp = document.createElement('input');
+          inp.type = 'number';
+          inp.id = 'answer-input';
+          inp.setAttribute('pattern', '[0-9]*');
+          inp.setAttribute('inputmode', 'numeric');
+          ui.eq.appendChild(inp);
+          
+          inp.addEventListener('click', () => {
+            if(!hasInteracted) {
+                hasInteracted = true;
+                if(musicEnabled) initAudio();
+            }
+          });
+
+          setTimeout(() => inp.focus(), 100);
+          
+          inp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') checkAnswer();
+          });
+        } else {
+          const span = document.createElement('span');
+          span.textContent = terms[i];
+          ui.eq.appendChild(span);
+        }
+        
+        if (i < terms.length - 1) {
+          const opSpan = document.createElement('span');
+          opSpan.style.color = 'var(--accent)';
+          opSpan.textContent = ops[i];
+          ui.eq.appendChild(opSpan);
+        }
+      }
+    }
+
+    function checkAnswer() {
+      const inp = document.getElementById('answer-input');
+      if (!inp || inp.value === '') return;
+      
+      const val = parseInt(inp.value, 10);
+      if (val === currentAnswer) {
+        // Correct!
+        ui.feedback.textContent = 'Correct! 🔨';
+        ui.feedback.className = 'feedback good';
+        
+        // Disable input briefly
+        inp.disabled = true;
+        ui.checkBtn.disabled = true;
+        
+        // Add plank
+        if (earnedPlanks < TOTAL_PLANKS) {
+          ui.planks[earnedPlanks].classList.add('show');
+          earnedPlanks++;
+          ui.progress.textContent = earnedPlanks;
+        }
+        
+        if (earnedPlanks >= TOTAL_PLANKS) {
+          setTimeout(winSequence, 1000);
+        } else {
+          setTimeout(() => {
+            generateEquation();
+            ui.checkBtn.disabled = false;
+          }, 1000);
+        }
+      } else {
+        // Incorrect
+        ui.feedback.textContent = 'Oops, try again! 🤔';
+        ui.feedback.className = 'feedback bad';
+        inp.value = '';
+        inp.focus();
+      }
+    }
+
+    function winSequence() {
+      ui.feedback.textContent = '';
+      ui.eq.innerHTML = 'Bridge Complete! 🌉';
+      ui.checkBtn.style.display = 'none';
+      if (midiPlayer) {
+          midiPlayer.pause();
+          Object.values(activeOscillators).forEach(osc => { osc.stop(); osc.disconnect(); });
+          activeOscillators = {};
+      }
+      
+      // Walk the cat
+      const containerWidth = document.querySelector('.scene').offsetWidth;
+      ui.cat.style.transform = `translateX(${containerWidth * 0.8}px)`; 
+      
+      setTimeout(() => {
+        // Show modal and confetti!
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        ui.modal.classList.add('show');
+        ui.rewardCat.src = `https://cataas.com/cat/gif?t=${Date.now()}`;
+        ui.rewardCat.style.display = 'inline-block';
+      }, 3000); // 3 seconds walk
+    }
+
+    function resetGame() {
+      earnedPlanks = 0;
+      ui.progress.textContent = earnedPlanks;
+      ui.planks.forEach(p => p.classList.remove('show'));
+      ui.cat.style.transform = `translateX(0px)`;
+      ui.checkBtn.style.display = '';
+      ui.checkBtn.disabled = false;
+      ui.modal.classList.remove('show');
+      ui.rewardCat.style.display = 'none';
+      generateEquation();
+      if(musicEnabled && midiPlayer) {
+          midiPlayer.play();
+      }
+    }
+
+    // Init
+    generateEquation();
+
+    // Register PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('bridge-math-sw.js');
+      });
+    }
+  </script>
+</body>
+</html>
