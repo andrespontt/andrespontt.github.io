@@ -151,6 +151,36 @@
       height: 50%;
       position: relative;
     }
+
+    .water {
+      position: absolute;
+      left: 20%;
+      bottom: 0;
+      width: 60%;
+      height: 24%;
+      background:
+        linear-gradient(180deg, rgba(56, 189, 248, 0.95) 0%, rgba(14, 116, 144, 0.95) 100%);
+      border-top: 3px solid rgba(186, 230, 253, 0.95);
+      border-radius: 14px 14px 0 0;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .water.salty {
+      background: linear-gradient(180deg, rgba(45, 212, 191, 0.95) 0%, rgba(8, 145, 178, 0.95) 100%);
+      border-top-color: rgba(204, 251, 241, 0.95);
+    }
+
+    .water::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 14% 30%, rgba(255, 255, 255, 0.25) 0 8%, transparent 9%),
+        radial-gradient(circle at 46% 65%, rgba(255, 255, 255, 0.2) 0 8%, transparent 9%),
+        radial-gradient(circle at 76% 40%, rgba(255, 255, 255, 0.22) 0 8%, transparent 9%);
+      opacity: 0.85;
+    }
     
     .bridge {
       position: absolute;
@@ -189,8 +219,9 @@
       top: -60px;
       left: 10px; /* start on the edge of the cliff */
       font-size: 50px;
-      transition: transform 3s ease-in-out;
+      transition: transform 0.9s linear;
       z-index: 5;
+      transform: scaleX(-1);
     }
 
     #confetti {
@@ -230,7 +261,10 @@
     <h1>🌉 Cat Bridge Math</h1>
     <div style="font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 16px;">
       <button id="music-toggle" title="Toggle Music" style="background: none; border: none; font-size: 24px; cursor: pointer;">🎵</button>
-      <div>Planks: <span id="progress">0</span> / 10</div>
+      <button id="debug-toggle" title="Toggle Debug Mode" style="border: 2px solid #0f172a; background: #ffffff; border-radius: 10px; padding: 6px 10px; font-weight: 700; cursor: pointer;">Debug: OFF</button>
+      <button id="secret-btn" title="Secret Mode" style="border: 2px solid #0f172a; background: #e0e7ff; border-radius: 10px; padding: 6px 10px; font-weight: 700; cursor: pointer;">Secret</button>
+      <button id="reset-page" title="Reset Game" style="border: 2px solid #0f172a; background: #fee2e2; border-radius: 10px; padding: 6px 10px; font-weight: 700; cursor: pointer;">Reset</button>
+      <div>Planks: <span id="progress">0</span> / 5</div>
     </div>
   </header>
 
@@ -244,17 +278,13 @@
     </div>
     
     <div class="scene">
+      <div class="water" id="water" aria-hidden="true"></div>
       <div class="cliff">
         <div class="cat" id="cat">🐈</div>
       </div>
       <div class="gap">
         <div class="bridge" id="bridge">
-          <!-- 10 Planks -->
-          <div class="plank"></div>
-          <div class="plank"></div>
-          <div class="plank"></div>
-          <div class="plank"></div>
-          <div class="plank"></div>
+          <!-- 5 Planks -->
           <div class="plank"></div>
           <div class="plank"></div>
           <div class="plank"></div>
@@ -270,8 +300,8 @@
   
   <div class="modal" id="win-modal">
     <div class="modal-content">
-      <h2>You Did It! 🏆</h2>
-      <p style="font-size: 20px">The cat safely crossed the bridge.</p>
+      <h2 id="modal-title">You Did It! 🏆</h2>
+      <p id="modal-msg" style="font-size: 20px">The cat safely crossed the bridge.</p>
       <img src="https://cataas.com/cat/gif" alt="Happy Cat" style="width:200px; height:200px; object-fit:cover; border-radius:12px; margin: 20px 0; border: 4px solid var(--accent); display:none;" id="reward-cat" />
       <button class="btn" onclick="resetGame()" style="width: 100%">Play Again ↺</button>
     </div>
@@ -280,9 +310,17 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="https://unpkg.com/midi-player-js@2.0.16/build/index.browser.js"></script>
   <script>
-    const TOTAL_PLANKS = 10;
+    const TOTAL_PLANKS = 5;
+    const CAT_STEP_MS = 20000;
+    const DEBUG_CAT_STEP_MS = 1000;
+    const CAT_BASE_LEFT = 10;
     let earnedPlanks = 0;
     let currentAnswer = 0;
+    let catStep = 0;
+    let walkTimer = null;
+    let gameState = 'playing';
+    let debugMode = false;
+    let snailMode = false;
     
     // --- Audio System ---
     let musicEnabled = true;
@@ -346,11 +384,153 @@
       progress: document.getElementById('progress'),
       planks: document.querySelectorAll('.plank'),
       cat: document.getElementById('cat'),
+      water: document.getElementById('water'),
+      scene: document.querySelector('.scene'),
       modal: document.getElementById('win-modal'),
+      modalTitle: document.getElementById('modal-title'),
+      modalMsg: document.getElementById('modal-msg'),
       rewardCat: document.getElementById('reward-cat'),
       checkBtn: document.getElementById('check-btn'),
-      musicToggle: document.getElementById('music-toggle')
+      musicToggle: document.getElementById('music-toggle'),
+      debugToggle: document.getElementById('debug-toggle'),
+      secretBtn: document.getElementById('secret-btn'),
+      resetPage: document.getElementById('reset-page')
     };
+
+    function getCatStepMs() {
+      return debugMode ? DEBUG_CAT_STEP_MS : CAT_STEP_MS;
+    }
+
+    function getAnswerDelayMs() {
+      return debugMode ? 120 : 1000;
+    }
+
+    function applyCharacterMode() {
+      ui.cat.textContent = snailMode ? '🐌' : '🐈';
+      ui.water.classList.toggle('salty', snailMode);
+      ui.secretBtn.textContent = snailMode ? 'Secret: SNAIL' : 'Secret';
+      ui.secretBtn.style.background = snailMode ? '#99f6e4' : '#e0e7ff';
+      ui.secretBtn.style.borderColor = snailMode ? '#0f766e' : '#0f172a';
+    }
+
+    function stopCatWalk() {
+      if (!walkTimer) return;
+      clearTimeout(walkTimer);
+      walkTimer = null;
+    }
+
+    function catWidthPx() {
+      const w = ui.cat.getBoundingClientRect().width;
+      return w > 0 ? w : 50;
+    }
+
+    function catStepToX(step) {
+      const sceneWidth = ui.scene.offsetWidth;
+      const leftCliffWidth = sceneWidth * 0.2;
+      const gapWidth = sceneWidth * 0.6;
+      const rightCliffWidth = sceneWidth * 0.2;
+      const plankWidth = gapWidth / TOTAL_PLANKS;
+      const catW = catWidthPx();
+
+      if (step <= 0) return 0;
+      if (step <= TOTAL_PLANKS) {
+        const leftAbs = leftCliffWidth + (step - 0.5) * plankWidth - catW * 0.5;
+        return Math.round(leftAbs - CAT_BASE_LEFT);
+      }
+      const leftAbs = leftCliffWidth + gapWidth + rightCliffWidth * 0.18 - catW * 0.5;
+      return Math.round(leftAbs - CAT_BASE_LEFT);
+    }
+
+    function catFallTriggerX(missingStep) {
+      const sceneWidth = ui.scene.offsetWidth;
+      const leftCliffWidth = sceneWidth * 0.2;
+      const gapWidth = sceneWidth * 0.6;
+      const plankWidth = gapWidth / TOTAL_PLANKS;
+      const catW = catWidthPx();
+      const supportEndAbs =
+        missingStep === 1
+          ? leftCliffWidth
+          : leftCliffWidth + (missingStep - 1) * plankWidth;
+      // Half body past the support edge before falling.
+      const leftAbs = supportEndAbs - catW * 0.5 + 4;
+      return Math.round(leftAbs - CAT_BASE_LEFT);
+    }
+
+    function updateCatPosition(step) {
+      const x = catStepToX(step);
+      ui.cat.style.transition = 'none';
+      ui.cat.style.transform = `translateX(${x}px) scaleX(-1)`;
+    }
+
+    function showEndModal(title, message, showRewardCat) {
+      ui.modalTitle.textContent = title;
+      ui.modalMsg.textContent = message;
+      ui.modal.classList.add('show');
+      if (showRewardCat) {
+        ui.rewardCat.src = `https://cataas.com/cat/gif?t=${Date.now()}`;
+        ui.rewardCat.style.display = 'inline-block';
+      } else {
+        ui.rewardCat.style.display = 'none';
+      }
+    }
+
+    function wetSequence(fallX) {
+      if (gameState !== 'playing') return;
+      gameState = 'lost';
+      stopCatWalk();
+      ui.checkBtn.disabled = true;
+      ui.feedback.textContent = snailMode ? 'Game over salty snail' : 'Splash! No plank there. Game over.';
+      ui.feedback.className = 'feedback bad';
+      ui.eq.innerHTML = snailMode ? 'Salty water got the snail! 🧂🐌' : 'The cat got wet! 💦';
+      ui.cat.style.transition = 'transform 0.45s ease-in';
+      ui.cat.style.transform = `translateX(${fallX}px) translateY(65px) scaleX(-1)`;
+      if (midiPlayer) {
+        midiPlayer.pause();
+      }
+      setTimeout(() => {
+        if (snailMode) {
+          showEndModal('Splash... 🐌', 'game over salty snail', false);
+          return;
+        }
+        showEndModal('Splash... 😿', 'The cat stepped into water because a plank was missing.', false);
+      }, 500);
+    }
+
+    function walkToNextStep() {
+      if (gameState !== 'playing') return;
+      const nextStep = catStep + 1;
+      const x = nextStep <= TOTAL_PLANKS ? catFallTriggerX(nextStep) : catStepToX(nextStep);
+      const stepMs = getCatStepMs();
+      ui.cat.style.transition = `transform ${stepMs}ms linear`;
+      ui.cat.style.transform = `translateX(${x}px) scaleX(-1)`;
+
+      walkTimer = setTimeout(() => {
+        if (gameState !== 'playing') return;
+        const hasPlank = nextStep > TOTAL_PLANKS || ui.planks[nextStep - 1].classList.contains('show');
+        if (!hasPlank) {
+          wetSequence(x);
+          return;
+        }
+        catStep = nextStep;
+        if (nextStep <= TOTAL_PLANKS) {
+          // Nudge onto the plank center after reaching edge-crossing point.
+          ui.cat.style.transition = 'transform 0.25s ease-out';
+          ui.cat.style.transform = `translateX(${catStepToX(catStep)}px) scaleX(-1)`;
+        }
+        if (catStep >= TOTAL_PLANKS + 1) {
+          winSequence();
+          return;
+        }
+        walkTimer = setTimeout(() => {
+          walkToNextStep();
+        }, nextStep <= TOTAL_PLANKS ? 250 : 0);
+      }, stepMs);
+    }
+
+    function startCatWalk() {
+      stopCatWalk();
+      walkToNextStep();
+    }
 
     ui.musicToggle.addEventListener('click', () => {
       musicEnabled = !musicEnabled;
@@ -368,6 +548,32 @@
         }
         midiPlayer.play();
       }
+    });
+
+    ui.debugToggle.addEventListener('click', () => {
+      debugMode = !debugMode;
+      ui.debugToggle.textContent = debugMode ? 'Debug: ON' : 'Debug: OFF';
+      ui.debugToggle.style.background = debugMode ? '#dcfce7' : '#ffffff';
+      ui.debugToggle.style.borderColor = debugMode ? '#15803d' : '#0f172a';
+      resetGame();
+    });
+
+    ui.resetPage.addEventListener('click', () => {
+      window.location.reload();
+    });
+
+    ui.secretBtn.addEventListener('click', () => {
+      const code = window.prompt('Enter secret word');
+      if (code === null) return;
+      if (code.trim().toLowerCase() === 'snail') {
+        snailMode = true;
+        applyCharacterMode();
+        ui.feedback.textContent = 'Secret unlocked: snail mode.';
+        ui.feedback.className = 'feedback good';
+        return;
+      }
+      ui.feedback.textContent = 'No secret unlocked.';
+      ui.feedback.className = 'feedback bad';
     });
 
     document.addEventListener('click', () => {
@@ -444,6 +650,14 @@
           inp.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') checkAnswer();
           });
+
+          if (debugMode) {
+            inp.value = String(currentAnswer);
+            setTimeout(() => {
+              if (gameState !== 'playing') return;
+              checkAnswer();
+            }, 90);
+          }
         } else {
           const span = document.createElement('span');
           span.textContent = terms[i];
@@ -460,6 +674,7 @@
     }
 
     function checkAnswer() {
+      if (gameState !== 'playing') return;
       const inp = document.getElementById('answer-input');
       if (!inp || inp.value === '') return;
       
@@ -481,13 +696,16 @@
         }
         
         if (earnedPlanks >= TOTAL_PLANKS) {
-          setTimeout(winSequence, 1000);
-        } else {
-          setTimeout(() => {
-            generateEquation();
-            ui.checkBtn.disabled = false;
-          }, 1000);
+          ui.feedback.textContent = 'All planks ready - keep going kitty!';
+          ui.feedback.className = 'feedback good';
+          ui.eq.innerHTML = 'Bridge is fully built. Cat is crossing...';
+          return;
         }
+        setTimeout(() => {
+          if (gameState !== 'playing') return;
+          generateEquation();
+          ui.checkBtn.disabled = false;
+        }, getAnswerDelayMs());
       } else {
         // Incorrect
         ui.feedback.textContent = 'Oops, try again! 🤔';
@@ -498,6 +716,9 @@
     }
 
     function winSequence() {
+      if (gameState !== 'playing') return;
+      gameState = 'won';
+      stopCatWalk();
       ui.feedback.textContent = '';
       ui.eq.innerHTML = 'Bridge Complete! 🌉';
       ui.checkBtn.style.display = 'none';
@@ -507,40 +728,38 @@
           activeOscillators = {};
       }
       
-      // Walk the cat
-      const containerWidth = document.querySelector('.scene').offsetWidth;
-      ui.cat.style.transform = `translateX(${containerWidth * 0.8}px)`; 
-      
-      setTimeout(() => {
-        // Show modal and confetti!
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-        ui.modal.classList.add('show');
-        ui.rewardCat.src = `https://cataas.com/cat/gif?t=${Date.now()}`;
-        ui.rewardCat.style.display = 'inline-block';
-      }, 3000); // 3 seconds walk
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      showEndModal('You Did It! 🏆', 'The cat safely crossed the bridge.', true);
     }
 
     function resetGame() {
+      stopCatWalk();
+      gameState = 'playing';
       earnedPlanks = 0;
+      catStep = 0;
       ui.progress.textContent = earnedPlanks;
       ui.planks.forEach(p => p.classList.remove('show'));
-      ui.cat.style.transform = `translateX(0px)`;
+      ui.cat.style.transform = `translateX(0px) scaleX(-1)`;
       ui.checkBtn.style.display = '';
       ui.checkBtn.disabled = false;
       ui.modal.classList.remove('show');
       ui.rewardCat.style.display = 'none';
+      applyCharacterMode();
       generateEquation();
+      updateCatPosition(catStep);
+      startCatWalk();
       if(musicEnabled && midiPlayer) {
           midiPlayer.play();
       }
     }
 
     // Init
-    generateEquation();
+    resetGame();
+    window.addEventListener('resize', () => updateCatPosition(catStep));
 
     // Register PWA
     if ('serviceWorker' in navigator) {
