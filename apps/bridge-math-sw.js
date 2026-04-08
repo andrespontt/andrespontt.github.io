@@ -1,4 +1,6 @@
-const CACHE_NAME = 'cat-bridge-math-v1';
+// Network-first strategy: always try network, cache as fallback.
+// Bump CACHE_NAME version whenever app content changes to evict stale caches.
+const CACHE_NAME = 'cat-bridge-math-v4';
 const ASSETS = [
   'bridge-math.html',
   'bridge-math.webmanifest',
@@ -15,43 +17,28 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) return caches.delete(name);
         })
-      );
-    }).then(() => self.clients.claim())
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then((response) => {
-        if (response) {
-          return response; // Return from cache
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
         }
-        return fetch(event.request).then(
-          (networkResponse) => {
-            // Check if we received a valid response
-            if(!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-              return networkResponse;
-            }
-
-            // Clone the response because it's a stream and can only be consumed once
-            var responseToCache = networkResponse.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return networkResponse;
-          }
-        );
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+        return response;
       })
+      .catch(() => caches.match(event.request))
   );
 });

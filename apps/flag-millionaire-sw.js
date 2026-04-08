@@ -1,4 +1,6 @@
-const CACHE_NAME = 'flag-millionaire-v2';
+// Network-first strategy: always try network, cache as fallback.
+// Bump CACHE_NAME version whenever app content changes to evict stale caches.
+const CACHE_NAME = 'flag-millionaire-v4';
 const ASSETS = [
   'flag-millionaire.html',
   'flag-millionaire.webmanifest',
@@ -24,7 +26,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((response) => response || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
+        }
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

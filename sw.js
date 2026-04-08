@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ap-site-v2';
+const CACHE_VERSION = 'ap-site-v4';
 const ASSET_CACHE = `assets-${CACHE_VERSION}`;
 const PAGE_CACHE = `pages-${CACHE_VERSION}`;
 
@@ -8,12 +8,14 @@ const PRECACHE_URLS = [
   '/pages/bio.html',
   '/pages/experiments.html',
   '/pages/music.html',
-  '/assets/pages.css',
-  '/assets/nav.js',
+  '/assets/pages.css?v=f635e20',
+  '/assets/nav.js?v=f635e20',
   '/assets/manifest.webmanifest',
   '/assets/icons/icon.svg',
   '/assets/icons/maskable.svg',
-  '/offline.html'
+  '/offline.html',
+  '/apps/',
+  '/apps/index.html'
 ];
 
 self.addEventListener('install', (event) => {

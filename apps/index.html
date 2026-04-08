@@ -4,25 +4,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Apps & Games - Andres Pontt</title>
+  <title>Apps - Andres Pontt</title>
   <meta name="description"
-    content="Explore my collection of apps and games including Type Quest, Perfect Pitch, Pomodoro Timer, and Math Screener.">
+    content="Explore my collection of games and tools including Type Quest, Flag Millionaire, Pomodoro Timer, World Clock, and more.">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://andrespontt.github.io/apps/">
-  <meta property="og:title" content="Apps & Games - Andres Pontt">
-  <meta property="og:description" content="Explore my collection of apps and games.">
+  <meta property="og:title" content="Apps - Andres Pontt">
+  <meta property="og:description" content="Explore my collection of games and tools.">
   <meta property="og:image" content="https://andrespontt.github.io/assets/icons/icon.svg">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary">
   <meta name="twitter:url" content="https://andrespontt.github.io/apps/">
-  <meta name="twitter:title" content="Apps & Games - Andres Pontt">
-  <meta name="twitter:description" content="Explore my collection of apps and games.">
+  <meta name="twitter:title" content="Apps - Andres Pontt">
+  <meta name="twitter:description" content="Explore my collection of games and tools.">
   <meta name="twitter:image" content="https://andrespontt.github.io/assets/icons/icon.svg">
 
-  <link rel="stylesheet" href="../assets/pages.css?v=3da97c2">
+  <link rel="stylesheet" href="../assets/pages.css?v=f635e20">
   <link rel="manifest" href="/assets/manifest.webmanifest">
   <meta name="theme-color" content="#10a37f">
   <link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml">
@@ -36,6 +36,74 @@
     gtag('js', new Date());
     gtag('config', 'G-2PFGZZBZ0B');
   </script>
+  <style>
+    /* ── Section header ─────────────────────────────── */
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 40px 0 20px;
+    }
+
+    .section-heading:first-of-type {
+      margin-top: 8px;
+    }
+
+    .section-label {
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+
+    .section-games .section-label {
+      background: linear-gradient(135deg, #c4b5fd, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .section-tools .section-label {
+      background: linear-gradient(135deg, #6ee7b7, #10a37f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .section-divider {
+      flex: 1;
+      height: 1px;
+      border: none;
+    }
+
+    .section-games .section-divider {
+      background: linear-gradient(to right, rgba(139,92,246,.4), transparent);
+    }
+
+    .section-tools .section-divider {
+      background: linear-gradient(to right, rgba(16,163,127,.4), transparent);
+    }
+
+    /* ── Game cards accent ──────────────────────────── */
+    .app-card.game-card {
+      border-top: 3px solid rgba(139, 92, 246, 0.45);
+    }
+
+    .app-card.game-card:hover {
+      border-top-color: rgba(139, 92, 246, 0.85);
+      box-shadow: 0 12px 32px rgba(139, 92, 246, 0.15);
+    }
+
+    /* ── Tool cards accent ──────────────────────────── */
+    .app-card.tool-card {
+      border-top: 3px solid rgba(16, 163, 127, 0.45);
+    }
+
+    .app-card.tool-card:hover {
+      border-top-color: rgba(16, 163, 127, 0.85);
+      box-shadow: 0 12px 32px rgba(16, 163, 127, 0.15);
+    }
+  </style>
 </head>
 
 <body>
@@ -53,111 +121,125 @@
     </nav>
 
     <main id="main-content" class="content">
-      <h1>Tools</h1>
+      <h1>Apps</h1>
+
+      <!-- ══════════════ GAMES ══════════════ -->
+      <div class="section-heading section-games">
+        <span class="section-label">🎮 Games</span>
+        <hr class="section-divider">
+      </div>
 
       <div class="apps-grid">
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🎮 Type Quest</h3>
           <p>Educational typing game for kids ages 3-6, helping them learn to read and type with fun cat animations.</p>
           <a href="type-quest.html" class="cta-button">Play Now</a>
         </article>
 
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🎵 Perfect Pitch</h3>
           <p>Music training app to develop perfect pitch and musical ear through interactive exercises.</p>
           <a href="perfect-pitch.html" class="cta-button">Try It</a>
         </article>
 
-        <article class="app-card">
-          <h3>⏱️ Pomodoro</h3>
-          <p>A focused productivity timer with saved progress, sounds, notifications, and daily rankings.</p>
-          <a href="pomodoro.html" class="cta-button">Focus Now</a>
-        </article>
-
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🔢 Math Screener</h3>
           <p>Educational math assessment tool for young learners, testing counting, number comparison, and basic
             addition skills.</p>
           <a href="math-screener.html" class="cta-button">Start Assessment</a>
         </article>
 
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🔤 ABC Learning</h3>
           <p>Interactive letter practice game for little ones to learn and practice the alphabet with fun, engaging
             activities.</p>
           <a href="abc.html" class="cta-button">Play Now</a>
         </article>
 
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🐱 Count Cats</h3>
           <p>Fun counting game for kids to practice numbers from 1 to 50 with adorable cat animations and interactive
             challenges.</p>
           <a href="count-cats.html" class="cta-button">Play Now</a>
         </article>
 
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🧩 Toddler Puzzle</h3>
           <p>Simple shapes drag-and-drop puzzle game designed for toddlers (1-3yo). No distractions, optimized for
             touch.</p>
           <a href="puzzle.html" class="cta-button">Play Puzzle</a>
         </article>
 
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🖍️ Shape Trace</h3>
           <p>A fun tracing game for toddlers to learn letters by tapping circles. Complete the shapes to get a cat
             reward!</p>
           <a href="shape-trace.html" class="cta-button">Trace Shapes</a>
         </article>
 
-        <article class="app-card">
-          <h3>🌐 PWA Test</h3>
-          <p>A simple Progressive Web App (PWA) for testing service worker and manifest functionalities.</p>
-          <a href="pwa.html" class="cta-button">Launch PWA</a>
-        </article>
-
-        <article class="app-card">
-          <h3>🕐 World Clock</h3>
-          <p>View the current time in multiple timezones around the world with a beautiful, interactive world clock
-            interface.</p>
-          <a href="clock.html" class="cta-button">View Clock</a>
-        </article>
-
-        <article class="app-card">
-          <h3>🎹 Chromatic Keyboard</h3>
-          <p>A simple chromatic keyboard with octave controls. Play all 12 notes with click or keyboard shortcuts.</p>
-          <a href="keyboard.html" class="cta-button">Play Keyboard</a>
-        </article>
-
-        <article class="app-card">
-          <h3>📰 Hacker News</h3>
-          <p>A clean, simple Hacker News reader to browse top stories, new stories, and best stories from the community.
-          </p>
-          <a href="hnews.html" class="cta-button">Read News</a>
-        </article>
-
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>💻 Coding Hero</h3>
           <p>Master special coding characters with this typing game featuring VS Code-style auto-completion habits.</p>
           <a href="coding_hero.html" class="cta-button">Start Coding</a>
         </article>
 
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🎯 Math Explorer</h3>
           <p>Visual learning tool for multiplication and division. Explore math concepts with interactive baskets and
             apples.</p>
           <a href="multiply.html" class="cta-button">Start Exploring</a>
         </article>
 
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🌉 Cat Bridge Math</h3>
           <p>Solve fun and challenging equations to piece back together a broken bridge for a cat to cross.</p>
           <a href="bridge-math.html" class="cta-button">Build Bridge</a>
         </article>
 
-        <article class="app-card">
+        <article class="app-card game-card">
           <h3>🏳️ Flag Millionaire</h3>
           <p>Quiz-show flag guessing with four choices, a 50:50 helper, confetti wins, and Coach Mittens with cat GIFs. PWA tuned for iPhone.</p>
           <a href="flag-millionaire.html" class="cta-button">Play Now</a>
+        </article>
+      </div>
+
+      <!-- ══════════════ TOOLS ══════════════ -->
+      <div class="section-heading section-tools">
+        <span class="section-label">🛠️ Tools</span>
+        <hr class="section-divider">
+      </div>
+
+      <div class="apps-grid">
+        <article class="app-card tool-card">
+          <h3>⏱️ Pomodoro</h3>
+          <p>A focused productivity timer with saved progress, sounds, notifications, and daily rankings.</p>
+          <a href="pomodoro.html" class="cta-button">Focus Now</a>
+        </article>
+
+        <article class="app-card tool-card">
+          <h3>🕐 World Clock</h3>
+          <p>View the current time in multiple timezones around the world with a beautiful, interactive world clock
+            interface.</p>
+          <a href="clock.html" class="cta-button">View Clock</a>
+        </article>
+
+        <article class="app-card tool-card">
+          <h3>🎹 Chromatic Keyboard</h3>
+          <p>A simple chromatic keyboard with octave controls. Play all 12 notes with click or keyboard shortcuts.</p>
+          <a href="keyboard.html" class="cta-button">Play Keyboard</a>
+        </article>
+
+        <article class="app-card tool-card">
+          <h3>📰 Hacker News</h3>
+          <p>A clean, simple Hacker News reader to browse top stories, new stories, and best stories from the community.
+          </p>
+          <a href="hnews.html" class="cta-button">Read News</a>
+        </article>
+
+        <article class="app-card tool-card">
+          <h3>🌐 PWA Test</h3>
+          <p>A simple Progressive Web App (PWA) for testing service worker and manifest functionalities.</p>
+          <a href="pwa.html" class="cta-button">Launch PWA</a>
         </article>
       </div>
     </main>
@@ -191,35 +273,26 @@
       </div>
     </footer>
   </div>
-  <script src="../assets/nav.js?v=3da97c2" defer></script>
+  <script src="../assets/nav.js?v=f635e20" defer></script>
   <script>
-    // Set copyright year dynamically
     document.getElementById('copyright-year').textContent = new Date().getFullYear();
 
-    // Fetch last update time from GitHub API
     async function updateLastCommitBadge() {
       const badge = document.getElementById('last-updated-badge');
       if (!badge) return;
-
       try {
         const response = await fetch('https://api.github.com/repos/andrespontt/andrespontt.github.io/commits?per_page=1', {
-          headers: {
-            'Accept': 'application/vnd.github.v3+json'
-          }
+          headers: { 'Accept': 'application/vnd.github.v3+json' }
         });
-
         if (!response.ok) throw new Error('Failed to fetch');
-
         const data = await response.json();
         if (data && data.length > 0) {
           const commitDate = new Date(data[0].commit.committer.date);
-          const timeAgo = getTimeAgo(commitDate);
-          badge.textContent = `· Last updated ${timeAgo}`;
+          badge.textContent = `· Last updated ${getTimeAgo(commitDate)}`;
           badge.style.display = 'inline';
         }
       } catch (error) {
         console.log('Could not fetch last update time:', error);
-        // Silently fail - badge just won't show
       }
     }
 
@@ -233,7 +306,6 @@
       const diffWeeks = Math.floor(diffDays / 7);
       const diffMonths = Math.floor(diffDays / 30);
       const diffYears = Math.floor(diffDays / 365);
-
       if (diffSecs < 60) return 'just now';
       if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
       if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
@@ -243,7 +315,6 @@
       return `${diffYears} year${diffYears !== 1 ? 's' : ''} ago`;
     }
 
-    // Load badge on page load
     updateLastCommitBadge();
   </script>
 </body>
