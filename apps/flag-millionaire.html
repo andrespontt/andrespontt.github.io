@@ -409,15 +409,6 @@
     </div>
   </div>
 
-  <div class="overlay show" id="overlay-start" role="dialog" aria-modal="true" aria-labelledby="start-title">
-    <div class="modal">
-      <h2 id="start-title">Welcome to the hot seat</h2>
-      <p>Four countries, one flag. Three lives. Use the 50:50 helper or skip once each. Nail the streak — celebrate with confetti and cats.</p>
-      <img class="big-cat" id="start-cat" src="" alt="Decorative cat animation" />
-      <button type="button" class="cta" id="btn-start">Let’s play</button>
-    </div>
-  </div>
-
   <div class="overlay" id="overlay-end" role="dialog" aria-modal="true" aria-labelledby="end-title" hidden>
     <div class="modal">
       <h2 id="end-title">Game over</h2>
@@ -461,9 +452,7 @@
       const skipBtn = document.getElementById('skip');
       const coachGif = document.getElementById('coach-gif');
       const coachText = document.getElementById('coach-text');
-      const overlayStart = document.getElementById('overlay-start');
       const overlayEnd = document.getElementById('overlay-end');
-      const startCat = document.getElementById('start-cat');
       const endCat = document.getElementById('end-cat');
       const endMsg = document.getElementById('end-msg');
       const endTitle = document.getElementById('end-title');
@@ -479,6 +468,8 @@
       let locked = false;
       let halfUsed = false;
       let skipUsed = false;
+      let hintTimer = null;
+      let immediateHints = false;
 
       bestEl.textContent = String(best);
 
@@ -496,6 +487,27 @@
         coachText.innerHTML = html;
       }
 
+      function shortFlagHint(countryName) {
+        const lettersOnly = countryName.replace(/[^A-Za-z]/g, '');
+        const letterCount = lettersOnly.length;
+        const first = lettersOnly ? lettersOnly[0].toUpperCase() : countryName[0].toUpperCase();
+        return 'Starts with ' + first + ' - ' + letterCount + ' letters';
+      }
+
+      function clearHintTimer() {
+        if (!hintTimer) return;
+        clearTimeout(hintTimer);
+        hintTimer = null;
+      }
+
+      function showHintNow() {
+        if (!currentCorrect) return;
+        setCoach(
+          randomCatGif('hint'),
+          '<em>Coach Mittens:</em> Hint: ' + shortFlagHint(currentCorrect[0]) + '.'
+        );
+      }
+
       function shuffle(arr) {
         const a = arr.slice();
         for (let i = a.length - 1; i > 0; i--) {
@@ -506,6 +518,7 @@
       }
 
       function pickQuestion() {
+        clearHintTimer();
         const correct = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
         const pool = COUNTRIES.filter((c) => c[1] !== correct[1]);
         const wrong = shuffle(pool).slice(0, 3);
@@ -520,6 +533,15 @@
         const step = Math.min(questionIndex, PRIZES.length - 1);
         qMeta.textContent = 'Question ' + (questionIndex + 1) + ' · $' + PRIZES[step].toLocaleString();
         renderLadder();
+        if (immediateHints) {
+          showHintNow();
+          return;
+        }
+        hintTimer = setTimeout(() => {
+          if (!locked && currentCorrect && currentCorrect[1] === correct[1]) {
+            showHintNow();
+          }
+        }, 5000);
       }
 
       function renderLadder() {
@@ -553,6 +575,7 @@
 
       function onPick(code) {
         if (locked) return;
+        clearHintTimer();
         locked = true;
         const buttons = answersEl.querySelectorAll('.answer');
         buttons.forEach((btn) => {
@@ -571,7 +594,10 @@
           streakEl.textContent = String(streak);
           liveRegion.textContent = 'Correct! ' + currentCorrect[0];
           fireConfetti();
-          setCoach(randomCatGif('win'), '<em>Coach Mittens:</em> Purrfection! That streak is looking tasty.');
+          setCoach(
+            randomCatGif('win'),
+            '<em>Coach Mittens:</em> Purrfection! You nailed it. Keep climbing.'
+          );
           questionIndex += 1;
           if (questionIndex >= PRIZES.length) {
             setTimeout(() => gameOver(true), 700);
@@ -582,8 +608,12 @@
         }
 
         lives -= 1;
+        if (questionIndex === 0 && streak === 0) immediateHints = true;
         liveRegion.textContent = 'Wrong. The answer was ' + currentCorrect[0] + '.';
-        setCoach(randomCatGif('lose'), '<em>Coach Mittens:</em> Oof. Even land cats miss sometimes. Lives left: ' + lives);
+        setCoach(
+          randomCatGif('lose'),
+          '<em>Coach Mittens:</em> Shake it off - you got this. Lives left: ' + lives + '.'
+        );
         if (lives <= 0) {
           setTimeout(() => gameOver(false), 1200);
           return;
@@ -593,6 +623,7 @@
       }
 
       function gameOver(won) {
+        clearHintTimer();
         overlayEnd.hidden = false;
         overlayEnd.classList.add('show');
         endCat.src = randomCatGif(won ? 'finalwin' : 'final');
@@ -610,16 +641,18 @@
       }
 
       function resetGame() {
+        clearHintTimer();
         streak = 0;
         lives = 3;
         questionIndex = 0;
         halfUsed = false;
         skipUsed = false;
+        immediateHints = false;
         streakEl.textContent = '0';
         overlayEnd.classList.remove('show');
         overlayEnd.hidden = true;
-        pickQuestion();
         setCoach(randomCatGif('go'), '<em>Coach Mittens:</em> Fresh game. Three lives. Steal the show.');
+        pickQuestion();
       }
 
       halfBtn.addEventListener('click', () => {
@@ -645,11 +678,6 @@
         setCoach(randomCatGif('skip'), '<em>Coach Mittens:</em> This one’s free. Don’t tell the producers.');
         locked = false;
         pickQuestion();
-      });
-
-      document.getElementById('btn-start').addEventListener('click', () => {
-        overlayStart.classList.remove('show');
-        resetGame();
       });
 
       document.getElementById('btn-again').addEventListener('click', () => {
@@ -712,8 +740,7 @@
         else confettiActive = false;
       }
 
-      startCat.src = randomCatGif('intro');
-      setCoach(randomCatGif('idle'), '<em>Coach Mittens:</em> Tap “Let’s play” when you’re ready under the spotlight.');
+      resetGame();
 
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
