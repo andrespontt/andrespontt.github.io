@@ -5,9 +5,7 @@ const PAGE_CACHE = `pages-${CACHE_VERSION}`;
 const PRECACHE_URLS = [
   '/',
   '/index.html',
-  '/pages/bio.html',
   '/pages/experiments.html',
-  '/pages/music.html',
   '/assets/pages.css?v=f635e20',
   '/assets/nav.js?v=f635e20',
   '/assets/manifest.webmanifest',
@@ -113,4 +111,3 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
-

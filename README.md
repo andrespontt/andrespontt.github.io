@@ -1,6 +1,6 @@
 # andrespontt.github.io
 
-Last updated: 2025-01-27
+Last updated: 2026-04-24
 
 Personal website and playground for Andres Pontt, hosted on GitHub Pages. The site is fully static (plain HTML/CSS/JS) with no build step.
 
@@ -8,18 +8,28 @@ Personal website and playground for Andres Pontt, hosted on GitHub Pages. The si
 
 ### Pages
 - **Home**: `index.html` - Main landing page with app showcase
-- **About**: `pages/bio.html` - Personal bio and information
 - **Experiments**: `pages/experiments.html` - Three.js demos and experiments
-- **Music**: `pages/music.html` - Simple audio player
 - **404**: `404.html` - Custom error page
+- **Offline**: `offline.html` - Offline fallback page for the root service worker
 
 ### Apps & Games
 Located in the `apps/` directory:
+- **ABC Learning** (`abc.html`) - Interactive alphabet practice for young learners
+- **Bridge Math** (`bridge-math.html`) - Equation game where correct answers rebuild a bridge
+- **Chromatic Keyboard** (`keyboard.html`) - Browser keyboard with octave controls
+- **Coding Hero** (`coding_hero.html`) - Typing practice for coding characters
+- **Count Cats** (`count-cats.html`) - Counting game for kids
+- **Flag Millionaire** (`flag-millionaire.html`) - Flag quiz game with PWA support
+- **Hacker News** (`hnews.html`, `hnews_view_comment.html`) - Simple Hacker News reader
+- **Perfect Pitch** (`perfect-pitch.html`) - Music training app for pitch recognition
+- **Pomodoro** (`pomodoro.html`) - Productivity timer with saved progress, sounds, notifications, and daily rankings
+- **PWA Test** (`pwa.html`) - Progressive Web App capability demo
+- **Shape Trace** (`shape-trace.html`) - Shape and letter tracing game
+- **Toddler Puzzle** (`puzzle.html`) - Touch-friendly drag-and-drop shape puzzle
 - **Type Quest** (`type-quest.html`) - Educational typing game for kids ages 3-6, built to help improve reading and typing skills with multiple modes, virtual keyboard, and TTS
 - **Type & Shine** (`games.html`) - Kids typing game with cat animations
-- **Perfect Pitch** (`perfect-pitch.html`) - Music training app to develop perfect pitch (difficulty levels, A4 440/432, diatonic/chromatic)
-- **Pomodoro** (`pomodoro.html`) - Focused productivity timer with saved progress, sounds, notifications, and daily rankings
-- **Math Screener** (`math-screener.html`) - Educational math assessment tool for young learners, testing counting, number comparison, and basic addition skills
+- **Math Screener** (`math-screener.html`) - Educational math assessment tool for young learners
+- **World Clock** (`clock.html`) - Multi-timezone world clock
 
 ## Local Preview
 
@@ -38,15 +48,21 @@ Push changes to the default branch. GitHub Pages serves files directly from the 
 ├── index.html              # Home page
 ├── 404.html               # Custom 404 page
 ├── pages/                 # Additional pages
-│   ├── bio.html
-│   ├── experiments.html
-│   └── music.html
+│   └── experiments.html
 ├── apps/                  # Interactive apps and games
-│   ├── type-quest.html
-│   ├── games.html
-│   ├── perfect-pitch.html
+│   ├── abc.html
+│   ├── bridge-math.html
+│   ├── clock.html
+│   ├── count-cats.html
+│   ├── flag-millionaire.html
+│   ├── hnews.html
+│   ├── keyboard.html
+│   ├── math-screener.html
 │   ├── pomodoro.html
-│   └── math-screener.html
+│   ├── puzzle.html
+│   ├── shape-trace.html
+│   ├── type-quest.html
+│   └── ...
 ├── assets/                # Shared resources
 │   ├── pages.css         # Main stylesheet
 │   ├── nav.js            # Navigation system
@@ -72,7 +88,7 @@ Push changes to the default branch. GitHub Pages serves files directly from the 
 - **Adding new pages**: 
   1. Create the HTML file
   2. Add navigation link in `assets/nav.js`
-  3. Update noscript navigation fallback in all pages
+  3. Update noscript navigation fallback in relevant pages
   4. Add SEO meta tags
   5. Include skip link and semantic HTML
 
