@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>CSS3D Dashboard &amp; Forms - Andres Pontt</title>
+  <meta name="description" content="Static dashboard and form panels arranged in 3D space using Three.js CSS3DRenderer, with no animation loop required.">
+  <meta name="theme-color" content="#0a1416">
+  <link rel="manifest" href="/assets/manifest.webmanifest">
+  <link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a1416;
+      --panel: rgba(15, 25, 28, .92);
+      --panel-strong: rgba(11, 19, 21, .97);
+      --line: rgba(159, 229, 216, .16);
+      --text: #edf7f5;
+      --muted: #9db8b4;
+      --accent: #10a37f;
+      --accent-2: #38bdf8;
+      --warn: #f6c453;
+      --danger: #fb7185;
+      --shadow: 0 30px 90px rgba(0, 0, 0, .55);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    button:focus-visible, input:focus-visible, select:focus-visible,
+    textarea:focus-visible, a:focus-visible {
+      outline: 2px solid var(--accent-2);
+      outline-offset: 2px;
+    }
+
+    #bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      display: block;
+    }
+
+    #css3d {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* CSS3DRenderer draws each object with transform-style preserve-3d;
+       panels themselves must opt into perspective-safe rendering */
+    #css3d > div { pointer-events: none; }
+
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left));
+      pointer-events: none;
+    }
+
+    .topbar .brand, .topbar .top-actions {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .topbar .brand {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+
+    .topbar h1 { margin: 0; font-size: .95rem; }
+    .topbar p { margin: 1px 0 0; font-size: .76rem; color: var(--muted); }
+
+    .mark {
+      width: 30px; height: 30px;
+      display: grid; place-items: center;
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #04110d;
+      font-weight: 900;
+      font-size: .8rem;
+      flex: 0 0 auto;
+    }
+
+    .top-actions {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-radius: 8px;
+      padding: 6px;
+      font-size: .78rem;
+    }
+
+    .top-actions a, .top-actions label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      text-decoration: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+
+    .top-actions a { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); font-weight: 700; }
+    .top-actions a:hover { border-color: rgba(56,189,248,.5); background: rgba(56,189,248,.14); }
+    .top-actions input[type="checkbox"] { accent-color: var(--accent); }
+
+    /* ---- panel content styling (rendered inside CSS3D objects) ---- */
+    .card3d {
+      pointer-events: auto;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      border-radius: 12px;
+      overflow: hidden;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    .card3d-head {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .card3d-head h2 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: .01em;
+    }
+
+    .card3d-head span {
+      font-size: .74rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .card3d-body { padding: 16px 18px 20px; }
+
+    /* dashboard panel */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .kpi {
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      border-radius: 9px;
+      padding: 10px 12px;
+    }
+
+    .kpi .label { font-size: .7rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .kpi .value { font-size: 1.3rem; font-weight: 800; margin-top: 2px; }
+    .kpi .delta { font-size: .74rem; font-weight: 700; margin-top: 4px; }
+    .kpi .delta.up { color: #6ee7b7; }
+    .kpi .delta.down { color: var(--danger); }
+
+    .spark { display: block; margin-top: 6px; opacity: .85; }
+
+    table.activity { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    table.activity th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+    table.activity td { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,.06); }
+    table.activity tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: .68rem;
+      font-weight: 800;
+    }
+    .badge.ok { background: rgba(16,163,127,.18); color: #6ee7b7; }
+    .badge.pending { background: rgba(246,196,83,.18); color: var(--warn); }
+    .badge.failed { background: rgba(251,113,133,.18); color: var(--danger); }
+
+    /* form panel */
+    .field { display: grid; gap: 6px; margin-bottom: 12px; }
+    .field label { font-size: .76rem; font-weight: 800; color: var(--muted); }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 7px;
+      background: rgba(0,0,0,.28);
+      color: var(--text);
+      padding: 9px 10px;
+    }
+    .field textarea { min-height: 64px; resize: vertical; }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0;
+      font-size: .84rem;
+      font-weight: 700;
+    }
+    .switch { position: relative; width: 42px; height: 24px; flex: 0 0 auto; }
+    .switch input { position: absolute; opacity: 0; inset: 0; }
+    .switch span {
+      position: absolute; inset: 0;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      transition: background .18s ease;
+    }
+    .switch span::after {
+      content: ""; position: absolute;
+      width: 18px; height: 18px; left: 2px; top: 2px;
+      border-radius: 50%; background: #e8f5f2;
+      transition: transform .18s ease;
+    }
+    .switch input:checked + span { background: var(--accent); }
+    .switch input:checked + span::after { transform: translateX(18px); background: #04110d; }
+
+    .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+    .btn {
+      min-height: 36px;
+      padding: 0 14px;
+      border-radius: 7px;
+      font-weight: 750;
+      font-size: .84rem;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.07);
+      color: var(--text);
+    }
+    .btn.primary { border-color: transparent; background: var(--accent); color: #04110d; }
+    .btn:hover { border-color: rgba(56,189,248,.5); background: rgba(56,189,248,.14); }
+    .btn.primary:hover { background: var(--accent); filter: brightness(1.08); }
+
+    /* team/list panel */
+    .person {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      font-size: .84rem;
+    }
+    .person:last-child { border-bottom: none; }
+    .avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: .72rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      color: #04110d;
+      flex: 0 0 auto;
+    }
+    .person .role { color: var(--muted); font-size: .74rem; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; }
+    .status-dot.online { background: #6ee7b7; }
+    .status-dot.away { background: var(--warn); }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 6;
+      max-width: min(92vw, 420px);
+      padding: 11px 14px;
+      border: 1px solid rgba(16, 163, 127, .35);
+      border-radius: 8px;
+      background: var(--panel-strong);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      transform: translate(-50%, 16px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 980px) {
+      #css3d { display: none; }
+      #bg { display: none; }
+      .flat-fallback { display: block !important; }
+    }
+
+    .flat-fallback { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div id="css3d" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">3D</div>
+      <div>
+        <h1>CSS3D Dashboard &amp; Forms</h1>
+        <p>Real HTML forms, arranged in space via Three.js — no render loop</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <a href="three-ui-showcase.html">Animated version</a>
+      <a href="index.html">Apps</a>
+      <label><input type="checkbox" id="flatToggle"> Flatten to 2D</label>
+      <label><input type="checkbox" id="parallaxToggle"> Mouse parallax</label>
+    </div>
+  </header>
+
+  <!-- Small-screen fallback: same real DOM, plain flow, no 3D -->
+  <main class="flat-fallback" style="position:relative; z-index:2; padding:70px 14px 30px; max-width:640px; margin:0 auto;"></main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
+  <script>
+    (function () {
+      var toast = document.getElementById('toast');
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(function () { toast.classList.remove('show'); }, 2200);
+      }
+
+      // ---- panel markup (built once, plain functions, real inputs) ----
+      function dashboardPanelHTML() {
+        return (
+          '<div class="card3d" style="width:620px;">' +
+            '<div class="card3d-head"><h2>Overview</h2><span>Last 30 days</span></div>' +
+            '<div class="card3d-body">' +
+              '<div class="kpi-row">' +
+                kpi('Revenue', '$128.4k', '+12.4%', 'up', '4,10,14,8,18,12,22,16,26') +
+                kpi('Active users', '8,241', '+4.1%', 'up', '10,12,9,14,11,16,13,18,15') +
+                kpi('Conversion', '3.8%', '-0.6%', 'down', '20,16,18,14,15,10,12,9,8') +
+                kpi('Churn', '1.2%', '+0.1%', 'down', '6,7,6,8,7,9,8,10,9') +
+              '</div>' +
+              '<table class="activity">' +
+                '<thead><tr><th>Account</th><th>Status</th><th>Amount</th><th>Date</th></tr></thead>' +
+                '<tbody>' +
+                  row('Nova Studio', 'ok', 'Paid', '$1,240', 'Jul 18') +
+                  row('Redline Co', 'pending', 'Pending', '$860', 'Jul 17') +
+                  row('Atlas Group', 'ok', 'Paid', '$3,020', 'Jul 16') +
+                  row('Kite &amp; Co', 'failed', 'Failed', '$210', 'Jul 15') +
+                '</tbody>' +
+              '</table>' +
+            '</div>' +
+          '</div>'
+        );
+      }
+
+      function kpi(label, value, delta, dir, points) {
+        return (
+          '<div class="kpi">' +
+            '<div class="label">' + label + '</div>' +
+            '<div class="value">' + value + '</div>' +
+            '<div class="delta ' + dir + '">' + delta + '</div>' +
+            spark(points, dir) +
+          '</div>'
+        );
+      }
+
+      function spark(points, dir) {
+        var pts = points.split(',').map(Number);
+        var max = Math.max.apply(null, pts), min = Math.min.apply(null, pts);
+        var w = 96, h = 24;
+        var d = pts.map(function (v, i) {
+          var x = (i / (pts.length - 1)) * w;
+          var y = h - ((v - min) / (max - min || 1)) * h;
+          return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        var color = dir === 'up' ? '#6ee7b7' : '#fb7185';
+        return '<svg class="spark" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
+          '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      }
+
+      function row(name, badgeClass, badgeText, amount, date) {
+        return '<tr><td>' + name + '</td><td><span class="badge ' + badgeClass + '">' + badgeText + '</span></td><td>' + amount + '</td><td>' + date + '</td></tr>';
+      }
+
+      function formPanelHTML() {
+        return (
+          '<div class="card3d" style="width:360px;">' +
+            '<div class="card3d-head"><h2>Project settings</h2><span>Draft</span></div>' +
+            '<div class="card3d-body">' +
+              '<form id="settingsForm">' +
+                '<div class="field"><label for="pName">Project name</label><input id="pName" value="Aurora Launch"></div>' +
+                '<div class="row2">' +
+                  '<div class="field"><label for="pPlan">Plan</label><select id="pPlan"><option>Starter</option><option selected>Team</option><option>Enterprise</option></select></div>' +
+                  '<div class="field"><label for="pRegion">Region</label><select id="pRegion"><option>US East</option><option selected>EU West</option><option>AP South</option></select></div>' +
+                '</div>' +
+                '<div class="field"><label for="pDesc">Description</label><textarea id="pDesc">Internal dashboard rollout for the growth team.</textarea></div>' +
+                '<div class="toggle-row"><span>Email notifications</span><span class="switch"><input type="checkbox" checked><span></span></span></div>' +
+                '<div class="toggle-row"><span>Public project page</span><span class="switch"><input type="checkbox"><span></span></span></div>' +
+                '<div class="btn-row">' +
+                  '<button class="btn primary" type="submit">Save changes</button>' +
+                  '<button class="btn" type="button" id="cancelForm">Cancel</button>' +
+                '</div>' +
+              '</form>' +
+            '</div>' +
+          '</div>'
+        );
+      }
+
+      function teamPanelHTML() {
+        return (
+          '<div class="card3d" style="width:280px;">' +
+            '<div class="card3d-head"><h2>Team</h2><span>6 members</span></div>' +
+            '<div class="card3d-body">' +
+              person('AP', 'Andres Pontt', 'Owner', 'online') +
+              person('JL', 'Jamie Lin', 'Design', 'online') +
+              person('RK', 'Ravi Kumar', 'Engineering', 'away') +
+              person('SM', 'Sara Mills', 'Growth', 'online') +
+            '</div>' +
+          '</div>'
+        );
+      }
+
+      function person(initials, name, role, status) {
+        return (
+          '<div class="person">' +
+            '<div class="avatar">' + initials + '</div>' +
+            '<div><div>' + name + '</div><div class="role">' + role + '</div></div>' +
+            '<span class="status-dot ' + status + '"></span>' +
+          '</div>'
+        );
+      }
+
+      function el(html) {
+        var wrap = document.createElement('div');
+        wrap.innerHTML = html.trim();
+        return wrap.firstElementChild;
+      }
+
+      // ---- small-screen fallback: plain stacked DOM, no 3D at all ----
+      var fallback = document.querySelector('.flat-fallback');
+      [dashboardPanelHTML(), formPanelHTML(), teamPanelHTML()].forEach(function (html) {
+        var node = el(html);
+        node.style.marginBottom = '16px';
+        node.style.width = '100%';
+        fallback.appendChild(node);
+      });
+      wireForm(fallback);
+
+      if (!window.THREE || !THREE.CSS3DRenderer) {
+        showToast('CSS3DRenderer failed to load — using the flat layout.');
+        return;
+      }
+
+      // ---- CSS3D scene: real DOM elements placed in 3D space ----
+      var width = window.innerWidth, height = window.innerHeight;
+
+      var camera = new THREE.PerspectiveCamera(40, width / height, 1, 8000);
+      camera.position.set(0, 40, 1500);
+
+      var scene = new THREE.Scene();
+
+      var renderer = new THREE.CSS3DRenderer();
+      renderer.setSize(width, height);
+      var container = document.getElementById('css3d');
+      container.appendChild(renderer.domElement);
+
+      var group = new THREE.Group();
+      scene.add(group);
+
+      var dashboardObj = new THREE.CSS3DObject(el(dashboardPanelHTML()));
+      dashboardObj.position.set(-60, 0, 0);
+      group.add(dashboardObj);
+
+      var formObj = new THREE.CSS3DObject(el(formPanelHTML()));
+      formObj.position.set(560, -30, -260);
+      formObj.rotation.y = -0.38;
+      group.add(formObj);
+
+      var teamObj = new THREE.CSS3DObject(el(teamPanelHTML()));
+      teamObj.position.set(-640, 40, -320);
+      teamObj.rotation.y = 0.36;
+      group.add(teamObj);
+
+      var baseRotations = [0, formObj.rotation.y, teamObj.rotation.y];
+
+      wireForm(dashboardObj.element);
+      wireForm(formObj.element);
+
+      function render() {
+        renderer.render(scene, camera);
+      }
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+        render();
+      }
+
+      // ---- static ambient WebGL backdrop, rendered once (no loop) ----
+      var bgCanvas = document.getElementById('bg');
+      var bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: true, alpha: true });
+      bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      bgRenderer.setSize(width, height, false);
+
+      var bgScene = new THREE.Scene();
+      var bgCamera = new THREE.PerspectiveCamera(40, width / height, 1, 8000);
+      bgCamera.position.copy(camera.position);
+
+      var ambient = new THREE.AmbientLight(0xffffff, 0.5);
+      bgScene.add(ambient);
+      var key = new THREE.DirectionalLight(0x9fe5d8, 0.8);
+      key.position.set(4, 7, 8);
+      bgScene.add(key);
+
+      var starsGeometry = new THREE.BufferGeometry();
+      var starPositions = new Float32Array(500 * 3);
+      for (var i = 0; i < starPositions.length; i += 3) {
+        starPositions[i] = (Math.random() - 0.5) * 3600;
+        starPositions[i + 1] = (Math.random() - 0.5) * 1800;
+        starPositions[i + 2] = -Math.random() * 2600;
+      }
+      starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+      var stars = new THREE.Points(
+        starsGeometry,
+        new THREE.PointsMaterial({ color: 0x9fe5d8, size: 3, transparent: true, opacity: 0.5, sizeAttenuation: true })
+      );
+      bgScene.add(stars);
+
+      function renderBg() {
+        bgCamera.aspect = width / height;
+        bgCamera.updateProjectionMatrix();
+        bgRenderer.setSize(width, height, false);
+        bgRenderer.render(bgScene, bgCamera);
+      }
+
+      // ---- controls: everything below is one-shot, nothing loops by default ----
+      var flatToggle = document.getElementById('flatToggle');
+      flatToggle.addEventListener('change', function () {
+        if (flatToggle.checked) {
+          formObj.rotation.y = 0;
+          teamObj.rotation.y = 0;
+          formObj.position.set(560, -30, 0);
+          teamObj.position.set(-640, 40, 0);
+        } else {
+          formObj.rotation.y = baseRotations[1];
+          teamObj.rotation.y = baseRotations[2];
+          formObj.position.set(560, -30, -260);
+          teamObj.position.set(-640, 40, -320);
+        }
+        render();
+      });
+
+      var parallaxToggle = document.getElementById('parallaxToggle');
+      var parallaxRAF = null;
+      var pointer = { x: 0, y: 0 };
+
+      function onPointerMove(event) {
+        pointer.x = event.clientX / window.innerWidth - 0.5;
+        pointer.y = event.clientY / window.innerHeight - 0.5;
+      }
+
+      function parallaxLoop() {
+        camera.position.x += (pointer.x * 220 - camera.position.x) * 0.06;
+        camera.position.y += (40 - pointer.y * 120 - camera.position.y) * 0.06;
+        camera.lookAt(0, 0, 0);
+        render();
+        parallaxRAF = requestAnimationFrame(parallaxLoop);
+      }
+
+      parallaxToggle.addEventListener('change', function () {
+        if (parallaxToggle.checked) {
+          window.addEventListener('pointermove', onPointerMove);
+          parallaxLoop();
+          showToast('Parallax on — this is the only optional animation loop on the page.');
+        } else {
+          window.removeEventListener('pointermove', onPointerMove);
+          if (parallaxRAF) cancelAnimationFrame(parallaxRAF);
+          camera.position.set(0, 40, 1500);
+          camera.lookAt(0, 0, 0);
+          render();
+        }
+      });
+
+      function wireForm(root) {
+        var form = root.querySelector ? root.querySelector('#settingsForm') : null;
+        if (!form) return;
+        form.addEventListener('submit', function (event) {
+          event.preventDefault();
+          showToast('Settings saved.');
+        });
+        var cancel = root.querySelector('#cancelForm');
+        if (cancel) cancel.addEventListener('click', function () {
+          form.reset();
+          showToast('Changes discarded.');
+        });
+      }
+
+      window.addEventListener('resize', function () {
+        resize();
+        renderBg();
+      });
+
+      render();
+      renderBg();
+    })();
+  </script>
+</body>
+</html>
