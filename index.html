@@ -64,7 +64,7 @@
           </svg>
         </a>
       </div>
-      <p>&copy; <span id="copyright-year">2025</span> Andres Pontt <span id="last-updated-badge" class="update-badge" style="display: none;"></span></p>
+      <p><span id="last-updated-badge" class="update-badge" style="display: none;"></span></p>
       <div class="badges" style="margin-top: 6px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; align-items: center;">
         <a href="https://github.com/andrespontt/andrespontt.github.io" target="_blank" rel="noopener noreferrer" title="View on GitHub">
           <img src="https://img.shields.io/github/last-commit/andrespontt/andrespontt.github.io?label=GitHub&logo=github" alt="GitHub Repository" style="height: 20px;">
@@ -74,9 +74,6 @@
   </div>
   <script src="assets/nav.js?v=f635e20" defer></script>
   <script>
-    // Set copyright year dynamically
-    document.getElementById('copyright-year').textContent = new Date().getFullYear();
-    
     // Handle service worker updates and cache invalidation
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', (event) => {
@@ -112,7 +109,7 @@
         if (data && data.length > 0) {
           const commitDate = new Date(data[0].commit.committer.date);
           const timeAgo = getTimeAgo(commitDate);
-          badge.textContent = `· Last updated ${timeAgo}`;
+          badge.textContent = `Last updated ${timeAgo}`;
           badge.style.display = 'inline';
         }
       } catch (error) {

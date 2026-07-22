@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>View Comment Thread - Hacker News</title>
-  <meta name="theme-color" content="#1e1b4b" />
+  <meta name="theme-color" content="#000000" />
   <link rel="preconnect" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
   <!-- Google tag (gtag.js) -->
@@ -12,26 +12,27 @@
   <script src="/assets/js/analytics.js"></script>
   <style>
     :root {
-      --bg: #1a1447;
-      --bg2: #231858;
-      --card: #2d1f6b;
-      --fg: #f3f0ff;
-      --muted: #c4b5fd;
-      --accent: #a78bfa;
-      --border: rgba(167, 139, 250, 0.2);
-      --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
+      --bg: #000000;
+      --bg2: #000000;
+      --card: #0d0d0d;
+      --fg: #cccccc;
+      --muted: #767676;
+      --accent: #d97757;
+      --border: rgba(217, 119, 87, 0.25);
+      --shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
     }
-    
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    
+
     html, body { height: 100%; }
-    
+
     body {
       color: var(--fg);
-      font-family: ui-rounded, system-ui, -apple-system, sans-serif;
+      font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
       background: linear-gradient(180deg, var(--bg), var(--bg2));
       -webkit-font-smoothing: antialiased;
       padding: 20px;
+      font-size: 14px;
     }
 
     .app {
@@ -52,29 +53,27 @@
     .back-link {
       padding: 10px 18px;
       border: 2px solid var(--border);
-      border-radius: 12px;
+      border-radius: 4px;
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.3s ease;
-      background: rgba(167, 139, 250, 0.15);
+      background: rgba(217, 119, 87, 0.15);
       color: var(--fg);
       text-decoration: none;
       backdrop-filter: blur(10px);
     }
     
     .back-link:hover {
-      background: rgba(167, 139, 250, 0.25);
+      background: rgba(217, 119, 87, 0.25);
       transform: translateY(-2px);
     }
 
     h1 {
-      font-size: clamp(20px, 5vw, 28px);
-      font-weight: 900;
-      background: linear-gradient(135deg, var(--accent), #c4b5fd);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      font-size: clamp(18px, 5vw, 22px);
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.02em;
     }
 
     .loading {
@@ -87,7 +86,7 @@
     .error {
       background: rgba(252, 165, 165, 0.1);
       border: 2px solid #fca5a5;
-      border-radius: 12px;
+      border-radius: 4px;
       padding: 20px;
       color: #fca5a5;
       text-align: center;
@@ -95,9 +94,9 @@
     }
 
     .comment {
-      background: linear-gradient(135deg, #2d1f6b, #241858);
+      background: var(--card);
       border: 2px solid var(--border);
-      border-radius: 12px;
+      border-radius: 4px;
       padding: 20px;
       margin-bottom: 16px;
       transition: all 0.3s ease;
@@ -161,13 +160,13 @@
       color: var(--muted);
       font-style: italic;
       padding: 12px;
-      background: rgba(167, 139, 250, 0.05);
+      background: rgba(217, 119, 87, 0.05);
       border-radius: 8px;
     }
 
     .main-comment {
       border: 2px solid var(--accent);
-      box-shadow: 0 0 20px rgba(167, 139, 250, 0.3);
+      box-shadow: 0 0 20px rgba(217, 119, 87, 0.3);
     }
 
     @media (max-width: 600px) {

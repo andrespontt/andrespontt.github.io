@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hacker News Reader</title>
-  <meta name="theme-color" content="#1e1b4b" />
+  <meta name="theme-color" content="#000000" />
   <link rel="preconnect" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
   <!-- Google tag (gtag.js) -->
@@ -13,14 +13,14 @@
   <script src="/assets/js/analytics.js"></script>
   <style>
     :root {
-      --bg: #1a1447;
-      --bg2: #231858;
-      --card: #2d1f6b;
-      --fg: #f3f0ff;
-      --muted: #c4b5fd;
-      --accent: #a78bfa;
-      --border: rgba(167, 139, 250, 0.2);
-      --shadow: 0 14px 40px rgba(10, 5, 30, 0.4);
+      --bg: #000000;
+      --bg2: #000000;
+      --card: #0d0d0d;
+      --fg: #cccccc;
+      --muted: #767676;
+      --accent: #d97757;
+      --border: rgba(217, 119, 87, 0.25);
+      --shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
     }
 
     * {
@@ -36,10 +36,11 @@
 
     body {
       color: var(--fg);
-      font-family: ui-rounded, system-ui, -apple-system, sans-serif;
+      font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
       background: linear-gradient(180deg, var(--bg), var(--bg2));
       -webkit-font-smoothing: antialiased;
       padding: 20px;
+      font-size: 14px;
     }
 
     .app {
@@ -54,35 +55,59 @@
       justify-content: space-between;
       gap: 16px;
       flex-wrap: wrap;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--card);
+    }
+
+    .sparkle {
+      color: var(--accent);
+      margin-right: 8px;
+    }
+
+    .tagline {
+      display: block;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+      letter-spacing: 0;
+      margin-top: 2px;
+    }
+
+    .slash {
+      color: var(--muted);
+    }
+
+    .label-short {
+      display: none;
     }
 
     .back-link {
       padding: 10px 18px;
       border: 2px solid var(--border);
-      border-radius: 12px;
+      border-radius: 4px;
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.3s ease;
-      background: rgba(167, 139, 250, 0.15);
+      background: rgba(217, 119, 87, 0.15);
       color: var(--fg);
       text-decoration: none;
       backdrop-filter: blur(10px);
     }
 
     .back-link:hover {
-      background: rgba(167, 139, 250, 0.25);
+      background: rgba(217, 119, 87, 0.25);
       transform: translateY(-2px);
     }
 
     h1 {
-      font-size: clamp(20px, 5vw, 28px);
-      font-weight: 900;
-      background: linear-gradient(135deg, var(--accent), #c4b5fd);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      font-size: clamp(16px, 5vw, 18px);
+      font-weight: 700;
+      color: var(--fg);
+      letter-spacing: -0.02em;
     }
 
     .controls {
@@ -95,10 +120,10 @@
     }
 
     .btn {
-      background: rgba(167, 139, 250, 0.2);
+      background: rgba(217, 119, 87, 0.2);
       color: var(--fg);
       border: 2px solid var(--accent);
-      border-radius: 12px;
+      border-radius: 4px;
       padding: 10px 16px;
       font-weight: 800;
       font-size: 14px;
@@ -107,26 +132,38 @@
     }
 
     .btn:hover {
-      background: rgba(167, 139, 250, 0.3);
+      background: rgba(217, 119, 87, 0.3);
       transform: translateY(-2px);
     }
 
     .btn.active {
       background: var(--accent);
-      color: #1a1447;
+      color: var(--bg);
     }
 
     .loading {
-      text-align: center;
-      padding: 40px;
+      text-align: left;
+      padding: 20px 0;
       color: var(--muted);
-      font-size: 18px;
+      font-size: 14px;
+    }
+
+    .loading::before {
+      content: '✢ ';
+      color: var(--accent);
+      animation: pulse-glyph 0.9s ease-in-out infinite;
+      display: inline-block;
+    }
+
+    @keyframes pulse-glyph {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
     }
 
     .error {
       background: rgba(252, 165, 165, 0.1);
       border: 2px solid #fca5a5;
-      border-radius: 12px;
+      border-radius: 4px;
       padding: 20px;
       color: #fca5a5;
       text-align: center;
@@ -140,25 +177,41 @@
     }
 
     .news-item {
-      background: linear-gradient(135deg, #2d1f6b, #241858);
-      border: 2px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
-      transition: all 0.3s ease;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      transition: all 0.15s ease;
       cursor: pointer;
     }
 
+
     .news-item:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(167, 139, 250, 0.2);
+      box-shadow: 0 8px 24px rgba(217, 119, 87, 0.2);
       border-color: var(--accent);
     }
 
     .news-title {
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
       line-height: 1.4;
+    }
+
+    .news-title::before {
+      content: '● ';
+      color: var(--accent);
+    }
+
+    .news-meta {
+      margin-left: 16px;
+    }
+
+    .news-meta::before {
+      content: '⎿ ';
+      color: var(--muted);
     }
 
     .news-title a {
@@ -195,12 +248,12 @@
     }
 
     .points {
-      color: #86efac;
+      color: #16c60c;
       font-weight: 700;
     }
 
     .comments {
-      color: #93c5fd;
+      color: #61d6d6;
       font-weight: 700;
     }
 
@@ -234,9 +287,9 @@
     }
 
     .story-header {
-      background: linear-gradient(135deg, #2d1f6b, #241858);
+      background: var(--card);
       border: 2px solid var(--border);
-      border-radius: 16px;
+      border-radius: 6px;
       padding: 20px;
       margin-bottom: 24px;
     }
@@ -273,20 +326,20 @@
       height: 50px;
       border-radius: 50%;
       background: var(--accent);
-      color: #1a1447;
+      color: var(--bg);
       border: none;
       font-size: 24px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(167, 139, 250, 0.4);
+      box-shadow: 0 4px 12px rgba(217, 119, 87, 0.4);
       transition: all 0.2s ease;
     }
 
     .nav-arrow:hover {
       transform: scale(1.1);
-      box-shadow: 0 6px 16px rgba(167, 139, 250, 0.6);
+      box-shadow: 0 6px 16px rgba(217, 119, 87, 0.6);
     }
 
     .nav-arrow:active {
@@ -303,9 +356,9 @@
     }
 
     .comment {
-      background: linear-gradient(135deg, #2d1f6b, #241858);
+      background: var(--card);
       border: 2px solid var(--border);
-      border-radius: 12px;
+      border-radius: 4px;
       padding: 16px;
       margin-bottom: 12px;
       transition: all 0.3s ease;
@@ -316,7 +369,7 @@
 
     .comment.highlighted {
       border-color: var(--accent);
-      box-shadow: 0 0 20px rgba(167, 139, 250, 0.4);
+      box-shadow: 0 0 20px rgba(217, 119, 87, 0.4);
       transform: scale(1.02);
     }
 
@@ -332,6 +385,15 @@
     .comment-author {
       font-weight: 700;
       color: var(--accent);
+    }
+
+    .comment-author::before {
+      content: '● ';
+    }
+
+    .comment-meta::before {
+      content: '⎿ ';
+      color: var(--muted);
     }
 
     .comment-time {
@@ -410,23 +472,23 @@
     }
 
     ::-webkit-scrollbar-track {
-      background: rgba(167, 139, 250, 0.05);
+      background: rgba(217, 119, 87, 0.05);
       border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: rgba(167, 139, 250, 0.3);
+      background: rgba(217, 119, 87, 0.3);
       border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(167, 139, 250, 0.5);
+      background: rgba(217, 119, 87, 0.5);
     }
 
     /* Firefox */
     * {
       scrollbar-width: thin;
-      scrollbar-color: rgba(167, 139, 250, 0.3) rgba(167, 139, 250, 0.05);
+      scrollbar-color: rgba(217, 119, 87, 0.3) rgba(217, 119, 87, 0.05);
     }
 
     @media (max-width: 600px) {
@@ -456,6 +518,56 @@
       .news-meta {
         font-size: 12px;
         gap: 12px;
+      }
+
+      header {
+        flex-wrap: nowrap;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+        gap: 8px;
+      }
+
+      .back-link {
+        padding: 6px 10px;
+        font-size: 12px;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
+      h1 {
+        font-size: 14px;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .tagline {
+        display: none;
+      }
+
+      .controls {
+        flex-wrap: nowrap;
+        gap: 6px;
+        margin-bottom: 16px;
+      }
+
+      .controls > div {
+        gap: 6px !important;
+      }
+
+      .btn {
+        padding: 6px 8px;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .label-full {
+        display: none;
+      }
+
+      .label-short {
+        display: inline;
       }
     }
 
@@ -522,7 +634,7 @@
 
       .news-item.active {
         border-color: var(--accent);
-        background: rgba(167, 139, 250, 0.15);
+        background: rgba(217, 119, 87, 0.15);
         transform: translateX(4px);
       }
     }
@@ -532,17 +644,17 @@
 <body>
   <div class="app">
     <header>
-      <a href="index.html" class="back-link">← Back to Apps</a>
-      <h1>📰 Hacker News</h1>
+      <a href="index.html" class="back-link">← back</a>
+      <h1><span class="sparkle">✻</span>hacker-news<span class="tagline">reading the comments so you don't have to argue in them</span></h1>
     </header>
 
     <div class="controls" id="mainControls">
-      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <button class="btn active feed-btn" id="btnTop">Top Stories</button>
-        <button class="btn feed-btn" id="btnNew">New Stories</button>
-        <button class="btn feed-btn" id="btnBest">Best Stories</button>
+      <div style="display: flex; gap: 12px; flex-wrap: nowrap;">
+        <button class="btn active feed-btn" id="btnTop"><span class="slash">/</span>top</button>
+        <button class="btn feed-btn" id="btnNew"><span class="slash">/</span>new</button>
+        <button class="btn feed-btn" id="btnBest"><span class="slash">/</span>best</button>
       </div>
-      <button class="btn toggle-btn" id="btnToggleSort">💬 Sort by Comments</button>
+      <button class="btn toggle-btn active" id="btnToggleSort"><span class="slash">/</span><span class="label-full">sort-by-comments</span><span class="label-short">sort</span></button>
     </div>
 
     <div id="storiesView">
@@ -552,7 +664,7 @@
     </div>
 
     <div id="commentsView" class="comment-view">
-      <button class="btn back-to-list" id="backToList">← Back to Stories</button>
+      <button class="btn back-to-list" id="backToList">← back</button>
       <div id="storyHeader"></div>
       <div class="nav-controls">
         <button class="nav-arrow" id="navUp" title="Previous parent comment (↑)">⬆</button>
@@ -567,7 +679,7 @@
     let currentType = 'top';
     let stories = [];
     let originalStories = [];
-    let isSortByComments = false;
+    let isSortByComments = true;
     let currentStory = null;
     let topLevelComments = [];
     let currentCommentIndex = -1;
