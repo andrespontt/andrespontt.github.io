@@ -622,7 +622,8 @@
       return Promise.all(storyPromises);
     }
 
-    // Fetch comment tree recursively
+    // Fetch comment tree, only 2 levels deep (top-level + first-level replies).
+    // Deeper replies are left uncollapsed/unfetched — expanding them happens on hnews_view_comment.html.
     async function fetchCommentTree(commentId, depth = 0) {
       if (!commentId) return null;
 
@@ -630,23 +631,17 @@
       if (!comment || comment.deleted || comment.dead) return null;
 
       if (comment.kids && comment.kids.length > 0) {
-        const replies = await Promise.all(
-          comment.kids.map(kidId => fetchCommentTree(kidId, depth + 1))
-        );
-        comment.replies = replies.filter(r => r !== null);
+        if (depth < 1) {
+          const replies = await Promise.all(
+            comment.kids.map(kidId => fetchCommentTree(kidId, depth + 1))
+          );
+          comment.replies = replies.filter(r => r !== null);
+        } else {
+          comment.hasMoreReplies = true;
+        }
       }
 
       return comment;
-    }
-
-    // Count total nested replies
-    function countNestedReplies(comment) {
-      if (!comment || !comment.replies || comment.replies.length === 0) return 0;
-      let count = comment.replies.length;
-      comment.replies.forEach(reply => {
-        count += countNestedReplies(reply);
-      });
-      return count;
     }
 
     // Render comment (only 1 level deep)
@@ -657,12 +652,6 @@
 
       const text = comment.text || '';
       const replies = comment.replies || [];
-
-      // Only show first level of replies
-      const firstLevelReplies = replies.map(reply => {
-        const nestedCount = countNestedReplies(reply);
-        return { reply, nestedCount };
-      });
 
       return `
         <div class="comment" data-comment-id="${comment.id}" data-depth="${depth}">
@@ -675,11 +664,10 @@
             <span>⬆ ${comment.score || 0}</span>
             <a href="https://news.ycombinator.com/item?id=${comment.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
           </div>
-          ${firstLevelReplies.length > 0 ? `
+          ${replies.length > 0 ? `
             <div class="comment-replies">
-              ${firstLevelReplies.map(({ reply, nestedCount }) => {
+              ${replies.map(reply => {
         const replyText = reply.text || '';
-        const hasMore = nestedCount > 0;
         return `
                   <div class="comment" data-comment-id="${reply.id}" data-depth="${depth + 1}">
                     <div class="comment-header">
@@ -691,10 +679,10 @@
                       <span>⬆ ${reply.score || 0}</span>
                       <a href="https://news.ycombinator.com/item?id=${reply.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
                     </div>
-                    ${hasMore ? `
+                    ${reply.hasMoreReplies ? `
                       <div class="collapsed-replies">
                         <a href="hnews_view_comment.html?id=${reply.id}" class="expand-link" target="_blank">
-                          ↳ ${nestedCount} more ${nestedCount === 1 ? 'reply' : 'replies'}
+                          ↳ view replies
                         </a>
                       </div>
                     ` : ''}
