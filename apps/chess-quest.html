@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>♟️ Chess Quest - Learn Chess for Kids</title>
+  <meta name="description" content="A simple chess game for kids: learn which piece can eat which, and practice setting up the board with an animated solution." />
+  <meta name="theme-color" content="#1e1b4b" />
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
+  <script src="/assets/js/analytics.js"></script>
+  <style>
+    :root {
+      --bg: #f4ead9;
+      --bg2: #e7d5b3;
+      --card: #fffaf1;
+      --fg: #3b2f28;
+      --muted: #8b7355;
+      --accent: #2f9e6e;
+      --accent-dark: #1f7a53;
+      --gold: #d97706;
+      --bad: #c0392b;
+      --border: rgba(139, 115, 85, 0.3);
+      --shadow: 0 14px 34px rgba(59, 47, 42, 0.2);
+      --sq-light: #f0d9b5;
+      --sq-dark: #b58863;
+      --wood: #7a4b2e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overscroll-behavior: none; }
+
+    body {
+      color: var(--fg);
+      font-family: ui-rounded, 'Comic Sans MS', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .app {
+      min-height: 100vh;
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .back-link {
+      padding: 10px 18px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(139, 115, 85, 0.1);
+      color: var(--fg);
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+      display: inline-block;
+    }
+
+    .back-link:hover { background: rgba(139, 115, 85, 0.2); transform: translateY(-2px); }
+
+    .title { display: flex; align-items: center; gap: 12px; }
+
+    .logo {
+      width: 46px; height: 46px; font-size: 32px;
+      display: flex; align-items: center; justify-content: center;
+      animation: bounce 2s ease-in-out infinite;
+    }
+
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+    h1 {
+      font-size: clamp(20px, 5vw, 26px);
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--gold));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .screen { display: none; flex-direction: column; gap: 16px; }
+    .screen.active { display: flex; }
+
+    .subtitle { color: var(--muted); font-size: 15px; text-align: center; }
+
+    .coach {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 14px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .coach em { color: var(--accent-dark); font-style: normal; }
+
+    /* ── Menu ─────────────────────────────── */
+    .mode-cards { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 480px) { .mode-cards { grid-template-columns: 1fr 1fr; } }
+
+    .mode-card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 18px;
+      padding: 22px 16px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--fg);
+      font-family: inherit;
+      transition: all 0.25s ease;
+    }
+
+    .mode-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: var(--shadow); }
+    .mode-icon { font-size: 42px; margin-bottom: 8px; }
+    .mode-card h2 { font-size: 18px; margin-bottom: 6px; }
+    .mode-card p { color: var(--muted); font-size: 13px; }
+
+    /* ── Progress ─────────────────────────────── */
+    .progress-row { display: flex; align-items: center; gap: 10px; }
+    .progress-bar {
+      background: rgba(139, 115, 85, 0.15);
+      border: 2px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      flex: 1;
+    }
+    .progress-fill {
+      background: linear-gradient(90deg, var(--accent), var(--gold));
+      height: 16px;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+    .progress-label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+
+    /* ── Board ─────────────────────────────── */
+    .board-wrap { display: flex; justify-content: center; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: min(92vw, 380px);
+      aspect-ratio: 1;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 8px solid var(--wood);
+      box-shadow: var(--shadow);
+      touch-action: none;
+    }
+
+    .sq { position: relative; display: flex; align-items: center; justify-content: center; touch-action: none; }
+    .sq.light { background: var(--sq-light); }
+    .sq.dark { background: var(--sq-dark); }
+    .sq.hero-sq { box-shadow: inset 0 0 0 3px var(--accent); }
+    .drag-hint {
+      position: absolute; bottom: -4px; right: -4px;
+      font-size: 16px; pointer-events: none;
+      filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+      animation: hand-bounce 1.2s ease-in-out infinite;
+    }
+    @keyframes hand-bounce {
+      0%, 100% { transform: translate(0, 0) rotate(-8deg); }
+      50% { transform: translate(-4px, 4px) rotate(-8deg); }
+    }
+    .sq.hint-pulse { animation: hint-pulse 1s ease; }
+    @keyframes hint-pulse {
+      0%, 100% { box-shadow: inset 0 0 0 0 rgba(217, 119, 6, 0); }
+      30% { box-shadow: inset 0 0 0 4px var(--gold); }
+      70% { box-shadow: inset 0 0 0 4px var(--gold); }
+    }
+
+    .piece {
+      font-size: clamp(22px, 8vw, 36px);
+      line-height: 1;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+      transition: transform 0.2s ease, opacity 0.3s ease;
+    }
+    .piece.white {
+      color: #fbf8f2;
+      text-shadow: -1.5px -1.5px 0 #2a1f18, 1.5px -1.5px 0 #2a1f18,
+        -1.5px 1.5px 0 #2a1f18, 1.5px 1.5px 0 #2a1f18,
+        0 3px 2px rgba(0, 0, 0, 0.4);
+    }
+    .piece.black {
+      color: #1e1712;
+      text-shadow: -1px -1px 0 rgba(255, 255, 255, 0.35), 1px -1px 0 rgba(255, 255, 255, 0.35),
+        -1px 1px 0 rgba(255, 255, 255, 0.35), 1px 1px 0 rgba(255, 255, 255, 0.35),
+        0 3px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    .sq.shake { animation: shake 0.4s ease; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .yum-pop {
+      position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: #fff; font-size: 11px; font-weight: 900;
+      padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+      pointer-events: none;
+      animation: pop-up 0.8s ease forwards;
+    }
+    @keyframes pop-up {
+      0% { transform: translate(-50%, 0); opacity: 1; }
+      100% { transform: translate(-50%, -28px); opacity: 0; }
+    }
+
+    /* ── Buttons ─────────────────────────────── */
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: 2px solid var(--accent-dark);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .btn:hover { background: var(--accent-dark); transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+
+    .actions-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── Setup mode ─────────────────────────────── */
+    .tray {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+      background: var(--card); border: 2px solid var(--border); border-radius: 14px;
+      padding: 12px; min-height: 60px;
+      box-shadow: var(--shadow);
+    }
+    .tray-piece {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--sq-light); border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      color: #fbf8f2;
+      text-shadow: -1.2px -1.2px 0 #2a1f18, 1.2px -1.2px 0 #2a1f18,
+        -1.2px 1.2px 0 #2a1f18, 1.2px 1.2px 0 #2a1f18;
+      cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    }
+    .tray-piece.dragging-source { opacity: 0.25; }
+    .tray-piece.wobble { animation: wobble 0.4s ease; }
+    @keyframes wobble {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px) rotate(-4deg); }
+      75% { transform: translateX(5px) rotate(4deg); }
+    }
+
+    .ghost {
+      position: fixed; z-index: 500; pointer-events: none;
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--sq-light); border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      color: #fbf8f2;
+      text-shadow: -1.2px -1.2px 0 #2a1f18, 1.2px -1.2px 0 #2a1f18,
+        -1.2px 1.2px 0 #2a1f18, 1.2px 1.2px 0 #2a1f18;
+    }
+
+    .win-banner {
+      text-align: center; font-size: 18px; font-weight: 800; color: var(--accent-dark);
+      background: rgba(47, 158, 110, 0.12); border: 2px solid var(--accent);
+      border-radius: 14px; padding: 14px;
+    }
+
+    .celebrate {
+      text-align: center;
+    }
+    .celebrate img { width: 100%; max-width: 280px; border-radius: 16px; margin: 12px 0; border: 3px solid var(--accent); }
+    .celebrate h2 { font-size: 22px; margin-bottom: 8px; }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header>
+      <a href="index.html" class="back-link">← Back to Apps</a>
+      <div class="title">
+        <div class="logo">♟️</div>
+        <h1>Chess Quest</h1>
+      </div>
+    </header>
+
+    <!-- ══════════════ MENU ══════════════ -->
+    <div id="menuScreen" class="screen active">
+      <p class="subtitle">Pick a mission, kiddo — Coach Mittens is ready! 🐾</p>
+      <div class="mode-cards">
+        <button class="mode-card" id="modeMoves">
+          <div class="mode-icon">😋♟️</div>
+          <h2>Learn to Eat!</h2>
+          <p>Figure out which piece your hero can gobble up.</p>
+        </button>
+        <button class="mode-card" id="modeSetup">
+          <div class="mode-icon">🏰</div>
+          <h2>Set Up the Board</h2>
+          <p>Drag your pieces to their starting spots.</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- ══════════════ MOVES / CAPTURE PRACTICE ══════════════ -->
+    <div id="movesScreen" class="screen">
+      <div class="progress-row">
+        <div class="progress-bar"><div class="progress-fill" id="movesProgressFill" style="width:0%"></div></div>
+        <span class="progress-label" id="movesProgressLabel">1 / 12</span>
+      </div>
+      <p class="coach" id="movesCoach">Coach Mittens: Tap the piece your hero can eat! 🐾</p>
+      <div class="board-wrap">
+        <div class="board" id="movesBoard"></div>
+      </div>
+      <div class="actions-row">
+        <button class="btn" id="btnHint" style="display:none;">👀 Show me!</button>
+        <button class="back-link" id="btnMovesMenu">← Back to Menu</button>
+      </div>
+    </div>
+
+    <!-- ══════════════ BOARD SETUP ══════════════ -->
+    <div id="setupScreen" class="screen">
+      <p class="coach">Coach Mittens: Copy the top pattern for your own pieces below! 🏰</p>
+      <div class="board-wrap"><div class="board" id="setupBoard"></div></div>
+      <div class="tray" id="pieceTray"></div>
+      <div id="setupWin" class="win-banner" style="display:none;">🎉 Ta-da! Your army is ready for battle!</div>
+      <div class="actions-row">
+        <button class="btn" id="btnShowSolution">🐾 Show Me!</button>
+        <button class="btn" id="btnResetSetup">🔄 Try Again</button>
+        <button class="back-link" id="btnSetupMenu">← Back to Menu</button>
+      </div>
+    </div>
+
+    <!-- ══════════════ CELEBRATION ══════════════ -->
+    <div id="celebrateScreen" class="screen celebrate">
+      <h2>🏆 You out-smarted every piece!</h2>
+      <img id="celebrateGif" alt="Happy cat" />
+      <p class="subtitle" id="celebrateText">Coach Mittens is speechless. Purrfect work!</p>
+      <div class="actions-row">
+        <button class="btn" id="btnPlayAgain">🔁 Play Again</button>
+        <button class="back-link" id="btnCelebrateMenu">← Back to Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════
+    // Shared chess engine
+    // ═══════════════════════════════════════════════════════
+    // U+FE0E forces plain "text" glyph rendering instead of iOS's fixed-color emoji
+    // pictograph for these characters (which ignores CSS color/text-shadow entirely).
+    const GLYPH = {
+      king: '♚︎', queen: '♛︎', rook: '♜︎',
+      bishop: '♝︎', knight: '♞︎', pawn: '♟︎',
+    };
+    const ROOK_DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const BISHOP_DIRS = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+    const QUEEN_DIRS = ROOK_DIRS.concat(BISHOP_DIRS);
+    const KNIGHT_DELTAS = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
+    const KING_DELTAS = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+
+    function inBounds(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+    function pieceAt(list, r, c) { return list.find(p => p.row === r && p.col === c); }
+
+    function slideDestinations(hero, dirs, others) {
+      const result = [];
+      for (const [dr, dc] of dirs) {
+        let r = hero.row + dr, c = hero.col + dc;
+        while (inBounds(r, c)) {
+          const occ = pieceAt(others, r, c);
+          if (occ) {
+            if (occ.color !== hero.color) result.push({ row: r, col: c, capture: true });
+            break;
+          }
+          result.push({ row: r, col: c, capture: false });
+          r += dr; c += dc;
+        }
+      }
+      return result;
+    }
+
+    function stepDestinations(hero, deltas, others) {
+      const result = [];
+      for (const [dr, dc] of deltas) {
+        const r = hero.row + dr, c = hero.col + dc;
+        if (!inBounds(r, c)) continue;
+        const occ = pieceAt(others, r, c);
+        if (occ && occ.color === hero.color) continue;
+        result.push({ row: r, col: c, capture: !!occ });
+      }
+      return result;
+    }
+
+    function legalDestinations(hero, board) {
+      const others = board.filter(p => p !== hero);
+      switch (hero.type) {
+        case 'rook': return slideDestinations(hero, ROOK_DIRS, others);
+        case 'bishop': return slideDestinations(hero, BISHOP_DIRS, others);
+        case 'queen': return slideDestinations(hero, QUEEN_DIRS, others);
+        case 'knight': return stepDestinations(hero, KNIGHT_DELTAS, others);
+        case 'king': return stepDestinations(hero, KING_DELTAS, others);
+        case 'pawn': {
+          const dir = hero.color === 'w' ? -1 : 1;
+          const res = [];
+          const fr = hero.row + dir;
+          if (inBounds(fr, hero.col) && !pieceAt(others, fr, hero.col)) {
+            res.push({ row: fr, col: hero.col, capture: false });
+          }
+          for (const dc of [-1, 1]) {
+            const cc = hero.col + dc;
+            if (!inBounds(fr, cc)) continue;
+            const occ = pieceAt(others, fr, cc);
+            if (occ && occ.color !== hero.color) res.push({ row: fr, col: cc, capture: true });
+          }
+          return res;
+        }
+        default: return [];
+      }
+    }
+
+    function screen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function randomCatGif(seed) {
+      return 'https://cataas.com/cat/gif?t=' + encodeURIComponent(String(seed) + '-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // MOVES / CAPTURE PRACTICE MODE
+    // ═══════════════════════════════════════════════════════
+    const TEACH = {
+      pawn: "Pawns march straight ahead one square at a time... but they can only gobble up enemies that are diagonally in front! Never straight ahead.",
+      rook: "Rooks zoom in straight lines - up, down, left or right - as far as the path stays clear!",
+      bishop: "Bishops slide along diagonals only, and they never leave their own color of squares!",
+      knight: "Knights hop in an L-shape: two squares one way, then one square sideways. They can even jump over other pieces!",
+      queen: "Queens combine the Rook and the Bishop - straight lines AND diagonals. The most powerful piece!",
+      king: "Kings are careful! They waddle just one square in any direction.",
+    };
+
+    const PUZZLES = [
+      { type: 'pawn', enemies: [{ type: 'knight', row: 3, col: 5 }, { type: 'pawn', row: 3, col: 4 }] },
+      { type: 'pawn', enemies: [{ type: 'bishop', row: 3, col: 3 }, { type: 'rook', row: 2, col: 4 }] },
+      { type: 'rook', enemies: [{ type: 'bishop', row: 4, col: 7 }, { type: 'pawn', row: 2, col: 2 }] },
+      { type: 'rook', enemies: [{ type: 'knight', row: 1, col: 4 }, { type: 'pawn', row: 6, col: 6 }] },
+      { type: 'bishop', enemies: [{ type: 'pawn', row: 2, col: 2 }, { type: 'rook', row: 4, col: 7 }] },
+      { type: 'bishop', enemies: [{ type: 'knight', row: 7, col: 7 }, { type: 'pawn', row: 1, col: 4 }] },
+      { type: 'knight', enemies: [{ type: 'pawn', row: 2, col: 3 }, { type: 'pawn', row: 2, col: 4 }] },
+      { type: 'knight', enemies: [{ type: 'rook', row: 6, col: 5 }, { type: 'bishop', row: 5, col: 5 }] },
+      { type: 'queen', enemies: [{ type: 'rook', row: 4, col: 0 }, { type: 'pawn', row: 6, col: 3 }] },
+      { type: 'queen', enemies: [{ type: 'bishop', row: 1, col: 1 }, { type: 'knight', row: 5, col: 2 }] },
+      { type: 'king', enemies: [{ type: 'pawn', row: 3, col: 4 }, { type: 'pawn', row: 2, col: 4 }] },
+      { type: 'king', enemies: [{ type: 'knight', row: 5, col: 5 }, { type: 'rook', row: 6, col: 6 }] },
+    ];
+
+    let puzzleIndex = 0;
+    let currentHero = null;
+    let currentEnemies = [];
+    let hintTimer = null;
+    const introShown = new Set();
+
+    const movesBoardEl = document.getElementById('movesBoard');
+    const movesCoachEl = document.getElementById('movesCoach');
+    const movesProgressFill = document.getElementById('movesProgressFill');
+    const movesProgressLabel = document.getElementById('movesProgressLabel');
+    const btnHintEl = document.getElementById('btnHint');
+
+    function startMoves() {
+      puzzleIndex = 0;
+      introShown.clear();
+      screen('movesScreen');
+      loadPuzzle();
+    }
+
+    function loadPuzzle() {
+      clearTimeout(hintTimer);
+      btnHintEl.style.display = 'none';
+
+      if (puzzleIndex >= PUZZLES.length) {
+        showCelebration();
+        return;
+      }
+      const p = PUZZLES[puzzleIndex];
+      currentHero = { type: p.type, color: 'w', row: 4, col: 4 };
+      currentEnemies = p.enemies.map(e => ({ type: e.type, color: 'b', row: e.row, col: e.col, alive: true }));
+
+      movesProgressFill.style.width = Math.round((puzzleIndex / PUZZLES.length) * 100) + '%';
+      movesProgressLabel.textContent = (puzzleIndex + 1) + ' / ' + PUZZLES.length;
+
+      if (!introShown.has(p.type)) {
+        introShown.add(p.type);
+        movesCoachEl.innerHTML = '<em>Coach Mittens:</em> Meet the ' + p.type + '! ' + TEACH[p.type];
+      } else {
+        movesCoachEl.innerHTML = '<em>Coach Mittens:</em> Drag your piece onto the one it can eat! 🐾';
+      }
+
+      renderMovesBoard();
+      hintTimer = setTimeout(() => { btnHintEl.style.display = 'inline-block'; }, 10000);
+    }
+
+    let currentSquareSize = 46;
+
+    // Only render the squares near the puzzle's pieces (not the full 8x8 board),
+    // so squares - and the pieces on them - can be shown much bigger.
+    function getPuzzleCrop() {
+      const rows = [currentHero.row, ...currentEnemies.map(e => e.row)];
+      const cols = [currentHero.col, ...currentEnemies.map(e => e.col)];
+      const pad = 1;
+      return {
+        minRow: Math.max(0, Math.min(...rows) - pad),
+        maxRow: Math.min(7, Math.max(...rows) + pad),
+        minCol: Math.max(0, Math.min(...cols) - pad),
+        maxCol: Math.min(7, Math.max(...cols) + pad),
+      };
+    }
+
+    function renderMovesBoard() {
+      const crop = getPuzzleCrop();
+      const cropRows = crop.maxRow - crop.minRow + 1;
+      const cropCols = crop.maxCol - crop.minCol + 1;
+
+      const availableWidth = Math.min(window.innerWidth * 0.86, 380);
+      const cellsAcross = Math.max(cropCols, cropRows);
+      currentSquareSize = Math.max(46, Math.min(96, Math.floor(availableWidth / cellsAcross)));
+
+      movesBoardEl.style.width = (currentSquareSize * cropCols) + 'px';
+      movesBoardEl.style.height = (currentSquareSize * cropRows) + 'px';
+      movesBoardEl.style.aspectRatio = 'auto';
+      movesBoardEl.style.gridTemplateColumns = 'repeat(' + cropCols + ', ' + currentSquareSize + 'px)';
+      movesBoardEl.style.gridTemplateRows = 'repeat(' + cropRows + ', ' + currentSquareSize + 'px)';
+
+      movesBoardEl.innerHTML = '';
+      for (let r = crop.minRow; r <= crop.maxRow; r++) {
+        for (let c = crop.minCol; c <= crop.maxCol; c++) {
+          const sq = document.createElement('div');
+          sq.className = 'sq ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+          sq.dataset.row = r; sq.dataset.col = c;
+
+          let piece = null;
+          if (currentHero.row === r && currentHero.col === c) piece = currentHero;
+          else piece = currentEnemies.find(e => e.alive && e.row === r && e.col === c);
+
+          if (piece) {
+            const span = document.createElement('span');
+            span.className = 'piece ' + (piece === currentHero ? 'white' : 'black');
+            span.textContent = GLYPH[piece.type];
+            span.style.fontSize = Math.round(currentSquareSize * 0.72) + 'px';
+            sq.appendChild(span);
+            if (piece === currentHero) {
+              sq.classList.add('hero-sq');
+              span.style.cursor = 'grab';
+              span.addEventListener('pointerdown', onHeroPointerDown);
+
+              const hand = document.createElement('span');
+              hand.className = 'drag-hint';
+              hand.style.fontSize = Math.round(currentSquareSize * 0.34) + 'px';
+              hand.textContent = '👆';
+              sq.appendChild(hand);
+            }
+          }
+          movesBoardEl.appendChild(sq);
+        }
+      }
+    }
+
+    // Clones fromEl into a fixed-position ghost and animates it to toRect's center.
+    function flyToRect(fromEl, toRect) {
+      return new Promise(resolve => {
+        const fromRect = fromEl.getBoundingClientRect();
+        const clone = document.createElement('span');
+        clone.className = fromEl.className;
+        clone.textContent = fromEl.textContent;
+        clone.style.position = 'fixed';
+        clone.style.margin = '0';
+        clone.style.zIndex = '400';
+        clone.style.pointerEvents = 'none';
+        clone.style.fontSize = getComputedStyle(fromEl).fontSize;
+        clone.style.left = fromRect.left + 'px';
+        clone.style.top = fromRect.top + 'px';
+        document.body.appendChild(clone);
+        fromEl.style.visibility = 'hidden';
+
+        requestAnimationFrame(() => {
+          clone.style.transition = 'left 0.45s ease, top 0.45s ease';
+          clone.style.left = (toRect.left + toRect.width / 2 - fromRect.width / 2) + 'px';
+          clone.style.top = (toRect.top + toRect.height / 2 - fromRect.height / 2) + 'px';
+        });
+
+        setTimeout(() => { clone.remove(); resolve(); }, 460);
+      });
+    }
+
+    function attemptCapture(r, c) {
+      const enemy = currentEnemies.find(en => en.alive && en.row === r && en.col === c);
+      if (!enemy) return;
+
+      const targetSq = movesBoardEl.querySelector('.sq[data-row="' + r + '"][data-col="' + c + '"]');
+      const legal = legalDestinations(currentHero, [currentHero, ...currentEnemies.filter(e => e.alive)]);
+      const match = legal.find(m => m.row === r && m.col === c && m.capture);
+
+      if (match) {
+        enemy.alive = false;
+        clearTimeout(hintTimer);
+        btnHintEl.style.display = 'none';
+
+        const heroSq = movesBoardEl.querySelector('.hero-sq');
+        const heroSpan = heroSq.querySelector('.piece');
+        const oldHand = heroSq.querySelector('.drag-hint');
+        if (oldHand) oldHand.remove();
+        const enemySpan = targetSq.querySelector('.piece');
+        if (enemySpan) {
+          enemySpan.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+          enemySpan.style.transform = 'scale(0.2)';
+          enemySpan.style.opacity = '0';
+        }
+
+        flyToRect(heroSpan, targetSq.getBoundingClientRect()).then(() => {
+          if (enemySpan) enemySpan.remove();
+
+          heroSpan.style.visibility = 'visible';
+          targetSq.appendChild(heroSpan);
+          targetSq.classList.add('hero-sq');
+          heroSq.classList.remove('hero-sq');
+
+          const pop = document.createElement('div');
+          pop.className = 'yum-pop';
+          pop.textContent = '😻 Yum!';
+          targetSq.appendChild(pop);
+          movesCoachEl.innerHTML = '<em>Coach Mittens:</em> Yes! Purrfect capture! 🎉';
+          setTimeout(() => { puzzleIndex++; loadPuzzle(); }, 500);
+        });
+      } else {
+        targetSq.classList.add('shake');
+        setTimeout(() => targetSq.classList.remove('shake'), 400);
+        movesCoachEl.innerHTML = '<em>Coach Mittens:</em> Not quite! ' + TEACH[currentHero.type];
+      }
+    }
+
+    movesBoardEl.addEventListener('click', e => {
+      const sq = e.target.closest('.sq');
+      if (!sq) return;
+      attemptCapture(+sq.dataset.row, +sq.dataset.col);
+    });
+
+    // ── Drag the hero piece onto an enemy to capture it ──
+    let heroDragEl = null, heroDragGhost = null;
+
+    function onHeroPointerDown(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      heroDragEl = e.currentTarget;
+      heroDragEl.style.opacity = '0.25';
+      const hand = heroDragEl.parentElement.querySelector('.drag-hint');
+      if (hand) hand.remove();
+
+      heroDragGhost = document.createElement('span');
+      heroDragGhost.className = heroDragEl.className;
+      heroDragGhost.textContent = heroDragEl.textContent;
+      heroDragGhost.style.position = 'fixed';
+      heroDragGhost.style.zIndex = '500';
+      heroDragGhost.style.pointerEvents = 'none';
+      heroDragGhost.style.fontSize = getComputedStyle(heroDragEl).fontSize;
+      document.body.appendChild(heroDragGhost);
+      moveHeroGhost(e);
+
+      document.addEventListener('pointermove', onHeroPointerMove);
+      document.addEventListener('pointerup', onHeroPointerUp, { once: true });
+    }
+
+    function moveHeroGhost(e) {
+      heroDragGhost.style.left = (e.clientX - 24) + 'px';
+      heroDragGhost.style.top = (e.clientY - 80) + 'px';
+    }
+
+    function onHeroPointerMove(e) { e.preventDefault(); moveHeroGhost(e); }
+
+    function onHeroPointerUp(e) {
+      document.removeEventListener('pointermove', onHeroPointerMove);
+      heroDragGhost.remove();
+      if (heroDragEl) heroDragEl.style.opacity = '';
+
+      const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+      const sq = dropTarget && dropTarget.closest ? dropTarget.closest('.sq') : null;
+      if (sq) attemptCapture(+sq.dataset.row, +sq.dataset.col);
+
+      heroDragEl = null; heroDragGhost = null;
+    }
+
+    // ── Animated hint: hero peeks toward the piece it can eat ──
+    btnHintEl.addEventListener('click', playHintAnimation);
+
+    function playHintAnimation() {
+      const legal = legalDestinations(currentHero, [currentHero, ...currentEnemies.filter(e => e.alive)]);
+      const captureMove = legal.find(m => m.capture);
+      if (!captureMove) return;
+
+      const heroSq = movesBoardEl.querySelector('.hero-sq');
+      const heroSpan = heroSq && heroSq.querySelector('.piece');
+      const targetSq = movesBoardEl.querySelector('.sq[data-row="' + captureMove.row + '"][data-col="' + captureMove.col + '"]');
+      if (!heroSpan || !targetSq) return;
+
+      const cellSize = movesBoardEl.getBoundingClientRect().width / 8;
+      const dx = (captureMove.col - currentHero.col) * cellSize * 0.55;
+      const dy = (captureMove.row - currentHero.row) * cellSize * 0.55;
+
+      targetSq.classList.add('hint-pulse');
+      heroSpan.style.transition = 'transform 0.45s ease';
+      heroSpan.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(1.15)';
+
+      setTimeout(() => { heroSpan.style.transform = ''; }, 500);
+      setTimeout(() => {
+        heroSpan.style.transition = '';
+        targetSq.classList.remove('hint-pulse');
+      }, 1000);
+    }
+
+    document.getElementById('btnMovesMenu').addEventListener('click', () => {
+      clearTimeout(hintTimer);
+      screen('menuScreen');
+    });
+
+    function showCelebration() {
+      screen('celebrateScreen');
+      document.getElementById('celebrateGif').src = randomCatGif('chess-win');
+    }
+
+    document.getElementById('btnPlayAgain').addEventListener('click', startMoves);
+    document.getElementById('btnCelebrateMenu').addEventListener('click', () => screen('menuScreen'));
+
+    // ═══════════════════════════════════════════════════════
+    // BOARD SETUP MODE
+    // ═══════════════════════════════════════════════════════
+    const BACK_RANK = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
+    const TARGETS = {
+      rook: [[7, 0], [7, 7]],
+      knight: [[7, 1], [7, 6]],
+      bishop: [[7, 2], [7, 5]],
+      queen: [[7, 3]],
+      king: [[7, 4]],
+      pawn: [[6, 0], [6, 1], [6, 2], [6, 3], [6, 4], [6, 5], [6, 6], [6, 7]],
+    };
+
+    const setupBoardEl = document.getElementById('setupBoard');
+    const pieceTrayEl = document.getElementById('pieceTray');
+    const setupWinEl = document.getElementById('setupWin');
+    let filledSquares = new Set();
+
+    function isValidTargetForType(type, r, c) {
+      const list = TARGETS[type] || [];
+      return list.some(([tr, tc]) => tr === r && tc === c);
+    }
+
+    function nextTargetFor(type) {
+      for (const [r, c] of TARGETS[type] || []) {
+        if (!filledSquares.has(r + ',' + c)) return { r, c };
+      }
+      return null;
+    }
+
+    function renderSetupBoard() {
+      setupBoardEl.innerHTML = '';
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const sq = document.createElement('div');
+          sq.className = 'sq ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+          sq.dataset.row = r; sq.dataset.col = c;
+
+          if (r === 0 || r === 1) {
+            const type = r === 1 ? 'pawn' : BACK_RANK[c];
+            const span = document.createElement('span');
+            span.className = 'piece black';
+            span.textContent = GLYPH[type];
+            sq.appendChild(span);
+          }
+          if (r === 6 || r === 7) sq.classList.add('white-target');
+
+          setupBoardEl.appendChild(sq);
+        }
+      }
+      // Re-place any pieces already filled (used after Show Me / partial state)
+      filledSquares.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        const type = r === 6 ? 'pawn' : BACK_RANK[c];
+        placePieceOnBoard(type, r, c);
+      });
+    }
+
+    function placePieceOnBoard(type, r, c) {
+      const sq = setupBoardEl.querySelector('.sq[data-row="' + r + '"][data-col="' + c + '"]');
+      if (!sq || sq.querySelector('.piece')) return;
+      const span = document.createElement('span');
+      span.className = 'piece white';
+      span.textContent = GLYPH[type];
+      sq.appendChild(span);
+    }
+
+    function placePiece(type, r, c) {
+      filledSquares.add(r + ',' + c);
+      placePieceOnBoard(type, r, c);
+      checkSetupComplete();
+    }
+
+    function checkSetupComplete() {
+      if (filledSquares.size >= 16) {
+        setupWinEl.style.display = 'block';
+      }
+    }
+
+    function buildTray() {
+      const types = ['pawn', 'pawn', 'pawn', 'pawn', 'pawn', 'pawn', 'pawn', 'pawn',
+        'rook', 'rook', 'knight', 'knight', 'bishop', 'bishop', 'queen', 'king'];
+      for (let i = types.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [types[i], types[j]] = [types[j], types[i]];
+      }
+      pieceTrayEl.innerHTML = '';
+      types.forEach(type => {
+        const el = document.createElement('div');
+        el.className = 'tray-piece';
+        el.dataset.type = type;
+        el.textContent = GLYPH[type];
+        el.addEventListener('pointerdown', onTrayPointerDown);
+        pieceTrayEl.appendChild(el);
+      });
+    }
+
+    let dragType = null, dragOriginEl = null, dragGhost = null;
+
+    function onTrayPointerDown(e) {
+      e.preventDefault();
+      dragType = e.currentTarget.dataset.type;
+      dragOriginEl = e.currentTarget;
+      dragOriginEl.classList.add('dragging-source');
+
+      dragGhost = document.createElement('div');
+      dragGhost.className = 'ghost';
+      dragGhost.textContent = GLYPH[dragType];
+      document.body.appendChild(dragGhost);
+      moveGhost(e);
+
+      document.addEventListener('pointermove', onDragMove);
+      document.addEventListener('pointerup', onDragEnd, { once: true });
+    }
+
+    function moveGhost(e) {
+      dragGhost.style.left = (e.clientX - 22) + 'px';
+      dragGhost.style.top = (e.clientY - 80) + 'px';
+    }
+
+    function onDragMove(e) { e.preventDefault(); moveGhost(e); }
+
+    function onDragEnd(e) {
+      document.removeEventListener('pointermove', onDragMove);
+      dragGhost.style.display = 'none';
+      const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+      dragGhost.remove();
+      dragOriginEl.classList.remove('dragging-source');
+
+      const sq = dropTarget && dropTarget.closest ? dropTarget.closest('.sq.white-target') : null;
+      if (sq) {
+        const r = +sq.dataset.row, c = +sq.dataset.col;
+        const key = r + ',' + c;
+        if (isValidTargetForType(dragType, r, c) && !filledSquares.has(key)) {
+          placePiece(dragType, r, c);
+          dragOriginEl.remove();
+        } else {
+          dragOriginEl.classList.add('wobble');
+          setTimeout(() => dragOriginEl.classList.remove('wobble'), 400);
+        }
+      } else {
+        dragOriginEl.classList.add('wobble');
+        setTimeout(() => dragOriginEl.classList.remove('wobble'), 400);
+      }
+      dragType = null; dragOriginEl = null; dragGhost = null;
+    }
+
+    function animatePieceTo(fromEl, r, c) {
+      return new Promise(resolve => {
+        const fromRect = fromEl.getBoundingClientRect();
+        const targetSq = setupBoardEl.querySelector('.sq[data-row="' + r + '"][data-col="' + c + '"]');
+        const toRect = targetSq.getBoundingClientRect();
+
+        const clone = document.createElement('div');
+        clone.className = 'ghost';
+        clone.textContent = fromEl.textContent;
+        clone.style.left = fromRect.left + 'px';
+        clone.style.top = fromRect.top + 'px';
+        document.body.appendChild(clone);
+        fromEl.style.visibility = 'hidden';
+
+        requestAnimationFrame(() => {
+          clone.style.transition = 'left 0.45s ease, top 0.45s ease';
+          clone.style.left = (toRect.left + toRect.width / 2 - 21) + 'px';
+          clone.style.top = (toRect.top + toRect.height / 2 - 21) + 'px';
+        });
+
+        setTimeout(() => { clone.remove(); resolve(); }, 480);
+      });
+    }
+
+    async function showSetupSolution() {
+      const trayPieces = Array.from(pieceTrayEl.querySelectorAll('.tray-piece'));
+      for (const el of trayPieces) {
+        const type = el.dataset.type;
+        const target = nextTargetFor(type);
+        if (!target) continue;
+        await animatePieceTo(el, target.r, target.c);
+        placePiece(type, target.r, target.c);
+        el.remove();
+        await new Promise(r => setTimeout(r, 120));
+      }
+    }
+
+    function resetSetup() {
+      filledSquares = new Set();
+      setupWinEl.style.display = 'none';
+      renderSetupBoard();
+      buildTray();
+    }
+
+    document.getElementById('modeMoves').addEventListener('click', startMoves);
+    document.getElementById('modeSetup').addEventListener('click', () => {
+      screen('setupScreen');
+      resetSetup();
+    });
+    document.getElementById('btnSetupMenu').addEventListener('click', () => screen('menuScreen'));
+    document.getElementById('btnShowSolution').addEventListener('click', showSetupSolution);
+    document.getElementById('btnResetSetup').addEventListener('click', resetSetup);
+  </script>
+</body>
+</html>
