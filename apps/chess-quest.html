@@ -189,6 +189,7 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
+      -webkit-user-drag: none;
       touch-action: none;
       transition: transform 0.2s ease, opacity 0.3s ease;
     }
@@ -259,7 +260,7 @@
       color: #fbf8f2;
       text-shadow: -1.2px -1.2px 0 #2a1f18, 1.2px -1.2px 0 #2a1f18,
         -1.2px 1.2px 0 #2a1f18, 1.2px 1.2px 0 #2a1f18;
-      cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+      cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-user-drag: none;
     }
     .tray-piece.dragging-source { opacity: 0.25; }
     .tray-piece.wobble { animation: wobble 0.4s ease; }
@@ -663,7 +664,7 @@
     });
 
     // ── Drag the hero piece onto an enemy to capture it ──
-    let heroDragEl = null, heroDragGhost = null;
+    let heroDragEl = null, heroDragGhost = null, heroDragGhostSize = 0;
 
     function onHeroPointerDown(e) {
       e.preventDefault();
@@ -679,7 +680,8 @@
       heroDragGhost.style.position = 'fixed';
       heroDragGhost.style.zIndex = '500';
       heroDragGhost.style.pointerEvents = 'none';
-      heroDragGhost.style.fontSize = getComputedStyle(heroDragEl).fontSize;
+      heroDragGhostSize = parseFloat(getComputedStyle(heroDragEl).fontSize) * 2.9;
+      heroDragGhost.style.fontSize = heroDragGhostSize + 'px';
       document.body.appendChild(heroDragGhost);
       moveHeroGhost(e);
 
@@ -688,8 +690,8 @@
     }
 
     function moveHeroGhost(e) {
-      heroDragGhost.style.left = (e.clientX - 24) + 'px';
-      heroDragGhost.style.top = (e.clientY - 80) + 'px';
+      heroDragGhost.style.left = (e.clientX - heroDragGhostSize / 2) + 'px';
+      heroDragGhost.style.top = (e.clientY - heroDragGhostSize / 2) + 'px';
     }
 
     function onHeroPointerMove(e) { e.preventDefault(); moveHeroGhost(e); }
@@ -844,7 +846,7 @@
       });
     }
 
-    let dragType = null, dragOriginEl = null, dragGhost = null;
+    let dragType = null, dragOriginEl = null, dragGhost = null, dragGhostSize = 122;
 
     function onTrayPointerDown(e) {
       e.preventDefault();
@@ -855,6 +857,9 @@
       dragGhost = document.createElement('div');
       dragGhost.className = 'ghost';
       dragGhost.textContent = GLYPH[dragType];
+      dragGhost.style.width = dragGhostSize + 'px';
+      dragGhost.style.height = dragGhostSize + 'px';
+      dragGhost.style.fontSize = Math.round(dragGhostSize * 0.64) + 'px';
       document.body.appendChild(dragGhost);
       moveGhost(e);
 
@@ -863,8 +868,8 @@
     }
 
     function moveGhost(e) {
-      dragGhost.style.left = (e.clientX - 22) + 'px';
-      dragGhost.style.top = (e.clientY - 80) + 'px';
+      dragGhost.style.left = (e.clientX - dragGhostSize / 2) + 'px';
+      dragGhost.style.top = (e.clientY - dragGhostSize / 2) + 'px';
     }
 
     function onDragMove(e) { e.preventDefault(); moveGhost(e); }
