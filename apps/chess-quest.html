@@ -373,6 +373,9 @@
       king: '♚︎', queen: '♛︎', rook: '♜︎',
       bishop: '♝︎', knight: '♞︎', pawn: '♟︎',
     };
+    // Small upward nudge so the dragged piece peeks out above a real fingertip
+    // instead of sitting exactly under it.
+    const DRAG_LIFT = 28;
     const ROOK_DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
     const BISHOP_DIRS = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
     const QUEEN_DIRS = ROOK_DIRS.concat(BISHOP_DIRS);
@@ -680,6 +683,7 @@
       heroDragGhost.style.position = 'fixed';
       heroDragGhost.style.zIndex = '500';
       heroDragGhost.style.pointerEvents = 'none';
+      heroDragGhost.style.opacity = '0.7';
       heroDragGhostSize = parseFloat(getComputedStyle(heroDragEl).fontSize) * 2.9;
       heroDragGhost.style.fontSize = heroDragGhostSize + 'px';
       document.body.appendChild(heroDragGhost);
@@ -691,7 +695,7 @@
 
     function moveHeroGhost(e) {
       heroDragGhost.style.left = (e.clientX - heroDragGhostSize / 2) + 'px';
-      heroDragGhost.style.top = (e.clientY - heroDragGhostSize / 2) + 'px';
+      heroDragGhost.style.top = (e.clientY - heroDragGhostSize / 2 - DRAG_LIFT) + 'px';
     }
 
     function onHeroPointerMove(e) { e.preventDefault(); moveHeroGhost(e); }
@@ -860,6 +864,7 @@
       dragGhost.style.width = dragGhostSize + 'px';
       dragGhost.style.height = dragGhostSize + 'px';
       dragGhost.style.fontSize = Math.round(dragGhostSize * 0.64) + 'px';
+      dragGhost.style.opacity = '0.7';
       document.body.appendChild(dragGhost);
       moveGhost(e);
 
@@ -869,7 +874,7 @@
 
     function moveGhost(e) {
       dragGhost.style.left = (e.clientX - dragGhostSize / 2) + 'px';
-      dragGhost.style.top = (e.clientY - dragGhostSize / 2) + 'px';
+      dragGhost.style.top = (e.clientY - dragGhostSize / 2 - DRAG_LIFT) + 'px';
     }
 
     function onDragMove(e) { e.preventDefault(); moveGhost(e); }
