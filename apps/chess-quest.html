@@ -156,7 +156,7 @@
       width: min(92vw, 380px);
       aspect-ratio: 1;
       border-radius: 6px;
-      overflow: hidden;
+      overflow: visible;
       border: 8px solid var(--wood);
       box-shadow: var(--shadow);
       touch-action: none;
@@ -166,6 +166,7 @@
     .sq.light { background: var(--sq-light); }
     .sq.dark { background: var(--sq-dark); }
     .sq.hero-sq { box-shadow: inset 0 0 0 3px var(--accent); }
+    .sq.drop-hover { box-shadow: inset 0 0 0 4px var(--gold); background-color: rgba(217, 119, 6, 0.22); }
     .drag-hint {
       position: absolute; bottom: -4px; right: -4px;
       font-size: 16px; pointer-events: none;
@@ -481,7 +482,43 @@
     let currentHero = null;
     let currentEnemies = [];
     let hintTimer = null;
+    let wrongAttempts = 0;
     const introShown = new Set();
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // Re-scatters the current puzzle's enemies onto fresh squares (one still
+    // legally capturable, the rest not) so repeated wrong guesses can't be
+    // brute-forced by remembering which squares were already tried.
+    function regeneratePuzzleEnemies() {
+      const types = PUZZLES[puzzleIndex].enemies.map(e => e.type);
+      const legalSet = new Set(
+        legalDestinations(currentHero, [currentHero]).map(m => m.row + ',' + m.col)
+      );
+      const legalPool = [], illegalPool = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (r === currentHero.row && c === currentHero.col) continue;
+          (legalSet.has(r + ',' + c) ? legalPool : illegalPool).push({ r, c });
+        }
+      }
+      shuffleArray(legalPool);
+      shuffleArray(illegalPool);
+
+      currentEnemies = types.map((type, i) => {
+        const pool = i === 0 ? legalPool : illegalPool;
+        const spot = pool.pop() || legalPool.pop() || illegalPool.pop();
+        return { type, color: 'b', row: spot.r, col: spot.c, alive: true };
+      });
+
+      renderMovesBoard();
+    }
 
     const movesBoardEl = document.getElementById('movesBoard');
     const movesCoachEl = document.getElementById('movesCoach');
@@ -499,6 +536,7 @@
     function loadPuzzle() {
       clearTimeout(hintTimer);
       btnHintEl.style.display = 'none';
+      wrongAttempts = 0;
 
       if (puzzleIndex >= PUZZLES.length) {
         showCelebration();
@@ -615,14 +653,15 @@
     }
 
     function attemptCapture(r, c) {
-      const enemy = currentEnemies.find(en => en.alive && en.row === r && en.col === c);
-      if (!enemy) return;
-
       const targetSq = movesBoardEl.querySelector('.sq[data-row="' + r + '"][data-col="' + c + '"]');
+      if (!targetSq) return;
+
+      const enemy = currentEnemies.find(en => en.alive && en.row === r && en.col === c);
       const legal = legalDestinations(currentHero, [currentHero, ...currentEnemies.filter(e => e.alive)]);
-      const match = legal.find(m => m.row === r && m.col === c && m.capture);
+      const match = enemy && legal.find(m => m.row === r && m.col === c && m.capture);
 
       if (match) {
+        wrongAttempts = 0;
         enemy.alive = false;
         clearTimeout(hintTimer);
         btnHintEl.style.display = 'none';
@@ -654,9 +693,17 @@
           setTimeout(() => { puzzleIndex++; loadPuzzle(); }, 500);
         });
       } else {
+        wrongAttempts++;
         targetSq.classList.add('shake');
         setTimeout(() => targetSq.classList.remove('shake'), 400);
-        movesCoachEl.innerHTML = '<em>Coach Mittens:</em> Not quite! ' + TEACH[currentHero.type];
+
+        if (wrongAttempts >= 2) {
+          wrongAttempts = 0;
+          regeneratePuzzleEnemies();
+          movesCoachEl.innerHTML = '<em>Coach Mittens:</em> Let’s shuffle the board so guessing won’t help! ' + TEACH[currentHero.type];
+        } else {
+          movesCoachEl.innerHTML = '<em>Coach Mittens:</em> Not quite! ' + TEACH[currentHero.type];
+        }
       }
     }
 
@@ -667,7 +714,16 @@
     });
 
     // ── Drag the hero piece onto an enemy to capture it ──
-    let heroDragEl = null, heroDragGhost = null, heroDragGhostSize = 0;
+    let heroDragEl = null, heroDragGhost = null, heroDragGhostSize = 0, heroHoverSq = null;
+
+    function updateHeroHover(e) {
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      const sq = target && target.closest ? target.closest('.sq') : null;
+      if (sq === heroHoverSq) return;
+      if (heroHoverSq) heroHoverSq.classList.remove('drop-hover');
+      heroHoverSq = sq;
+      if (heroHoverSq) heroHoverSq.classList.add('drop-hover');
+    }
 
     function onHeroPointerDown(e) {
       e.preventDefault();
@@ -688,6 +744,7 @@
       heroDragGhost.style.fontSize = heroDragGhostSize + 'px';
       document.body.appendChild(heroDragGhost);
       moveHeroGhost(e);
+      updateHeroHover(e);
 
       document.addEventListener('pointermove', onHeroPointerMove);
       document.addEventListener('pointerup', onHeroPointerUp, { once: true });
@@ -698,12 +755,13 @@
       heroDragGhost.style.top = (e.clientY - heroDragGhostSize / 2 - DRAG_LIFT) + 'px';
     }
 
-    function onHeroPointerMove(e) { e.preventDefault(); moveHeroGhost(e); }
+    function onHeroPointerMove(e) { e.preventDefault(); moveHeroGhost(e); updateHeroHover(e); }
 
     function onHeroPointerUp(e) {
       document.removeEventListener('pointermove', onHeroPointerMove);
       heroDragGhost.remove();
       if (heroDragEl) heroDragEl.style.opacity = '';
+      if (heroHoverSq) { heroHoverSq.classList.remove('drop-hover'); heroHoverSq = null; }
 
       const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
       const sq = dropTarget && dropTarget.closest ? dropTarget.closest('.sq') : null;
@@ -850,7 +908,16 @@
       });
     }
 
-    let dragType = null, dragOriginEl = null, dragGhost = null, dragGhostSize = 122;
+    let dragType = null, dragOriginEl = null, dragGhost = null, dragGhostSize = 122, trayHoverSq = null;
+
+    function updateTrayHover(e) {
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      const sq = target && target.closest ? target.closest('.sq.white-target') : null;
+      if (sq === trayHoverSq) return;
+      if (trayHoverSq) trayHoverSq.classList.remove('drop-hover');
+      trayHoverSq = sq;
+      if (trayHoverSq) trayHoverSq.classList.add('drop-hover');
+    }
 
     function onTrayPointerDown(e) {
       e.preventDefault();
@@ -867,6 +934,7 @@
       dragGhost.style.opacity = '0.7';
       document.body.appendChild(dragGhost);
       moveGhost(e);
+      updateTrayHover(e);
 
       document.addEventListener('pointermove', onDragMove);
       document.addEventListener('pointerup', onDragEnd, { once: true });
@@ -877,7 +945,7 @@
       dragGhost.style.top = (e.clientY - dragGhostSize / 2 - DRAG_LIFT) + 'px';
     }
 
-    function onDragMove(e) { e.preventDefault(); moveGhost(e); }
+    function onDragMove(e) { e.preventDefault(); moveGhost(e); updateTrayHover(e); }
 
     function onDragEnd(e) {
       document.removeEventListener('pointermove', onDragMove);
@@ -885,6 +953,7 @@
       const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
       dragGhost.remove();
       dragOriginEl.classList.remove('dragging-source');
+      if (trayHoverSq) { trayHoverSq.classList.remove('drop-hover'); trayHoverSq = null; }
 
       const sq = dropTarget && dropTarget.closest ? dropTarget.closest('.sq.white-target') : null;
       if (sq) {
