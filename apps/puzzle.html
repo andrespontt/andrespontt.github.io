@@ -87,13 +87,44 @@
         .slot {
             width: var(--slot-size);
             height: var(--slot-size);
-            background: none;
-            border: 4px dashed #666;
-            border-radius: 14px;
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
+            transition: transform 0.15s ease;
+        }
+
+        .slot svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            transition: filter 0.15s ease;
+        }
+
+        /* "During": the correct slot glows and grows while the matching
+           shape is hovering over it, before the finger even lifts */
+        .slot.hover-match {
+            transform: scale(1.12);
+        }
+
+        .slot.hover-match svg {
+            filter: drop-shadow(0 0 8px rgba(46, 204, 64, 0.95)) drop-shadow(0 0 3px rgba(46, 204, 64, 1));
+        }
+
+        /* "After": a ring pulses outward from the slot the instant a shape locks in */
+        @keyframes successFlash {
+            0% {
+                box-shadow: 0 0 0 0 rgba(46, 204, 64, 0.55);
+            }
+
+            100% {
+                box-shadow: 0 0 0 26px rgba(46, 204, 64, 0);
+            }
+        }
+
+        .slot.success-flash {
+            border-radius: 50%;
+            animation: successFlash 0.6s ease-out;
         }
 
         /* Shape Base Styles */
@@ -106,58 +137,40 @@
             z-index: 10;
         }
 
+        .shape svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+
         .shape:active {
             transform: scale(1.1);
             cursor: grabbing;
             z-index: 100;
         }
 
-        /* SQUARE */
-        .shape.square {
-            background-color: #FF4136;
-            border-radius: 10px;
-            box-shadow: 0 5px 0 #b32d25;
-            width: 92px;
-            height: 92px;
+        /* "After": the placed shape does a happy little bounce on landing */
+        @keyframes placedPop {
+            0% {
+                transform: scale(1);
+            }
+
+            35% {
+                transform: scale(1.35);
+            }
+
+            60% {
+                transform: scale(0.95);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
 
-        .slot.square {
-            border-color: #FF4136;
-            border-radius: 14px;
-        }
-
-        /* CIRCLE */
-        .shape.circle {
-            background-color: #0074D9;
-            border-radius: 50%;
-            box-shadow: 0 5px 0 #0056a3;
-            width: 92px;
-            height: 92px;
-        }
-
-        .slot.circle {
-            border-color: #0074D9;
-            border-radius: 50%;
-        }
-
-        /* TRIANGLE */
-        .shape.triangle {
-            background-color: #2ECC40;
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-            filter: drop-shadow(0 5px 0 #1e872a);
-            border-radius: 0;
-            width: 100px;
-            height: 86px;
-        }
-
-        .slot.triangle {
-            border: none;
-            background: none;
-            width: 100px;
-            height: 86px;
-            background-image: url("data:image/svg+xml,%3Csvg width='100' height='86' viewBox='0 0 100 86' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 2 L2 84 L98 84 Z' fill='rgba(255,255,255,0.0)' stroke='%232ECC40' stroke-width='4' stroke-dasharray='10,5' stroke-linejoin='round'/%3E%3C/svg%3E");
-            background-size: 100% 100%;
-            background-repeat: no-repeat;
+        .shape.placed-pop {
+            animation: placedPop 0.45s ease;
         }
 
         /* Success Message */
@@ -288,10 +301,8 @@
     <div id="game-container">
         <h1>Shapes Puzzle</h1>
 
-        <div class="slots-area">
-            <div class="slot square" data-shape="square"></div>
-            <div class="slot circle" data-shape="circle"></div>
-            <div class="slot triangle" data-shape="triangle"></div>
+        <div class="slots-area" id="slots-area">
+            <!-- Added dynamically -->
         </div>
 
         <!-- Shapes start area -->
@@ -421,7 +432,40 @@
             else confettiActive = false;
         }
 
-        const shapes = ['square', 'circle', 'triangle'];
+        // Pool of available shapes. Each round picks a random subset of these,
+        // so kids see a different combination (and new shapes) every time.
+        const SHAPES = [
+            { type: 'square', color: '#FF4136', shadow: '#b32d25', body: '<rect x="8" y="8" width="84" height="84" rx="12"/>' },
+            { type: 'circle', color: '#0074D9', shadow: '#0056a3', body: '<circle cx="50" cy="50" r="42"/>' },
+            { type: 'triangle', color: '#2ECC40', shadow: '#1e872a', body: '<polygon points="50,8 94,90 6,90"/>' },
+            { type: 'star', color: '#FFDC00', shadow: '#c9ab00', body: '<polygon points="50,4 61,36 95,36 67,57 78,90 50,70 22,90 33,57 5,36 39,36"/>' },
+            { type: 'heart', color: '#FF69B4', shadow: '#cc4f8e', body: '<path d="M50,95 C15,70 2,47 2,30 C2,15 14,5 28,5 C40,5 50,14 50,25 C50,14 60,5 72,5 C86,5 98,15 98,30 C98,47 85,70 50,95 Z"/>' },
+            { type: 'diamond', color: '#7B2FF7', shadow: '#4b1c9c', body: '<polygon points="50,4 96,50 50,96 4,50"/>' },
+            { type: 'pentagon', color: '#00A99D', shadow: '#007a70', body: '<polygon points="50,4 95,38 78,92 22,92 5,38"/>' },
+            { type: 'hexagon', color: '#8B4513', shadow: '#5c2d0c', body: '<polygon points="50,4 91,27 91,73 50,96 9,73 9,27"/>' }
+        ];
+        const ROUND_SIZE = 3; // shapes shown per round
+
+        function pieceSVG(shape) {
+            return `<svg viewBox="0 0 100 100" style="filter:drop-shadow(0 5px 0 ${shape.shadow})"><g fill="${shape.color}">${shape.body}</g></svg>`;
+        }
+
+        function slotSVG(shape) {
+            return `<svg viewBox="0 0 100 100"><g fill="none" stroke="${shape.color}" stroke-width="7" stroke-dasharray="11,7" stroke-linejoin="round" stroke-linecap="round">${shape.body}</g></svg>`;
+        }
+
+        function pickRoundShapes(n) {
+            const pool = [...SHAPES];
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            return pool.slice(0, n);
+        }
+
+        let roundShapes = []; // shapes in play for the current round
+
+        const slotsArea = document.getElementById('slots-area');
         const startZone = document.getElementById('start-zone');
         const resetBtn = document.getElementById('reset-btn');
         const successOverlay = document.getElementById('success-overlay');
@@ -443,6 +487,7 @@
         document.addEventListener('contextmenu', (e) => e.preventDefault());
 
         function initGame() {
+            slotsArea.innerHTML = '';
             startZone.innerHTML = '';
             successOverlay.classList.remove('show');
             confettiActive = false;
@@ -456,21 +501,32 @@
 
             if (!nextCatUrl) preloadNextCat();
 
-            const shuffled = [...shapes].sort(() => Math.random() - 0.5);
+            roundShapes = pickRoundShapes(ROUND_SIZE);
 
-            shuffled.forEach(type => {
-                const shape = document.createElement('div');
-                shape.classList.add('shape', type);
-                shape.dataset.type = type;
+            roundShapes.forEach(shape => {
+                const slot = document.createElement('div');
+                slot.className = 'slot';
+                slot.dataset.shape = shape.type;
+                slot.innerHTML = slotSVG(shape);
+                slotsArea.appendChild(slot);
+            });
+
+            const shuffled = [...roundShapes].sort(() => Math.random() - 0.5);
+
+            shuffled.forEach(shape => {
+                const el = document.createElement('div');
+                el.classList.add('shape');
+                el.dataset.type = shape.type;
+                el.innerHTML = pieceSVG(shape);
                 const rotation = (Math.random() * 40 - 20).toFixed(0);
-                shape.style.transform = `rotate(${rotation}deg)`;
-                startZone.appendChild(shape);
-                makeDraggable(shape);
+                el.style.transform = `rotate(${rotation}deg)`;
+                startZone.appendChild(el);
+                makeDraggable(el);
             });
         }
 
         function showHint(type) {
-            const slot = document.querySelector(`.slot.${type}`);
+            const slot = document.querySelector(`.slot[data-shape="${type}"]`);
             if (!slot) return;
 
             const rect = slot.getBoundingClientRect();
@@ -484,10 +540,56 @@
             hintArrow.style.display = 'none';
         }
 
+        // "After": bounce the placed shape and pulse a ring on its slot
+        function celebratePlacement(shapeEl, slotEl) {
+            slotEl.classList.remove('hover-match');
+
+            shapeEl.classList.add('placed-pop');
+            shapeEl.addEventListener('animationend', () => {
+                shapeEl.classList.remove('placed-pop');
+            }, { once: true });
+
+            slotEl.classList.add('success-flash');
+            slotEl.addEventListener('animationend', () => {
+                slotEl.classList.remove('success-flash');
+            }, { once: true });
+        }
+
         function makeDraggable(el) {
             let isDragging = false;
+            let touchId = null; // identifier of the finger driving this drag; other fingers on screen are ignored
+            let hoveredSlot = null; // slot currently glowing because this shape is correctly positioned over it
             let startX, startY, initialLeft, initialTop;
             let currentX, currentY;
+
+            // "During": glow the matching slot while the shape hovers over it, before drop
+            const updateHoverState = () => {
+                const rect = el.getBoundingClientRect();
+                const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+
+                let matched = null;
+                for (const slot of document.querySelectorAll('.slot')) {
+                    const sRect = slot.getBoundingClientRect();
+                    if (center.x >= sRect.left - 20 && center.x <= sRect.right + 20 &&
+                        center.y >= sRect.top - 20 && center.y <= sRect.bottom + 20) {
+                        if (slot.dataset.shape === el.dataset.type) matched = slot;
+                        break;
+                    }
+                }
+
+                if (hoveredSlot && hoveredSlot !== matched) {
+                    hoveredSlot.classList.remove('hover-match');
+                }
+                if (matched) matched.classList.add('hover-match');
+                hoveredSlot = matched;
+            };
+
+            const clearHoverState = () => {
+                if (hoveredSlot) {
+                    hoveredSlot.classList.remove('hover-match');
+                    hoveredSlot = null;
+                }
+            };
 
             const onMove = (clientX, clientY) => {
                 if (!isDragging) return;
@@ -503,11 +605,14 @@
                 el.style.top = `${currentY}px`;
                 el.style.transform = 'scale(1.2) rotate(0deg)';
                 el.style.zIndex = 100;
+
+                updateHoverState();
             };
 
             const onEnd = () => {
                 if (!isDragging) return;
                 isDragging = false;
+                touchId = null;
 
                 el.style.zIndex = 10;
                 const rect = el.getBoundingClientRect();
@@ -527,10 +632,13 @@
                             playPop();
                             checkWin();
                             hideHint(); // Success hides hint
+                            celebratePlacement(el, slot);
                         }
                         break;
                     }
                 }
+
+                clearHoverState();
 
                 if (!dropped) {
                     // Failure Logic
@@ -572,7 +680,7 @@
             };
 
             const startDrag = (e) => {
-                if (el.dataset.locked) return;
+                if (el.dataset.locked || isDragging) return;
 
                 // Hide hint when user tries again
                 hideHint();
@@ -584,9 +692,13 @@
                     clientY = e.clientY;
                     e.preventDefault();
                 } else {
-                    if (e.touches.length > 1) return;
-                    clientX = e.touches[0].clientX;
-                    clientY = e.touches[0].clientY;
+                    // Only track the finger that actually touched this shape.
+                    // Ignore other fingers already resting elsewhere on screen
+                    // (common with toddlers holding the phone).
+                    const touch = e.changedTouches[0];
+                    touchId = touch.identifier;
+                    clientX = touch.clientX;
+                    clientY = touch.clientY;
                     e.preventDefault();
                 }
                 isDragging = true;
@@ -600,8 +712,9 @@
                 el.style.position = 'fixed';
                 el.style.left = initialLeft + 'px';
                 el.style.top = initialTop + 'px';
-                // Add inertia
-                el.style.transition = 'transform 0.1s, left 0.1s ease-out, top 0.1s ease-out';
+                // A short eased lag on position gives the piece a touch of inertia
+                // as it chases the finger, instead of snapping to it instantly.
+                el.style.transition = 'transform 0.1s, left 0.16s ease-out, top 0.16s ease-out';
             };
 
             el.addEventListener('mousedown', startDrag);
@@ -609,18 +722,24 @@
 
             window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
             window.addEventListener('touchmove', (e) => {
-                if (isDragging && e.touches.length === 1) {
-                    onMove(e.touches[0].clientX, e.touches[0].clientY);
-                }
+                if (!isDragging || touchId === null) return;
+                const touch = Array.from(e.touches).find(t => t.identifier === touchId);
+                if (touch) onMove(touch.clientX, touch.clientY);
             }, { passive: false });
 
             window.addEventListener('mouseup', onEnd);
-            window.addEventListener('touchend', onEnd);
+            const handleTouchEnd = (e) => {
+                if (!isDragging || touchId === null) return;
+                const touch = Array.from(e.changedTouches).find(t => t.identifier === touchId);
+                if (touch) onEnd();
+            };
+            window.addEventListener('touchend', handleTouchEnd);
+            window.addEventListener('touchcancel', handleTouchEnd);
         }
 
         function checkWin() {
             const locked = document.querySelectorAll('.shape[data-locked="true"]');
-            if (locked.length === shapes.length) {
+            if (locked.length === roundShapes.length) {
                 setTimeout(() => {
                     playWinSound();
                     fireConfetti();
