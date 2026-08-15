@@ -18,6 +18,7 @@ Located in the `apps/` directory:
 - **Bridge Math** (`bridge-math.html`) - Equation game where correct answers rebuild a bridge
 - **Chromatic Keyboard** (`keyboard.html`) - Browser keyboard with octave controls
 - **Count Cats** (`count-cats.html`) - Counting game for kids
+- **Crash Landing** (`crash-landing.html`) - Low-poly Three.js side-view spacecraft crash-repair management game
 - **Flag Millionaire** (`flag-millionaire.html`) - Flag quiz game with PWA support
 - **Hacker News** (`hnews.html`, `hnews_view_comment.html`) - Simple Hacker News reader
 - **Hanoi Towers** (`hanoi.html`) - 3D Tower of Hanoi puzzle built with Three.js, with Easy and Medium modes

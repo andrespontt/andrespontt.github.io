@@ -1,0 +1,15 @@
+{
+  "name": "Crash Landing",
+  "short_name": "Crash Landing",
+  "start_url": "crash-landing.html",
+  "display": "standalone",
+  "background_color": "#0a0e14",
+  "theme_color": "#0a0e14",
+  "icons": [
+    {
+      "src": "../assets/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
