@@ -17,10 +17,10 @@ Located in the `apps/` directory:
 - **ABC Learning** (`abc.html`) - Interactive alphabet practice for young learners
 - **Bridge Math** (`bridge-math.html`) - Equation game where correct answers rebuild a bridge
 - **Chromatic Keyboard** (`keyboard.html`) - Browser keyboard with octave controls
-- **Coding Hero** (`coding_hero.html`) - Typing practice for coding characters
 - **Count Cats** (`count-cats.html`) - Counting game for kids
 - **Flag Millionaire** (`flag-millionaire.html`) - Flag quiz game with PWA support
 - **Hacker News** (`hnews.html`, `hnews_view_comment.html`) - Simple Hacker News reader
+- **Hanoi Towers** (`hanoi.html`) - 3D Tower of Hanoi puzzle built with Three.js, with Easy and Medium modes
 - **Perfect Pitch** (`perfect-pitch.html`) - Music training app for pitch recognition
 - **Pomodoro** (`pomodoro.html`) - Productivity timer with saved progress, sounds, notifications, and daily rankings
 - **PWA Test** (`pwa.html`) - Progressive Web App capability demo

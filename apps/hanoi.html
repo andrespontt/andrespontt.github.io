@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>🗼 Hanoi Towers - Andres Pontt</title>
+  <meta name="description" content="A 3D Tower of Hanoi puzzle built with Three.js. Easy (3 disks) and Medium (5 disks) modes, move counter, and optimal-move tracking.">
+  <meta name="theme-color" content="#0b141a">
+  <link rel="manifest" href="hanoi-manifest.json">
+  <link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PFGZZBZ0B"></script>
+  <script src="/assets/js/analytics.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b141a;
+      --panel: rgba(13, 22, 25, .82);
+      --panel-strong: rgba(12, 19, 22, .94);
+      --line: rgba(159, 229, 216, .18);
+      --text: #edf7f5;
+      --muted: #9db8b4;
+      --accent: #10a37f;
+      --accent-2: #38bdf8;
+      --shadow: 0 20px 60px rgba(0, 0, 0, .4);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      touch-action: manipulation;
+    }
+
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+    #scene-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    #scene-container canvas {
+      display: block;
+      touch-action: none;
+    }
+
+    .hud {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .topbar {
+      pointer-events: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .title-group h1 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .title-group .hint {
+      margin: 4px 0 0;
+      font-size: .82rem;
+      color: var(--muted);
+      max-width: 340px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .mode-switch {
+      display: flex;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .mode-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: .85rem;
+      padding: 7px 14px;
+      border-radius: 999px;
+      transition: background .15s, color .15s;
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      color: #04241c;
+    }
+
+    .icon-btn {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .05);
+      color: var(--text);
+      font-weight: 600;
+      font-size: .85rem;
+      padding: 8px 14px;
+      border-radius: 999px;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, .1);
+    }
+
+    .icon-btn.active {
+      background: var(--accent-2);
+      color: #04241c;
+      border-color: transparent;
+    }
+
+    .stat-bar {
+      pointer-events: auto;
+      align-self: flex-start;
+      display: flex;
+      gap: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 16px;
+      font-size: .85rem;
+      color: var(--muted);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .stat-bar strong {
+      color: var(--text);
+    }
+
+    .win-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(4, 8, 10, .72);
+      backdrop-filter: blur(6px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s ease;
+    }
+
+    .win-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .win-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 32px 28px;
+      text-align: center;
+      max-width: 340px;
+      box-shadow: var(--shadow);
+      animation: winPop .4s ease;
+    }
+
+    @keyframes winPop {
+      from { transform: scale(.85); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .win-card h2 {
+      margin: 0 0 10px;
+      font-size: 1.6rem;
+    }
+
+    .win-card p {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: .95rem;
+    }
+
+    .win-card .cta-button {
+      border: none;
+      background: var(--accent);
+      color: #04241c;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 12px 28px;
+      border-radius: 999px;
+    }
+
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+    }
+
+    @media (max-width: 560px) {
+      .topbar { flex-direction: column; align-items: stretch; }
+      .controls { justify-content: space-between; }
+      .title-group .hint { max-width: none; }
+    }
+
+    @media (max-width: 400px) {
+      .title-group .hint { display: none; }
+      .topbar { padding: 10px 14px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="scene-container"></div>
+
+  <canvas id="confetti-canvas"></canvas>
+
+  <div class="hud">
+    <div class="topbar">
+      <div class="title-group">
+        <h1>🗼 Hanoi Towers</h1>
+        <p class="hint">Tap a peg to lift its top disk, tap another to drop it. The glowing peg is the goal.</p>
+      </div>
+      <div class="controls">
+        <div class="mode-switch" role="group" aria-label="Difficulty">
+          <button id="easy-btn" class="mode-btn active" data-mode="easy">Easy · 3</button>
+          <button id="medium-btn" class="mode-btn" data-mode="medium">Medium · 5</button>
+        </div>
+        <button id="adjust-view-btn" class="icon-btn" title="Adjust camera view">🧭 Adjust View</button>
+        <button id="reset-btn" class="icon-btn" title="Reset">↺ Reset</button>
+      </div>
+    </div>
+    <div class="stat-bar">
+      <span>Moves: <strong id="move-count">0</strong></span>
+      <span>Best possible: <strong id="best-count">7</strong></span>
+    </div>
+  </div>
+
+  <div class="win-overlay" id="win-overlay">
+    <div class="win-card">
+      <h2>🎉 Solved!</h2>
+      <p id="win-summary">You solved it in <strong>0</strong> moves. Optimal is <strong>0</strong>.</p>
+      <button id="play-again-btn" class="cta-button">Play Again</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('hanoi-sw.js').catch(console.error);
+    }
+
+    // Belt-and-braces double-tap-to-zoom blocker — iOS Safari sometimes
+    // ignores the viewport's user-scalable=no for the double-tap gesture.
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    // ---------- Audio ----------
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playPop() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(140, audioCtx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function playError() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(90, audioCtx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.22, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    function playWinSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98].forEach((freq, i) => {
+        setTimeout(() => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.4);
+        }, i * 80);
+      });
+    }
+
+    // ---------- Confetti ----------
+    const confettiCanvas = document.getElementById('confetti-canvas');
+    const confettiCtx = confettiCanvas.getContext('2d');
+    let confettiParticles = [];
+    let confettiActive = false;
+
+    function resizeConfetti() {
+      confettiCanvas.width = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeConfetti);
+    resizeConfetti();
+
+    function fireConfetti() {
+      confettiActive = true;
+      confettiParticles = [];
+      const colors = ['#f00', '#0f0', '#00f', '#ff0', '#0ff', '#f0f'];
+      for (let i = 0; i < 150; i++) {
+        confettiParticles.push({
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+          r: Math.random() * 6 + 2,
+          dx: (Math.random() - 0.5) * 15,
+          dy: (Math.random() - 0.5) * 15,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          tilt: Math.random() * 10,
+          tiltAngle: Math.random() * Math.PI,
+          tiltAngleInv: Math.random() * 0.2
+        });
+      }
+      loopConfetti();
+    }
+
+    function loopConfetti() {
+      if (!confettiActive) return;
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      let moving = false;
+      confettiParticles.forEach(p => {
+        p.tiltAngle += p.tiltAngleInv;
+        p.y += (Math.cos(p.tiltAngle) + 1 + p.r / 2) / 2;
+        p.x += Math.sin(p.tiltAngle) * 2;
+        p.x += p.dx;
+        p.y += p.dy;
+        p.dy += 0.1;
+        p.dx *= 0.96;
+        if (p.y < confettiCanvas.height) moving = true;
+        confettiCtx.beginPath();
+        confettiCtx.lineWidth = p.r;
+        confettiCtx.strokeStyle = p.color;
+        confettiCtx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+        confettiCtx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
+        confettiCtx.stroke();
+      });
+      if (moving) requestAnimationFrame(loopConfetti);
+      else confettiActive = false;
+    }
+
+    // ---------- Puzzle state ----------
+    const DIFFICULTIES = { easy: 3, medium: 5 };
+    const MAX_DISKS = 5;
+
+    const PEG_X = [-2.35, 0, 2.35];
+    const GOAL_PEG_INDEX = 2; // rightmost peg — highlighted so it stays identifiable if the view is rotated
+    const BASE_TOP_Y = 0;
+    const PEG_RADIUS = 0.09;
+    const BASE_DISK_RADIUS = 0.34;
+    const RADIUS_STEP = 0.20;
+    const DISK_HEIGHT = 0.34;
+    const DISK_GAP = 0.02;
+    const STACK_STEP = DISK_HEIGHT + DISK_GAP;
+    const BOARD_DEPTH = 2.4;
+
+    let PEG_HEIGHT = 0;
+    let TRAVEL_Y = 0;
+    let FRAME_WIDTH = 0;
+    let FRAME_HEIGHT = 0;
+
+    let numDisks = DIFFICULTIES.easy;
+    let pegs = [[], [], []]; // each entry: array of disk sizes, index 0 = bottom
+    let diskMeshes = new Array(MAX_DISKS + 1).fill(null); // keyed by disk size
+    let pegMeshes = [null, null, null];
+    let pegHitMeshes = [null, null, null];
+
+    let selectedPeg = null;
+    let selectedDiskMesh = null;
+    let animating = false;
+    let moveCount = 0;
+
+    // ---------- Three.js scene ----------
+    const CAMERA_FOV = 48;
+    const CAMERA_ELEVATION_DEG = 34;
+    const CAMERA_AZIMUTH_DEG = 42; // diagonal 3/4 default view
+    let scene, camera, renderer, controls, raycaster, pointer;
+    let viewAdjustEnabled = false;
+
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b141a);
+
+      camera = new THREE.PerspectiveCamera(CAMERA_FOV, window.innerWidth / window.innerHeight, 0.1, 300);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.getElementById('scene-container').appendChild(renderer.domElement);
+
+      // Camera is fixed by default — only draggable while "Adjust View" is toggled on.
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.enablePan = false;
+      controls.minPolarAngle = 0.4;
+      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.enabled = false;
+
+      scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x241b12, 0.65));
+      const key = new THREE.DirectionalLight(0xffffff, 0.95);
+      key.position.set(5, 8, 5);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0x8fd9ff, 0.25);
+      fill.position.set(-6, 3, -4);
+      scene.add(fill);
+
+      buildBaseAndPegs();
+      fitCameraToScene();
+
+      raycaster = new THREE.Raycaster();
+      pointer = new THREE.Vector2();
+
+      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+      renderer.domElement.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('resize', onResize);
+      window.addEventListener('orientationchange', () => setTimeout(onResize, 250));
+    }
+
+    // Frames the whole board inside the current viewport from a fixed diagonal
+    // 3/4 angle. The peg row is flat and wide (mostly along X, barely any Z),
+    // which is the worst possible shape for a tall portrait screen — viewing
+    // it from a diagonal azimuth spreads that footprint across both the
+    // screen's width AND height instead of being purely width-bound, so the
+    // camera can sit closer and the board reads bigger.
+    function fitCameraToScene() {
+      const aspect = window.innerWidth / window.innerHeight;
+      camera.aspect = aspect;
+
+      const vFov = THREE.MathUtils.degToRad(camera.fov);
+      const azimuthRad = THREE.MathUtils.degToRad(CAMERA_AZIMUTH_DEG);
+      const elevRad = THREE.MathUtils.degToRad(CAMERA_ELEVATION_DEG);
+
+      const halfBoardWidth = FRAME_WIDTH / 2 + 0.45;
+      const halfBoardDepth = BOARD_DEPTH / 2 + 0.3;
+      const effectiveHalfWidth = halfBoardWidth * Math.abs(Math.cos(azimuthRad)) + halfBoardDepth * Math.abs(Math.sin(azimuthRad));
+      const halfHeight = FRAME_HEIGHT / 2 + 0.4;
+
+      const distForHeight = halfHeight / Math.tan(vFov / 2);
+      const distForWidth = effectiveHalfWidth / (aspect * Math.tan(vFov / 2));
+      const distance = Math.max(distForHeight, distForWidth) * 1.05;
+
+      const targetY = FRAME_HEIGHT * 0.32;
+      const horizontalDist = distance * Math.cos(elevRad);
+
+      // Aim slightly above the board's true center so it renders lower in
+      // frame, using some of the spare vertical room from being width-bound.
+      const visibleHeightAtTarget = 2 * distance * Math.tan(vFov / 2);
+      const aimY = targetY + visibleHeightAtTarget * 0.15;
+
+      camera.position.set(
+        horizontalDist * Math.sin(azimuthRad),
+        targetY + distance * Math.sin(elevRad),
+        horizontalDist * Math.cos(azimuthRad)
+      );
+      camera.lookAt(0, aimY, 0);
+      camera.updateProjectionMatrix();
+
+      controls.target.set(0, aimY, 0);
+      controls.minDistance = distance * 0.6;
+      controls.maxDistance = distance * 1.7;
+      controls.update();
+    }
+
+    function buildBaseAndPegs() {
+      const maxRadius = BASE_DISK_RADIUS + (MAX_DISKS - 1) * RADIUS_STEP;
+      const baseWidth = (PEG_X[2] - PEG_X[0]) + maxRadius * 2 + 1.2;
+      FRAME_WIDTH = baseWidth;
+
+      const baseGeo = new THREE.BoxGeometry(baseWidth, 0.3, BOARD_DEPTH);
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1d, roughness: 0.85, metalness: 0.05 });
+      const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+      baseMesh.position.y = -0.15;
+      scene.add(baseMesh);
+
+      PEG_HEIGHT = MAX_DISKS * STACK_STEP + 0.2;
+      TRAVEL_Y = PEG_HEIGHT + 0.55;
+      FRAME_HEIGHT = TRAVEL_Y + 0.3;
+
+      const pegGeo = new THREE.CylinderGeometry(PEG_RADIUS, PEG_RADIUS, PEG_HEIGHT, 20);
+
+      PEG_X.forEach((x, i) => {
+        const isGoal = i === GOAL_PEG_INDEX;
+        const pegMat = new THREE.MeshStandardMaterial({
+          color: isGoal ? 0x38bdf8 : 0x6b4a30,
+          emissive: isGoal ? 0x0c4a6e : 0x000000,
+          emissiveIntensity: isGoal ? 0.6 : 0,
+          roughness: 0.55,
+          metalness: isGoal ? 0.3 : 0.1
+        });
+        const peg = new THREE.Mesh(pegGeo, pegMat);
+        peg.position.set(x, PEG_HEIGHT / 2, 0);
+        scene.add(peg);
+        pegMeshes[i] = peg;
+
+        const hitHeight = TRAVEL_Y + 1;
+        const hitGeo = new THREE.CylinderGeometry(1.08, 1.08, hitHeight, 16);
+        const hitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 });
+        const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+        hitMesh.position.set(x, hitHeight / 2 - 0.15, 0);
+        hitMesh.userData.pegIndex = i;
+        scene.add(hitMesh);
+        pegHitMeshes[i] = hitMesh;
+      });
+    }
+
+    function createDiskMesh(size) {
+      const radius = BASE_DISK_RADIUS + (size - 1) * RADIUS_STEP;
+      const hue = numDisks > 1 ? ((size - 1) / (numDisks - 1)) * (300 / 360) : 0;
+      const color = new THREE.Color().setHSL(hue, 0.65, 0.55);
+      const geo = new THREE.CylinderGeometry(radius, radius, DISK_HEIGHT, 28);
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.15, emissive: 0x000000 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.userData.size = size;
+      return mesh;
+    }
+
+    function buildDisksForMode() {
+      diskMeshes.forEach(mesh => {
+        if (!mesh) return;
+        scene.remove(mesh);
+        mesh.geometry.dispose();
+        mesh.material.dispose();
+      });
+      diskMeshes = new Array(MAX_DISKS + 1).fill(null);
+      pegs = [[], [], []];
+
+      for (let size = numDisks; size >= 1; size--) {
+        pegs[0].push(size);
+      }
+      pegs[0].forEach((size, idx) => {
+        const mesh = createDiskMesh(size);
+        mesh.position.set(PEG_X[0], BASE_TOP_Y + idx * STACK_STEP + DISK_HEIGHT / 2, 0);
+        scene.add(mesh);
+        diskMeshes[size] = mesh;
+      });
+
+      moveCount = 0;
+      selectedPeg = null;
+      selectedDiskMesh = null;
+      animating = false;
+      updateMoveCounterUI();
+      hideWinOverlay();
+    }
+
+    // ---------- Tween helper ----------
+    function tween(duration, onUpdate, onComplete) {
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        onUpdate(eased);
+        if (t < 1) {
+          requestAnimationFrame(step);
+        } else if (onComplete) {
+          onComplete();
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    // ---------- Interaction ----------
+    let pointerDownPos = null;
+    let pointerDownTime = 0;
+
+    function onPointerDown(e) {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+      pointerDownTime = performance.now();
+    }
+
+    function onPointerUp(e) {
+      if (!pointerDownPos) return;
+      const dx = e.clientX - pointerDownPos.x;
+      const dy = e.clientY - pointerDownPos.y;
+      const dist = Math.hypot(dx, dy);
+      const elapsed = performance.now() - pointerDownTime;
+      pointerDownPos = null;
+      if (dist > 8 || elapsed > 600) return; // treat as a camera drag, not a tap
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(pegHitMeshes);
+      if (hits.length > 0) {
+        handlePegTap(hits[0].object.userData.pegIndex);
+      }
+    }
+
+    function handlePegTap(pegIndex) {
+      if (animating) return;
+
+      if (selectedPeg === null) {
+        if (pegs[pegIndex].length === 0) return;
+        const size = pegs[pegIndex][pegs[pegIndex].length - 1];
+        selectedPeg = pegIndex;
+        selectedDiskMesh = diskMeshes[size];
+
+        const mesh = selectedDiskMesh;
+        mesh.material.emissive.setHex(0x3a3a10);
+        mesh.scale.set(1.08, 1.08, 1.08);
+        const fromY = mesh.position.y;
+        animating = true;
+        tween(180, (t) => { mesh.position.y = fromY + (TRAVEL_Y - fromY) * t; }, () => { animating = false; });
+        return;
+      }
+
+      if (pegIndex === selectedPeg) {
+        const mesh = selectedDiskMesh;
+        const stackIndex = pegs[selectedPeg].length - 1;
+        const restY = BASE_TOP_Y + stackIndex * STACK_STEP + DISK_HEIGHT / 2;
+        const fromY = mesh.position.y;
+        animating = true;
+        tween(180, (t) => { mesh.position.y = fromY + (restY - fromY) * t; }, () => {
+          mesh.material.emissive.setHex(0x000000);
+          mesh.scale.set(1, 1, 1);
+          animating = false;
+          selectedPeg = null;
+          selectedDiskMesh = null;
+        });
+        return;
+      }
+
+      const movingSize = pegs[selectedPeg][pegs[selectedPeg].length - 1];
+      const destStack = pegs[pegIndex];
+      const destTopSize = destStack.length ? destStack[destStack.length - 1] : Infinity;
+
+      if (movingSize > destTopSize) {
+        playError();
+        const rod = pegMeshes[pegIndex];
+        const original = rod.material.emissive.getHex();
+        rod.material.emissive.setHex(0x8a1f1f);
+        setTimeout(() => rod.material.emissive.setHex(original), 260);
+        return;
+      }
+
+      pegs[selectedPeg].pop();
+      destStack.push(movingSize);
+      moveCount++;
+      updateMoveCounterUI();
+
+      const mesh = selectedDiskMesh;
+      const destIndex = destStack.length - 1;
+      animating = true;
+
+      const fromX = mesh.position.x;
+      const toX = PEG_X[pegIndex];
+      tween(260, (t) => { mesh.position.x = fromX + (toX - fromX) * t; }, () => {
+        const fromY = mesh.position.y;
+        const toY = BASE_TOP_Y + destIndex * STACK_STEP + DISK_HEIGHT / 2;
+        tween(180, (t2) => { mesh.position.y = fromY + (toY - fromY) * t2; }, () => {
+          mesh.material.emissive.setHex(0x000000);
+          mesh.scale.set(1, 1, 1);
+          animating = false;
+          selectedPeg = null;
+          selectedDiskMesh = null;
+          playPop();
+          checkWin();
+        });
+      });
+    }
+
+    function checkWin() {
+      if (pegs[2].length === numDisks) {
+        showWinOverlay();
+      }
+    }
+
+    // ---------- UI wiring ----------
+    const moveCountEl = document.getElementById('move-count');
+    const bestCountEl = document.getElementById('best-count');
+    const winOverlay = document.getElementById('win-overlay');
+    const winSummaryEl = document.getElementById('win-summary');
+    const easyBtn = document.getElementById('easy-btn');
+    const mediumBtn = document.getElementById('medium-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const playAgainBtn = document.getElementById('play-again-btn');
+    const adjustViewBtn = document.getElementById('adjust-view-btn');
+
+    function updateMoveCounterUI() {
+      moveCountEl.textContent = moveCount;
+      bestCountEl.textContent = Math.pow(2, numDisks) - 1;
+    }
+
+    function showWinOverlay() {
+      const optimal = Math.pow(2, numDisks) - 1;
+      winSummaryEl.innerHTML = `You solved it in <strong>${moveCount}</strong> move${moveCount === 1 ? '' : 's'}. Optimal is <strong>${optimal}</strong>.`;
+      winOverlay.classList.add('show');
+      playWinSound();
+      fireConfetti();
+    }
+
+    function hideWinOverlay() {
+      winOverlay.classList.remove('show');
+    }
+
+    function setMode(mode) {
+      numDisks = DIFFICULTIES[mode];
+      easyBtn.classList.toggle('active', mode === 'easy');
+      mediumBtn.classList.toggle('active', mode === 'medium');
+      buildDisksForMode();
+    }
+
+    easyBtn.addEventListener('click', () => setMode('easy'));
+    mediumBtn.addEventListener('click', () => setMode('medium'));
+    resetBtn.addEventListener('click', () => buildDisksForMode());
+    playAgainBtn.addEventListener('click', () => { hideWinOverlay(); buildDisksForMode(); });
+
+    adjustViewBtn.addEventListener('click', () => {
+      viewAdjustEnabled = !viewAdjustEnabled;
+      controls.enabled = viewAdjustEnabled;
+      adjustViewBtn.classList.toggle('active', viewAdjustEnabled);
+      adjustViewBtn.textContent = viewAdjustEnabled ? '🔒 Lock View' : '🧭 Adjust View';
+      if (!viewAdjustEnabled) fitCameraToScene(); // snap back to the fixed framing on lock
+    });
+
+    function onResize() {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      fitCameraToScene();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (selectedDiskMesh && !animating) {
+        selectedDiskMesh.position.y = TRAVEL_Y + Math.sin(performance.now() * 0.004) * 0.06;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    initScene();
+    buildDisksForMode();
+    animate();
+  </script>
+</body>
+
+</html>
