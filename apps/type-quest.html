@@ -63,6 +63,11 @@
     }
     .brand { display: flex; align-items: center; gap: 12px; }
     .logo { width: 42px; height: 42px; border-radius: 14px; background: radial-gradient(circle at 30% 30%, var(--accent), var(--accent-2)); box-shadow: inset 0 0 0 3px rgba(255,255,255,.85), 0 10px 28px rgba(2,6,23,.28); }
+    .back-link {
+      width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: var(--fg); text-decoration: none; font-weight: 700; font-size: 1.1rem;
+      border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); flex-shrink: 0;
+    }
     h1 { margin: 0; font-size: clamp(18px, 2.2vw, 28px); letter-spacing: .3px; }
 
     .controls { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
@@ -138,6 +143,7 @@
   <div class="app" role="application" aria-label="Type Quest typing game">
     <header>
       <div class="brand">
+        <a href="index.html" class="back-link" title="Back to Apps">←</a>
         <div class="logo" aria-hidden="true"></div>
         <h1>Type Quest</h1>
       </div>

@@ -70,6 +70,8 @@
       margin-bottom: 6px;
     }
 
+    .title-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
     .large-title {
       font-size: 2.1rem;
       font-weight: 800;
@@ -365,7 +367,10 @@
 
   <div class="screen">
     <div class="nav-bar">
-      <h1 class="large-title">Perfect Pitch</h1>
+      <div class="title-row">
+        <a href="index.html" class="nav-icon-btn pressable" title="Back to Apps" style="text-decoration:none; font-size:1.3rem;">‹</a>
+        <h1 class="large-title">Perfect Pitch</h1>
+      </div>
       <button id="settingsToggle" class="nav-icon-btn pressable" title="Settings">⚙️</button>
     </div>
     <div class="subtitle-stats">

@@ -83,6 +83,22 @@
       gap: 12px;
     }
 
+    .back-link {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--fg);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.1rem;
+      border: 1px solid var(--border);
+      background: var(--card);
+      flex-shrink: 0;
+    }
+
     .logo {
       width: 44px;
       height: 44px;
@@ -406,6 +422,7 @@
   <div class="app">
     <header>
       <div class="title">
+        <a href="index.html" class="back-link" title="Back to Apps">←</a>
         <div class="logo">🐱</div>
         <h1>Cat Math</h1>
       </div>

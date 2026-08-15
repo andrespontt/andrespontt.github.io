@@ -81,6 +81,24 @@
       text-shadow: 0 0 40px rgba(251, 191, 36, 0.4);
     }
 
+    .brand-row { display: flex; align-items: center; gap: 10px; }
+
+    .back-link {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gold);
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 1.1rem;
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.35);
+    }
+
     .brand span {
       display: block;
       font-size: 0.72em;
@@ -378,7 +396,10 @@
 
   <div class="app">
     <header class="top">
-      <div class="brand">Flag Millionaire <span>Whose flag is it anyway?</span></div>
+      <div class="brand-row">
+        <a href="index.html" class="back-link" title="Back to Apps">←</a>
+        <div class="brand">Flag Millionaire <span>Whose flag is it anyway?</span></div>
+      </div>
       <div class="stats" aria-live="polite">
         Streak: <strong id="streak">0</strong><br />
         Best: <strong id="best">0</strong>

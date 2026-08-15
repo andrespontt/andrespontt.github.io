@@ -43,6 +43,12 @@
       margin: 0; font-size: 24px; color: var(--accent);
       display: flex; align-items: center; gap: 8px;
     }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .back-link {
+      color: var(--accent); text-decoration: none; font-weight: 700; font-size: 20px;
+      width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
     
     .game-area {
       flex: 1;
@@ -258,7 +264,10 @@
 <body>
 
   <header>
-    <h1>🌉 Cat Bridge Math</h1>
+    <div class="header-left">
+      <a href="index.html" class="back-link" title="Back to Apps">←</a>
+      <h1>🌉 Cat Bridge Math</h1>
+    </div>
     <div style="font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 16px;">
       <button id="music-toggle" title="Toggle Music" style="background: none; border: none; font-size: 24px; cursor: pointer;">🎵</button>
       <button id="debug-toggle" title="Toggle Debug Mode" style="border: 2px solid #0f172a; background: #ffffff; border-radius: 10px; padding: 6px 10px; font-weight: 700; cursor: pointer;">Debug: OFF</button>
