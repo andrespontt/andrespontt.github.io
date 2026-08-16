@@ -101,6 +101,13 @@
   #touch-interact-btn.active{
     background:rgba(255,180,60,.4); border-color:#ffcf6a; transform:scale(1.08); box-shadow:0 0 16px rgba(255,180,60,.4);
   }
+  #touch-jump-btn{
+    position:absolute; right:max(22px, env(safe-area-inset-right)); bottom:max(18px, calc(env(safe-area-inset-bottom) + 18px));
+    width:58px; height:58px; border-radius:50%; display:none; align-items:center; justify-content:center;
+    pointer-events:auto; background:rgba(90,145,210,.3); border:1px solid rgba(170,215,255,.55);
+    color:#e8f5ff; font-size:.68rem; font-weight:850; box-shadow:0 4px 16px rgba(0,0,0,.35);
+  }
+  #touch-jump-btn:active{ transform:scale(.94); background:rgba(90,145,210,.52); }
 
   #cine-flash{ position:fixed; inset:0; z-index:45; background:#fff; opacity:0; pointer-events:none; }
 
@@ -116,14 +123,15 @@
   <div id="interact-prompt"></div>
   <div id="closed-caption" role="status" aria-live="polite"></div>
   <a href="index.html" id="back-link" title="Back to Apps">←</a>
-  <div id="version-badge"><span class="dot"></span><span id="version-text">v2.8 · Updated just now</span></div>
-  <div id="hint-line">WASD / drag to move · click / drag to look</div>
+  <div id="version-badge"><span class="dot"></span><span id="version-text">v3.1 · Updated just now</span></div>
+  <div id="hint-line">WASD / drag to move · click / drag to look · Space to jump</div>
   <div id="debug-readout"></div>
   <div id="touch-move">
     <div id="joystick-base"><div id="joystick-knob"></div></div>
   </div>
   <div id="touch-look"></div>
   <button id="touch-interact-btn">USE</button>
+  <button id="touch-jump-btn" aria-label="Jump">JUMP</button>
 </div>
 
 <div id="cine-flash"></div>
@@ -138,7 +146,7 @@ if ('serviceWorker' in navigator) {
 /* ============================================================
    APP VERSION & UPDATED TIME
    ============================================================ */
-const APP_VERSION = 'v2.8';
+const APP_VERSION = 'v3.1';
 const BUILD_TIME = new Date('2026-08-16T12:00:00-04:00').getTime();
 
 function formatRelativeTime(fromTime){
@@ -390,6 +398,17 @@ function buildWindow(runAxis, fixed, center, width, sillY, topY, group){
     w.add(cur);
   }
   group.add(w);
+
+  // Glass is part of a sealed exterior wall. Give the complete opening a
+  // solid collision volume so movement cannot slip through the sill, pane,
+  // or curtains at either a straight or glancing approach angle.
+  const halfWidth = width/2;
+  const collisionDepth = Math.max(WALL_T,0.24);
+  if (runAxis === 'z'){
+    addCollider(fixed-collisionDepth/2,fixed+collisionDepth/2,center-halfWidth,center+halfWidth,-0.5,WALL_H+0.5);
+  } else {
+    addCollider(center-halfWidth,center+halfWidth,fixed-collisionDepth/2,fixed+collisionDepth/2,-0.5,WALL_H+0.5);
+  }
 }
 
 /* ============================================================
@@ -731,7 +750,12 @@ function buildLobby(){
   stairOuterWall.position.set(STAIR.minX, -1.75, (STAIR.minZ + STAIR.maxZ)/2); g.add(stairOuterWall);
   const stairDivider = box(0.14, 6.5, STAIR.maxZ - STAIR.minZ, MAT.wall, false);
   stairDivider.position.set(STAIR.maxX, -0.25, (STAIR.minZ + STAIR.maxZ)/2); g.add(stairDivider);
-  addCollider(STAIR.maxX-0.08, STAIR.maxX+0.08, STAIR.minZ, STAIR.maxZ, -4.0, 3.0);
+  // Both stairwell walls remain solid for the entire descent. Extend the
+  // blockers slightly past each landing so diagonal movement cannot find a
+  // seam where the visual stair wall meets the foyer or exterior facade.
+  const stairWallStart = STAIR.minZ-0.18, stairWallEnd = STAIR.maxZ+0.28;
+  addCollider(STAIR.minX-0.12, STAIR.minX+0.12, stairWallStart, stairWallEnd, -4.2, 3.2);
+  addCollider(STAIR.maxX-0.12, STAIR.maxX+0.12, stairWallStart, stairWallEnd, -4.2, 3.2);
 
   // A continuous back wall keeps the foyer enclosed beneath the house roofline.
   wallSegment('x', LOBBY.maxZ, STAIR.maxX, LOBBY.maxX, 0, WALL_H, MAT.wall, g, WALL_T, 0);
@@ -1246,7 +1270,11 @@ function updateLightning(dt, outside){
    INPUT: keyboard, mouse look (pointer lock), touch
    ============================================================ */
 const keys = new Set();
-window.addEventListener('keydown', (e) => { keys.add(e.code); if (e.code==='KeyE' && !e.repeat) tryInteract(); });
+window.addEventListener('keydown', (e) => {
+  keys.add(e.code);
+  if (e.code==='KeyE' && !e.repeat) tryInteract();
+  if (e.code==='Space' && !e.repeat){ e.preventDefault(); tryJump(); }
+});
 window.addEventListener('keyup', (e) => keys.delete(e.code));
 
 let yaw = Math.PI, pitch = -0.05;
@@ -1337,6 +1365,7 @@ touchLookEl.addEventListener('touchend', endLookTouch);
 touchLookEl.addEventListener('touchcancel', endLookTouch);
 
 document.getElementById('touch-interact-btn').addEventListener('click', tryInteract);
+document.getElementById('touch-jump-btn').addEventListener('click', tryJump);
 
 /* ============================================================
    INTERACT SYSTEM
@@ -1460,9 +1489,19 @@ scene.traverse((object) => {
 /* ============================================================
    PLAYER INITIALIZATION
    ============================================================ */
-const player = { pos: new THREE.Vector3(-2.2, EYE_HEIGHT, -0.5) };
+const player = {
+  pos: new THREE.Vector3(-2.2, EYE_HEIGHT, -0.5),
+  verticalVelocity: 0,
+  grounded: true
+};
 camera.position.copy(player.pos);
 applyLook();
+
+function tryJump(){
+  if (!gameStarted || !player.grounded) return;
+  player.verticalVelocity = 5.4;
+  player.grounded = false;
+}
 
 /* ============================================================
    START / FLOW (Direct Load — Scene Opened Immediately)
@@ -1471,6 +1510,7 @@ let gameStarted = true;
 
 const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 if (hasTouch){
+  document.getElementById('touch-jump-btn').style.display = 'flex';
   touchMoveEl.style.pointerEvents = 'auto';
   touchLookEl.style.pointerEvents = 'auto';
 }
@@ -1515,7 +1555,19 @@ function animate(){
     }
 
     const groundY = groundHeightAt(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
-    player.pos.y = lerp(player.pos.y, groundY + EYE_HEIGHT, Math.min(1, dt*10));
+    const standingY = groundY + EYE_HEIGHT;
+    if (player.grounded){
+      player.pos.y = lerp(player.pos.y,standingY,Math.min(1,dt*14));
+      if (Math.abs(player.pos.y-standingY)<0.015) player.pos.y = standingY;
+    } else {
+      player.verticalVelocity -= 14*dt;
+      player.pos.y += player.verticalVelocity*dt;
+      if (player.pos.y<=standingY && player.verticalVelocity<=0){
+        player.pos.y = standingY;
+        player.verticalVelocity = 0;
+        player.grounded = true;
+      }
+    }
     camera.position.copy(player.pos);
 
     updateInteractPrompt(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
