@@ -116,7 +116,7 @@
   <div id="interact-prompt"></div>
   <div id="closed-caption" role="status" aria-live="polite"></div>
   <a href="index.html" id="back-link" title="Back to Apps">←</a>
-  <div id="version-badge"><span class="dot"></span><span id="version-text">v2.6 · Updated just now</span></div>
+  <div id="version-badge"><span class="dot"></span><span id="version-text">v2.8 · Updated just now</span></div>
   <div id="hint-line">WASD / drag to move · click / drag to look</div>
   <div id="debug-readout"></div>
   <div id="touch-move">
@@ -138,7 +138,7 @@ if ('serviceWorker' in navigator) {
 /* ============================================================
    APP VERSION & UPDATED TIME
    ============================================================ */
-const APP_VERSION = 'v2.6';
+const APP_VERSION = 'v2.8';
 const BUILD_TIME = new Date('2026-08-16T12:00:00-04:00').getTime();
 
 function formatRelativeTime(fromTime){
@@ -237,6 +237,7 @@ const MAT = {
   trim: new THREE.MeshStandardMaterial({ color:0xe8e4da, roughness:0.6 }),
   glass: new THREE.MeshPhysicalMaterial({ color:0x9fd4ff, roughness:0.08, transmission:0.35, transparent:true, opacity:0.2, depthWrite:false }),
   curtain: new THREE.MeshStandardMaterial({ color:0x6d3f4a, roughness:0.9, side:THREE.DoubleSide }),
+  blackout: new THREE.MeshStandardMaterial({ color:0x11151d, roughness:0.98, side:THREE.DoubleSide }),
   sofa: new THREE.MeshStandardMaterial({ color:0x556b8a, roughness:0.85 }),
   sofaPillow: new THREE.MeshStandardMaterial({ color:0xd98b52, roughness:0.9 }),
   woodFurn: new THREE.MeshStandardMaterial({ color:0x8a5a34, roughness:0.65 }),
@@ -268,6 +269,10 @@ const MAT = {
   windowLit: new THREE.MeshBasicMaterial({ color:0xffdba0 }),
   carBody: new THREE.MeshStandardMaterial({ color:0x2a3a55, roughness:0.4, metalness:0.3 }),
   poleMat: new THREE.MeshStandardMaterial({ color:0x24262b, roughness:0.5, metalness:0.4 }),
+  foliage: new THREE.MeshStandardMaterial({ color:0x244b35, roughness:0.95 }),
+  foliageLight: new THREE.MeshStandardMaterial({ color:0x3f6a42, roughness:0.95 }),
+  trunk: new THREE.MeshStandardMaterial({ color:0x4c3828, roughness:1 }),
+  planter: new THREE.MeshStandardMaterial({ color:0x655447, roughness:0.9 }),
 };
 
 /* ============================================================
@@ -591,6 +596,13 @@ function buildApartment(){
     { from:-3.6, to:-2.0, sillY:0.85, lintelY:2.25 },
   ], MAT.wall, g, WALL_T, 0);
   buildWindow('z', APT.maxX, -2.8, 1.6, 0.85, 2.25, g);
+  // Closed, overlapping blackout panels keep storm flashes out of the bedroom.
+  const blackoutRod = cyl(0.025,0.025,1.95,MAT.metalDark,false);
+  blackoutRod.rotation.x = Math.PI/2; blackoutRod.position.set(APT.maxX-0.17,2.4,-2.8); g.add(blackoutRod);
+  for (const [z,rotation] of [[-3.21,0.018],[-2.39,-0.018]]){
+    const panel = box(0.055,1.58,0.86,MAT.blackout,false);
+    panel.position.set(APT.maxX-0.18,1.55,z); panel.rotation.x = rotation; panel.receiveShadow = false; g.add(panel);
+  }
 
   // South wall
   wallWithOpenings('x', APT.minZ, APT.minX, APT.maxX, WALL_H, [], MAT.wall, g, WALL_T, 0);
@@ -606,10 +618,14 @@ function buildApartment(){
   ], MAT.wallBedroom, g, WALL_T, 0);
   wallSegment('z', 0.3, -5.0, -0.5, 0, WALL_H, MAT.wallBedroom, g, WALL_T, 0);
 
-  // Recessed bedroom opening: ordinary trim, flush with the partition.
-  const brJambL = box(0.07, 2.35, 0.18, MAT.doorFrame, false); brJambL.position.set(0.565, 1.175, -0.5); g.add(brJambL);
-  const brJambR = box(0.07, 2.35, 0.18, MAT.doorFrame, false); brJambR.position.set(1.835, 1.175, -0.5); g.add(brJambR);
-  const brHeader = box(1.34, 0.07, 0.18, MAT.doorFrame, false); brHeader.position.set(1.2, 2.35, -0.5); g.add(brHeader);
+  // Keep every trim face fully inside the opening. The old jambs ended exactly
+  // on the wall cut planes, making both surfaces compete in the depth buffer.
+  const brJambL = box(0.1, 2.25, 0.24, MAT.doorFrame, false); brJambL.position.set(0.66, 1.125, -0.5); g.add(brJambL);
+  const brJambR = box(0.1, 2.25, 0.24, MAT.doorFrame, false); brJambR.position.set(1.74, 1.125, -0.5); g.add(brJambR);
+  const brHeader = box(1.18, 0.1, 0.24, MAT.doorFrame, false); brHeader.position.set(1.2, 2.3, -0.5); g.add(brHeader);
+  // These shallow white pieces do not need to receive the exterior moon shadow;
+  // disabling it also prevents grazing-angle shadow acne on the inner reveals.
+  for (const trimPiece of [brJambL,brJambR,brHeader]) trimPiece.receiveShadow = false;
 
   // Sconce on the bedroom divider wall
   const sconceShade = cyl(0.12, 0.08, 0.16, MAT.lampShade, false);
@@ -790,6 +806,39 @@ function makeBodyguard(){
    ============================================================ */
 const outdoorGroup = new THREE.Group();
 const guards = [];
+const trafficCars = [];
+
+function makeStreetTree(scale=1){
+  const tree = new THREE.Group();
+  const trunk = cyl(0.13*scale,0.18*scale,1.7*scale,MAT.trunk,false);
+  trunk.position.y = 0.85*scale; tree.add(trunk);
+  for (const [x,y,z,s] of [[0,1.9,0,0.72],[-0.34,1.65,0.05,0.52],[0.35,1.68,-0.04,0.56],[0.05,2.35,0,0.55]]){
+    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(s*scale,1),Math.random()>.45?MAT.foliage:MAT.foliageLight);
+    crown.position.set(x*scale,y*scale,z*scale); crown.castShadow = true; tree.add(crown);
+  }
+  return tree;
+}
+
+function makeTrafficCar(color,dir){
+  const car = new THREE.Group();
+  const fadeMaterials = [];
+  const paint = new THREE.MeshStandardMaterial({ color, roughness:0.34, metalness:0.45, transparent:true });
+  const glass = new THREE.MeshStandardMaterial({ color:0x172536, roughness:0.18, metalness:0.3, transparent:true });
+  const tire = MAT.metalDark.clone(); tire.transparent = true;
+  const lamp = new THREE.MeshBasicMaterial({ color:dir>0?0xfff0c8:0xff4438, transparent:true });
+  fadeMaterials.push(paint,glass,tire,lamp);
+  const body = box(4.15,0.62,1.72,paint,false); body.position.y = 0.58; car.add(body);
+  const cabin = box(2.12,0.58,1.5,glass,false); cabin.position.set(-0.18*dir,1.15,0); car.add(cabin);
+  for (const [x,z] of [[-1.3,-0.82],[1.3,-0.82],[-1.3,0.82],[1.3,0.82]]){
+    const wheel = cyl(0.36,0.36,0.22,tire,false); wheel.rotation.x = Math.PI/2; wheel.position.set(x,0.35,z); car.add(wheel);
+  }
+  for (const z of [-0.29,0.29]){
+    const light = box(0.04,0.16,0.22,lamp,false); light.position.set(dir*2.09,0.65,z*2.25); car.add(light);
+  }
+  car.userData = { dir, speed:rand(5.2,7.4), fadeMaterials };
+  return car;
+}
+
 function buildOutdoor(){
   worldGroup.add(outdoorGroup);
   const g = outdoorGroup;
@@ -802,6 +851,14 @@ function buildOutdoor(){
   const sidewalk = box(80,0.15,14,MAT.sidewalk,false);
   sidewalk.position.set(0, STREET_Y-0.075, 10);
   g.add(sidewalk);
+
+  // A readable curb and two-lane road replace the former featureless apron.
+  const curb = box(80,0.22,0.45,MAT.houseTrim,false); curb.position.set(0,STREET_Y+0.02,16.75); g.add(curb);
+  const roadway = box(80,0.06,13,MAT.street,false); roadway.position.set(0,STREET_Y-0.02,23.4); g.add(roadway);
+  const laneMat = new THREE.MeshBasicMaterial({color:0xd7c98c});
+  for (let x=-38;x<=38;x+=4){
+    const dash = box(2.0,0.012,0.08,laneMat,false); dash.position.set(x,STREET_Y+0.02,23.4); g.add(dash);
+  }
 
   // ---- House exterior (visual-only shell around the existing entrances) ----
   // Keep the architectural shell in front of the original foyer wall. The
@@ -869,6 +926,20 @@ function buildOutdoor(){
   addCollider(-4.93,-4.17,10.42,11.12,-4.0,-1.25);
   addCollider(-1.83,-1.07,10.42,11.12,-4.0,-1.25);
 
+  // Stone approach and layered planting frame the guarded entrance.
+  const approach = box(4.15,0.035,5.1,MAT.houseTrim,false); approach.position.set(-3,STREET_Y+0.03,14.0); g.add(approach);
+  for (const x of [-6.25,0.25,2.2,4.15,6.1]){
+    const planter = box(1.25,0.42,0.72,MAT.planter,false); planter.position.set(x,STREET_Y+0.21,11.45); g.add(planter);
+    for (const dx of [-0.35,0,0.35]){
+      const shrub = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32,1),dx===0?MAT.foliageLight:MAT.foliage);
+      shrub.scale.set(1,0.78,0.82); shrub.position.set(x+dx,STREET_Y+0.57,11.45); shrub.castShadow = true; g.add(shrub);
+    }
+  }
+  for (const [x,z,s] of [[-9.2,13.6,1.05],[8.7,13.4,1.1],[-14.5,14.2,0.9],[14.8,14.0,0.95]]){
+    const tree = makeStreetTree(s); tree.position.set(x,STREET_Y, z); g.add(tree);
+    addCollider(x-0.35*s,x+0.35*s,z-0.35*s,z+0.35*s,-4.0,0.5);
+  }
+
   // Distant fake skyline
   const farBuildings = [];
   for (let i=0;i<16;i++){
@@ -885,37 +956,46 @@ function buildOutdoor(){
   }
   buildFarWindows(farBuildings);
 
-  // Streetlights
-  for (const x of [-8,-22,10,26]){
+  // Staggered pools of warm light along both sides of the road.
+  for (const [x,z,side] of [[-32,15.5,1],[-20,27.5,-1],[-8,15.5,1],[5,27.5,-1],[18,15.5,1],[31,27.5,-1],[-44,27.5,-1],[44,15.5,1]]){
     const pole = cyl(0.06,0.06,4.5, MAT.poleMat,false);
-    pole.position.set(x, STREET_Y+2.25, 13);
+    pole.position.set(x, STREET_Y+2.25, z);
     g.add(pole);
     const arm = box(1.2,0.05,0.05, MAT.poleMat,false);
-    arm.position.set(x+0.55, STREET_Y+4.4, 13);
+    arm.position.set(x+side*0.55, STREET_Y+4.4, z);
     g.add(arm);
     const lampHead = sph(0.14, MAT.windowLit,false);
-    lampHead.position.set(x+1.1, STREET_Y+4.3, 13);
+    lampHead.position.set(x+side*1.1, STREET_Y+4.3, z);
     g.add(lampHead);
     const sLight = new THREE.PointLight(0xffcf8a, 75, 12, 2);
-    sLight.position.set(x+1.1, STREET_Y+4.0, 13);
+    sLight.position.set(x+side*1.1, STREET_Y+4.0, z);
     g.add(sLight);
 
-    addCollider(x-0.25, x+0.25, 12.75, 13.25, -4.5, 2.0);
+    addCollider(x-0.25, x+0.25, z-0.25, z+0.25, -4.5, 2.0);
+  }
+
+  // Two-way traffic is pooled and recycled only after fading into the fog.
+  const trafficSpecs = [
+    [-42,20.7,1,0x314e73],[-17,20.7,1,0x7a3030],[13,20.7,1,0xb0a58f],
+    [42,26.0,-1,0x294b3c],[19,26.0,-1,0x6b6178],[-10,26.0,-1,0x8b5a32]
+  ];
+  for (const [x,z,dir,color] of trafficSpecs){
+    const car = makeTrafficCar(color,dir); car.position.set(x,STREET_Y,z); if (dir<0) car.rotation.y=Math.PI; g.add(car); trafficCars.push(car);
   }
 
   // Parked cars
   for (const x of [-14,18]){
     const car = new THREE.Group();
-    const body = box(2.0,0.5,0.9,MAT.carBody); body.position.y = 0.4; car.add(body);
-    const cabin = box(1.1,0.4,0.85,MAT.carBody); cabin.position.set(-0.1,0.85,0); car.add(cabin);
-    for (const [sx,sz] of [[-0.7,-0.42],[0.7,-0.42],[-0.7,0.42],[0.7,0.42]]){
-      const wheel = cyl(0.22,0.22,0.18, MAT.metalDark); wheel.rotation.z = Math.PI/2; wheel.position.set(sx,0.22,sz); car.add(wheel);
+    const body = box(4.15,0.62,1.72,MAT.carBody); body.position.y = 0.58; car.add(body);
+    const cabin = box(2.12,0.58,1.5,MAT.carBody); cabin.position.set(-0.18,1.15,0); car.add(cabin);
+    for (const [sx,sz] of [[-1.3,-0.82],[1.3,-0.82],[-1.3,0.82],[1.3,0.82]]){
+      const wheel = cyl(0.36,0.36,0.22, MAT.metalDark); wheel.rotation.x = Math.PI/2; wheel.position.set(sx,0.35,sz); car.add(wheel);
     }
     car.position.set(x, STREET_Y, 7);
     car.rotation.y = Math.PI/2;
     g.add(car);
 
-    addCollider(x-0.65, x+0.65, 5.8, 8.2, -4.5, 0.0);
+    addCollider(x-1.0, x+1.0, 4.8, 9.2, -4.5, 0.0);
   }
 
   // Bench + trash can near entrance
@@ -965,6 +1045,16 @@ function buildFarWindows(buildings){
   }
   inst.instanceMatrix.needsUpdate = true;
   outdoorGroup.add(inst);
+}
+
+function updateTraffic(dt){
+  for (const car of trafficCars){
+    car.position.x += car.userData.dir*car.userData.speed*dt;
+    const edgeFade = 1-clamp((Math.abs(car.position.x)-36)/10,0,1);
+    for (const material of car.userData.fadeMaterials) material.opacity = edgeFade;
+    if (car.userData.dir>0 && car.position.x>48) car.position.x=-48;
+    if (car.userData.dir<0 && car.position.x<-48) car.position.x=48;
+  }
 }
 
 /* ============================================================
@@ -1114,9 +1204,11 @@ function playThunder(vol = 0.5){
 
 const flashEl = document.getElementById('cine-flash');
 let lightningTimer = rand(2.0, 4.5);
+let stormVisible = true;
 
 function flashOnce(delayMs, holdMs, peak){
   setTimeout(() => {
+    if (!stormVisible) return;
     flashEl.style.transition = 'none';
     flashEl.style.opacity = String(peak);
     moonLight.intensity = 22;
@@ -1129,15 +1221,22 @@ function flashOnce(delayMs, holdMs, peak){
 }
 
 function updateLightning(dt, outside){
+  stormVisible = outside;
+  if (!outside){
+    flashEl.style.opacity = '0';
+    moonLight.intensity = BASE_MOON_INTENSITY;
+  }
   lightningTimer -= dt;
   if (lightningTimer <= 0){
     lightningTimer = rand(3.5, 7.5);
-    const peak = outside ? 0.92 : 0.35;
-    flashOnce(0, 90, peak);
-    if (Math.random() < 0.6) flashOnce(140, 70, peak * 0.7);
-    if (Math.random() < 0.3) flashOnce(260, 60, peak * 0.85);
+    if (outside){
+      const peak = 0.92;
+      flashOnce(0, 90, peak);
+      if (Math.random() < 0.6) flashOnce(140, 70, peak * 0.7);
+      if (Math.random() < 0.3) flashOnce(260, 60, peak * 0.85);
+    }
 
-    const thunderVol = outside ? 0.6 : 0.35;
+    const thunderVol = outside ? 0.42 : 0.12;
     playThunder(thunderVol);
     setTimeout(() => playThunder(thunderVol * 0.8), rand(180, 500));
   }
@@ -1421,6 +1520,7 @@ function animate(){
 
     updateInteractPrompt(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
     updateGuards(dt);
+    updateTraffic(dt);
 
     const outside = !isIndoors(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
     rainPoints.visible = outside;
@@ -1431,7 +1531,7 @@ function animate(){
     scene.fog.near = outside ? 8 : 20;
     scene.fog.far = outside ? 40 : 60;
     if (rainAmbGain){
-      const target = outside ? 0.55 : 0.08;
+      const target = outside ? 0.4 : 0.03;
       rainAmbGain.gain.value = lerp(rainAmbGain.gain.value, target, dt*2);
     }
 
