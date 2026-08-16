@@ -1,6 +1,5 @@
 // Network-first strategy: always try network, cache as fallback.
-// Bump CACHE_NAME version whenever app content changes to evict stale caches.
-const CACHE_NAME = 'apartment-v2';
+const CACHE_NAME = 'apartment-v19';
 const ASSETS = [
   './apartment.html',
   './apartment-manifest.json',
