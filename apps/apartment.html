@@ -108,7 +108,7 @@
   <div id="crosshair"></div>
   <div id="interact-prompt"></div>
   <a href="index.html" id="back-link" title="Back to Apps">←</a>
-  <div id="version-badge"><span class="dot"></span><span id="version-text">v2.0 · Updated just now</span></div>
+  <div id="version-badge"><span class="dot"></span><span id="version-text">v2.1 · Updated just now</span></div>
   <div id="hint-line">WASD / drag to move · click / drag to look · E or USE to interact</div>
   <div id="debug-readout"></div>
   <div id="touch-move">
@@ -131,7 +131,7 @@ if ('serviceWorker' in navigator) {
 /* ============================================================
    APP VERSION & UPDATED TIME
    ============================================================ */
-const APP_VERSION = 'v2.0';
+const APP_VERSION = 'v2.1';
 const BUILD_TIME = new Date('2026-08-16T12:00:00-04:00').getTime();
 
 function formatRelativeTime(fromTime){
@@ -228,7 +228,7 @@ const MAT = {
   floorTile: new THREE.MeshStandardMaterial({ color:0x8a8f98, roughness:0.55 }),
   ceiling: new THREE.MeshStandardMaterial({ color:0x22252c, roughness:1 }),
   trim: new THREE.MeshStandardMaterial({ color:0xe8e4da, roughness:0.6 }),
-  glass: new THREE.MeshPhysicalMaterial({ color:0x9fd4ff, roughness:0.05, transmission:0.65, transparent:true, opacity:0.35 }),
+  glass: new THREE.MeshPhysicalMaterial({ color:0x9fd4ff, roughness:0.08, transmission:0.35, transparent:true, opacity:0.2, depthWrite:false }),
   curtain: new THREE.MeshStandardMaterial({ color:0x6d3f4a, roughness:0.9, side:THREE.DoubleSide }),
   sofa: new THREE.MeshStandardMaterial({ color:0x556b8a, roughness:0.85 }),
   sofaPillow: new THREE.MeshStandardMaterial({ color:0xd98b52, roughness:0.9 }),
@@ -1015,26 +1015,32 @@ scene.add(rainPoints);
 // A separate rain shell lives entirely beyond the apartment's exterior
 // walls. It remains visible through glass while the camera is indoors without
 // ever spawning droplets inside a room.
-const WINDOW_RAIN_COUNT = 1200;
+const WINDOW_RAIN_COUNT = 2600;
 const windowRainGeo = new THREE.BufferGeometry();
-const windowRainPos = new Float32Array(WINDOW_RAIN_COUNT*3);
+const windowRainPos = new Float32Array(WINDOW_RAIN_COUNT*6);
 for (let i=0;i<WINDOW_RAIN_COUNT;i++){
   const side = (i % 2 === 0) ? -1 : 1;
-  windowRainPos[i*3] = side * rand(APT.maxX + 0.35, APT.maxX + 4.0);
-  windowRainPos[i*3+1] = rand(-0.5, 16);
-  windowRainPos[i*3+2] = rand(APT.minZ - 1, APT.maxZ + 1);
+  const x = side * rand(APT.maxX + 0.4, APT.maxX + 5.0);
+  const y = rand(-0.5, 16);
+  const z = rand(APT.minZ - 1, APT.maxZ + 1);
+  const p = i*6;
+  windowRainPos[p] = x;
+  windowRainPos[p+1] = y;
+  windowRainPos[p+2] = z;
+  windowRainPos[p+3] = x;
+  windowRainPos[p+4] = y - rand(0.18,0.42);
+  windowRainPos[p+5] = z;
 }
 windowRainGeo.setAttribute('position', new THREE.BufferAttribute(windowRainPos,3));
-const windowRainMat = new THREE.PointsMaterial({
+const windowRainMat = new THREE.LineBasicMaterial({
   color:0xc8e2ff,
-  size:0.075,
   transparent:true,
-  opacity:0.82,
+  opacity:0.68,
   depthWrite:false
 });
-const windowRainPoints = new THREE.Points(windowRainGeo, windowRainMat);
-windowRainPoints.renderOrder = -1;
-scene.add(windowRainPoints);
+const windowRainLines = new THREE.LineSegments(windowRainGeo, windowRainMat);
+windowRainLines.renderOrder = 4;
+scene.add(windowRainLines);
 
 function updateRain(dt, camX, camZ){
   rainPoints.position.x = camX;
@@ -1054,12 +1060,17 @@ function updateRain(dt, camX, camZ){
 function updateWindowRain(dt){
   const arr = windowRainGeo.attributes.position.array;
   for (let i=0;i<WINDOW_RAIN_COUNT;i++){
-    arr[i*3+1] -= dt * 16;
-    if (arr[i*3+1] < -0.5){
+    const p = i*6;
+    const fall = dt * 16;
+    arr[p+1] -= fall;
+    arr[p+4] -= fall;
+    if (arr[p+1] < -0.5){
       const side = (i % 2 === 0) ? -1 : 1;
-      arr[i*3] = side * rand(APT.maxX + 0.35, APT.maxX + 4.0);
-      arr[i*3+1] = 16;
-      arr[i*3+2] = rand(APT.minZ - 1, APT.maxZ + 1);
+      const x = side * rand(APT.maxX + 0.4, APT.maxX + 5.0);
+      const z = rand(APT.minZ - 1, APT.maxZ + 1);
+      const length = rand(0.18,0.42);
+      arr[p] = x; arr[p+1] = 16; arr[p+2] = z;
+      arr[p+3] = x; arr[p+4] = 16 - length; arr[p+5] = z;
     }
   }
   windowRainGeo.attributes.position.needsUpdate = true;
@@ -1510,7 +1521,7 @@ function animate(){
 
     const outside = !isIndoors(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
     rainPoints.visible = outside;
-    windowRainPoints.visible = !outside;
+    windowRainLines.visible = !outside;
     updateRain(dt, player.pos.x, player.pos.z);
     updateWindowRain(dt);
     updateLightning(dt, outside);

@@ -1,5 +1,5 @@
 // Network-first strategy: always try network, cache as fallback.
-const CACHE_NAME = 'apartment-v19';
+const CACHE_NAME = 'apartment-v20';
 const ASSETS = [
   './apartment.html',
   './apartment-manifest.json',
