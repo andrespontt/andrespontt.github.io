@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Apartment - Andres Pontt</title>
+<meta name="description" content="A low-poly Three.js first-person apartment walkthrough with furnished rooms, a rainy night storm, and an elevator or stairs down to the street.">
+<meta name="theme-color" content="#0a0c10">
+<link rel="manifest" href="apartment-manifest.json">
+<link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<style>
+  :root{ color-scheme: dark; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent;
+     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  html,body{ height:100%; margin:0; overflow:hidden; background:#000; color:#eef2f8;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button{ font:inherit; color:inherit; cursor:pointer; }
+
+  #game-canvas{ position:fixed; inset:0; display:block; touch-action:none; }
+
+  /* ---------- Start overlay ---------- */
+  #start-screen{
+    position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:16px; text-align:center; padding:24px;
+    background: radial-gradient(900px 500px at 50% 10%, rgba(80,120,180,.14), transparent 60%), #05060a;
+  }
+  #start-screen h1{ margin:0; font-size:clamp(24px,5vw,36px); font-weight:800; letter-spacing:.02em; }
+  #start-screen p{ margin:0; color:#9aa6b8; max-width:420px; font-size:.92rem; line-height:1.5; }
+  #start-btn{
+    margin-top:8px; border:none; border-radius:999px; padding:14px 36px; font-weight:700; font-size:1rem;
+    background:linear-gradient(120deg,#6fa8ff,#8fe0ff); color:#04101f; box-shadow:0 10px 26px rgba(111,168,255,.25);
+  }
+  #start-screen.hidden{ display:none; }
+
+  /* ---------- HUD ---------- */
+  #hud{ position:fixed; inset:0; z-index:20; pointer-events:none; display:none; }
+  #hud.show{ display:block; }
+
+  #crosshair{
+    position:absolute; top:50%; left:50%; width:6px; height:6px; margin:-3px 0 0 -3px;
+    border-radius:50%; background:rgba(255,255,255,.85); box-shadow:0 0 4px rgba(0,0,0,.6);
+  }
+  #interact-prompt{
+    position:absolute; left:50%; bottom:22%; transform:translateX(-50%);
+    background:rgba(8,10,16,.78); border:1px solid rgba(255,255,255,.18); border-radius:10px;
+    padding:8px 16px; font-size:.85rem; font-weight:600; opacity:0; transition:opacity .15s; backdrop-filter:blur(8px);
+  }
+  #interact-prompt.show{ opacity:1; }
+
+  #back-link{
+    pointer-events:auto; position:absolute; top:max(12px, env(safe-area-inset-top)); left:max(12px, env(safe-area-inset-left));
+    width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:rgba(8,10,16,.55); border:1px solid rgba(255,255,255,.16); color:#fff; text-decoration:none; font-weight:700;
+  }
+
+  #hint-line{
+    position:absolute; bottom:max(14px, env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
+    background:rgba(8,10,16,.6); border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:6px 14px;
+    font-size:.72rem; color:#aab4c4; white-space:nowrap;
+  }
+  /* Debug readout — so a bug report can be "x=-3.2 z=4.8 zone=apt" instead of
+     a screenshot neither of us can precisely read. */
+  #debug-readout{
+    position:absolute; top:max(10px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    background:rgba(8,10,16,.65); border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:4px 10px;
+    font-size:.68rem; color:#8fe0a0; font-family:ui-monospace, monospace; white-space:nowrap;
+  }
+
+  /* touch controls */
+  #touch-move, #touch-look{ position:absolute; bottom:0; width:50%; height:55%; pointer-events:none; touch-action:none; }
+  #touch-move{ left:0; } #touch-look{ right:0; }
+  #joystick-base{
+    position:absolute; width:96px; height:96px; border-radius:50%; border:2px solid rgba(255,255,255,.28);
+    background:rgba(255,255,255,.06); display:none;
+  }
+  #joystick-knob{
+    position:absolute; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%;
+    background:rgba(255,255,255,.35); left:50%; top:50%;
+  }
+  #touch-interact-btn{
+    position:absolute; right:max(18px, env(safe-area-inset-right)); bottom:max(90px, calc(env(safe-area-inset-bottom) + 90px));
+    width:64px; height:64px; border-radius:50%; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3);
+    color:#fff; font-weight:800; font-size:.8rem; display:none; pointer-events:auto;
+  }
+
+  #cine-flash{ position:fixed; inset:0; z-index:45; background:#fff; opacity:0; pointer-events:none; }
+  #ride-fade{ position:fixed; inset:0; z-index:44; background:#000; opacity:0; pointer-events:none; transition:opacity .5s ease; }
+  #ride-fade.on{ opacity:1; }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="start-screen">
+  <h1>🌧️ APARTMENT</h1>
+  <p>Walk your apartment on a stormy night — living room, bedroom, kitchen — then head down through the lobby via the elevator or the stairs to the rainy street outside.</p>
+  <p style="font-size:.78rem;color:#6c7688;">Desktop: click to look around, WASD to move, E to interact.<br>Mobile: drag left to move, drag right to look, tap the button to interact.</p>
+  <button id="start-btn">▶ ENTER</button>
+</div>
+
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="interact-prompt"></div>
+  <a href="index.html" id="back-link" title="Back to Apps">←</a>
+  <div id="hint-line">WASD / drag to move · mouse / drag to look · E or button to interact</div>
+  <div id="debug-readout"></div>
+  <div id="touch-move">
+    <div id="joystick-base"><div id="joystick-knob"></div></div>
+  </div>
+  <div id="touch-look"></div>
+  <button id="touch-interact-btn">USE</button>
+</div>
+
+<div id="cine-flash"></div>
+<div id="ride-fade"></div>
+
+<script type="module">
+import * as THREE from "three";
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('apartment-sw.js').catch(console.error);
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+const lerp = (a,b,t) => a + (b-a)*t;
+const clamp = (v,min,max) => Math.max(min, Math.min(max, v));
+const rand = (min,max) => min + Math.random()*(max-min);
+const pickArr = (arr) => arr[Math.floor(Math.random()*arr.length)];
+
+/* ============================================================
+   RENDERER / SCENE / CAMERA
+   ============================================================ */
+const canvas = document.getElementById('game-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+// Real-time shadow maps are consistently the single most expensive thing a
+// phone GPU is asked to do — disabled outright rather than just "lightened"
+// a second time, since smooth performance matters more than shadow gradients
+// for a stylized low-poly scene like this.
+renderer.shadowMap.enabled = false;
+// The lights use physically-based (candela/lux) intensities, which can run
+// well over 1.0 — without tone mapping those just hard-clip to flat white
+// wherever lights overlap, which reads as flickery/overexposed as you move.
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.05, 200);
+const EYE_HEIGHT = 1.7;
+
+function onResize(){
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+/* ============================================================
+   SHARED GEOMETRY / MATERIAL PALETTE (perf: reuse everywhere)
+   ============================================================ */
+const UNIT_BOX = new THREE.BoxGeometry(1,1,1);
+const UNIT_CYL = new THREE.CylinderGeometry(1,1,1,12);
+const UNIT_SPHERE = new THREE.SphereGeometry(1,10,8);
+
+function box(w,h,d,mat,castShadow=true){
+  const m = new THREE.Mesh(UNIT_BOX, mat);
+  m.scale.set(w,h,d);
+  m.castShadow = castShadow; m.receiveShadow = true;
+  return m;
+}
+function cyl(rTop,rBot,h,mat,castShadow=true){
+  const m = new THREE.Mesh(UNIT_CYL, mat);
+  m.scale.set(rTop,h,rTop); // uniform radius via scale.x/z, keep rBot param for readability only
+  m.castShadow = castShadow; m.receiveShadow = true;
+  return m;
+}
+function sph(r,mat,castShadow=true){
+  const m = new THREE.Mesh(UNIT_SPHERE, mat);
+  m.scale.setScalar(r);
+  m.castShadow = castShadow; m.receiveShadow = true;
+  return m;
+}
+
+const MAT = {
+  wall: new THREE.MeshStandardMaterial({ color:0x3a3f4b, roughness:0.9 }),
+  wallBedroom: new THREE.MeshStandardMaterial({ color:0x3a3550, roughness:0.9 }),
+  floorWood: new THREE.MeshStandardMaterial({ color:0x6b4a30, roughness:0.75 }),
+  floorTile: new THREE.MeshStandardMaterial({ color:0x8a8f98, roughness:0.55 }),
+  ceiling: new THREE.MeshStandardMaterial({ color:0x22252c, roughness:1 }),
+  trim: new THREE.MeshStandardMaterial({ color:0xe8e4da, roughness:0.6 }),
+  glass: new THREE.MeshPhysicalMaterial({ color:0x9fd4ff, roughness:0.05, transmission:0.65, transparent:true, opacity:0.35 }),
+  curtain: new THREE.MeshStandardMaterial({ color:0x6d3f4a, roughness:0.9, side:THREE.DoubleSide }),
+  sofa: new THREE.MeshStandardMaterial({ color:0x556b8a, roughness:0.85 }),
+  sofaPillow: new THREE.MeshStandardMaterial({ color:0xd98b52, roughness:0.9 }),
+  woodFurn: new THREE.MeshStandardMaterial({ color:0x8a5a34, roughness:0.65 }),
+  woodDark: new THREE.MeshStandardMaterial({ color:0x4a3320, roughness:0.6 }),
+  metal: new THREE.MeshStandardMaterial({ color:0x9aa0a8, roughness:0.35, metalness:0.6 }),
+  metalDark: new THREE.MeshStandardMaterial({ color:0x2c2f34, roughness:0.4, metalness:0.5 }),
+  fabricBed: new THREE.MeshStandardMaterial({ color:0x3f4f66, roughness:0.9 }),
+  pillow: new THREE.MeshStandardMaterial({ color:0xe8e2d5, roughness:0.9 }),
+  rug: new THREE.MeshStandardMaterial({ color:0x7a3f3f, roughness:0.95 }),
+  rugBedroom: new THREE.MeshStandardMaterial({ color:0x3f5a4a, roughness:0.95 }),
+  screenOff: new THREE.MeshBasicMaterial({ color:0x0c1420 }),
+  lampShade: new THREE.MeshStandardMaterial({ color:0xf2d9a8, roughness:0.7, emissive:0x8a6a2c, emissiveIntensity:0.5 }),
+  applianceWhite: new THREE.MeshStandardMaterial({ color:0xd9dde2, roughness:0.4, metalness:0.2 }),
+  counterTop: new THREE.MeshStandardMaterial({ color:0x2c2f34, roughness:0.3 }),
+  door: new THREE.MeshStandardMaterial({ color:0x5a3d2a, roughness:0.6 }),
+  doorFrame: new THREE.MeshStandardMaterial({ color:0xe8e4da, roughness:0.6 }),
+  elevatorWall: new THREE.MeshStandardMaterial({ color:0x8f939a, roughness:0.4, metalness:0.5 }),
+  elevatorDoor: new THREE.MeshStandardMaterial({ color:0xb8bcc4, roughness:0.3, metalness:0.7 }),
+  book: [0x8a3a3a,0x3a5a8a,0x3a8a5a,0x8a7a3a,0x5a3a8a].map(c => new THREE.MeshStandardMaterial({color:c, roughness:0.8})),
+  street: new THREE.MeshStandardMaterial({ color:0x14161b, roughness:0.35 }),
+  sidewalk: new THREE.MeshStandardMaterial({ color:0x2c2e33, roughness:0.7 }),
+  buildingFacade: new THREE.MeshStandardMaterial({ color:0x1c2027, roughness:0.85 }),
+  buildingFar: new THREE.MeshStandardMaterial({ color:0x11141a, roughness:0.9 }),
+  windowLit: new THREE.MeshBasicMaterial({ color:0xffdba0 }),
+  carBody: new THREE.MeshStandardMaterial({ color:0x2a3a55, roughness:0.4, metalness:0.3 }),
+  poleMat: new THREE.MeshStandardMaterial({ color:0x24262b, roughness:0.5, metalness:0.4 }),
+};
+
+/* ============================================================
+   COLLISION + GROUND HEIGHT (stateless, purely spatial)
+   ============================================================ */
+const PLAYER_RADIUS = 0.42; // extra clearance so the camera can't graze/near-clip into wall surfaces
+const STREET_Y = -3.5;
+
+const APT   = { minX:-6.2, maxX:6.2, minZ:-5.2, maxZ:5.2 };
+const LOBBY = { minX:-4.2, maxX:4.2, minZ:4.8,  maxZ:10.2 };
+const STAIR = { minX:-4.2, maxX:-1.8, minZ:5.9, maxZ:9.6 };
+
+function insideRect(x,z,r){ return x > r.minX && x < r.maxX && z > r.minZ && z < r.maxZ; }
+
+// The stairwell corridor and the lobby's rect overlap in XZ (the stairs sit
+// inside the lobby's footprint), so once the player has walked past the
+// bottom step they must resolve to street level, not fall back to the
+// lobby's flat height just because they're still within its wider rect.
+function inStairCorridorX(x){ return x > STAIR.minX && x < STAIR.maxX; }
+
+function groundHeightAt(x,z){
+  if (inStairCorridorX(x) && z > STAIR.minZ && z < STAIR.maxZ){
+    const t = clamp((z - 6) / 3.5, 0, 1);
+    return -3.5 * t;
+  }
+  if (inStairCorridorX(x) && z >= STAIR.maxZ) return STREET_Y;
+  if (insideRect(x,z,APT) || insideRect(x,z,LOBBY)) return 0;
+  return STREET_Y;
+}
+function isIndoors(x,z){
+  if (inStairCorridorX(x) && z >= STAIR.maxZ) return false;
+  return insideRect(x,z,APT) || insideRect(x,z,LOBBY) || insideRect(x,z,STAIR);
+}
+
+const colliders = []; // {minX,maxX,minZ,maxZ} — only for geometry a walking player could touch (< ~2m tall)
+function addCollider(minX,maxX,minZ,maxZ){ colliders.push({minX,maxX,minZ,maxZ}); }
+function collidesAt(x,z){
+  const r = PLAYER_RADIUS;
+  for (const c of colliders){
+    if (x+r > c.minX && x-r < c.maxX && z+r > c.minZ && z-r < c.maxZ) return true;
+  }
+  if (elevatorBlocks(x,z)) return true;
+  return false;
+}
+function resolveMove(pos, dx, dz){
+  const nx = pos.x + dx;
+  if (!collidesAt(nx, pos.z)) pos.x = nx;
+  const nz = pos.z + dz;
+  if (!collidesAt(pos.x, nz)) pos.z = nz;
+}
+
+/* ============================================================
+   WALL BUILDING (with window/door openings)
+   ============================================================ */
+const WALL_H = 3, WALL_T = 0.15;
+
+function wallSegment(runAxis, fixed, from, to, yFrom, yTo, mat, group, thickness=WALL_T){
+  const len = to - from;
+  const h = yTo - yFrom;
+  if (len <= 0.01 || h <= 0.01) return;
+  const mesh = new THREE.Mesh(UNIT_BOX, mat);
+  if (runAxis === 'z'){
+    mesh.scale.set(thickness, h, len);
+    mesh.position.set(fixed, yFrom + h/2, from + len/2);
+    if (yFrom < 2.0) addCollider(fixed - thickness/2, fixed + thickness/2, from, to);
+  } else {
+    mesh.scale.set(len, h, thickness);
+    mesh.position.set(from + len/2, yFrom + h/2, fixed);
+    if (yFrom < 2.0) addCollider(from, to, fixed - thickness/2, fixed + thickness/2);
+  }
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  group.add(mesh);
+}
+// openings: [{from,to,sillY,lintelY}] sorted along the run axis
+function wallWithOpenings(runAxis, fixed, start, end, wallH, openings, mat, group, thickness=WALL_T){
+  let cursor = start;
+  for (const op of openings){
+    if (op.from > cursor) wallSegment(runAxis, fixed, cursor, op.from, 0, wallH, mat, group, thickness);
+    wallSegment(runAxis, fixed, op.from, op.to, 0, op.sillY, mat, group, thickness); // below sill (skipped if sillY=0, i.e. doorways)
+    wallSegment(runAxis, fixed, op.from, op.to, op.lintelY, wallH, mat, group, thickness); // above lintel
+    cursor = op.to;
+  }
+  if (cursor < end) wallSegment(runAxis, fixed, cursor, end, 0, wallH, mat, group, thickness);
+}
+
+function buildWindow(runAxis, fixed, center, width, sillY, topY, group){
+  const w = new THREE.Group();
+  const glassW = runAxis === 'z' ? 0.04 : width - 0.1;
+  const glassD = runAxis === 'z' ? width - 0.1 : 0.04;
+  const glass = new THREE.Mesh(UNIT_BOX, MAT.glass);
+  glass.scale.set(glassW, topY - sillY - 0.1, glassD);
+  if (runAxis === 'z') glass.position.set(fixed, (sillY+topY)/2, center);
+  else glass.position.set(center, (sillY+topY)/2, fixed);
+  w.add(glass);
+  // Simple mullion post — nudged just off the glass's own depth so they
+  // don't sit almost perfectly coplanar (that was causing z-fighting flicker).
+  const mullionMat = MAT.trim;
+  const mullionOffset = fixed < 0 ? 0.05 : -0.05;
+  const vMul = box(0.05, topY-sillY-0.1, 0.05, mullionMat, false);
+  if (runAxis === 'z'){ vMul.position.set(fixed + mullionOffset, (sillY+topY)/2, center); }
+  else { vMul.position.set(center, (sillY+topY)/2, fixed + mullionOffset); }
+  w.add(vMul);
+  // curtains on each side
+  const curtainH = topY - sillY + 0.5;
+  for (const side of [-1,1]){
+    const cur = box(0.35, curtainH, 0.08, MAT.curtain, false);
+    if (runAxis === 'z') cur.position.set(fixed + (fixed<0?0.12:-0.12), sillY + curtainH/2 - 0.2, center + side*(width/2+0.15));
+    else cur.position.set(center + side*(width/2+0.15), sillY + curtainH/2 - 0.2, fixed + (fixed<0?0.12:-0.12));
+    w.add(cur);
+  }
+  group.add(w);
+}
+
+/* ============================================================
+   FURNITURE FACTORIES
+   ============================================================ */
+function makeSofa(){
+  const g = new THREE.Group();
+  const base = box(2.2,0.45,0.9,MAT.sofa); base.position.y = 0.22; g.add(base);
+  const back = box(2.2,0.55,0.2,MAT.sofa); back.position.set(0,0.6,-0.35); g.add(back);
+  const armL = box(0.22,0.55,0.9,MAT.sofa); armL.position.set(-1.09,0.55,0); g.add(armL);
+  const armR = box(0.22,0.55,0.9,MAT.sofa); armR.position.set(1.09,0.55,0); g.add(armR);
+  for (let i=-1;i<=1;i++){
+    const pillow = box(0.4,0.25,0.25,MAT.sofaPillow); pillow.rotation.z = rand(-0.15,0.15);
+    pillow.position.set(i*0.65, 0.55, -0.18); g.add(pillow);
+  }
+  return g;
+}
+function makeCoffeeTable(){
+  const g = new THREE.Group();
+  const top = box(1.1,0.06,0.6,MAT.woodDark); top.position.y = 0.4; g.add(top);
+  for (const [sx,sz] of [[-0.48,-0.24],[0.48,-0.24],[-0.48,0.24],[0.48,0.24]]){
+    const leg = box(0.06,0.4,0.06,MAT.woodDark); leg.position.set(sx,0.2,sz); g.add(leg);
+  }
+  return g;
+}
+function makeTVUnit(){
+  const g = new THREE.Group();
+  const stand = box(1.4,0.45,0.4,MAT.woodDark); stand.position.y = 0.22; g.add(stand);
+  const tv = box(1.2,0.7,0.06,MAT.screenOff); tv.position.y = 0.85; g.add(tv);
+  const tvGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.62), new THREE.MeshBasicMaterial({color:0x3a6fa8}));
+  tvGlow.position.set(0,0.85,0.035); g.add(tvGlow);
+  return g;
+}
+function makeBookshelf(){
+  const g = new THREE.Group();
+  const frame = box(1.0,1.8,0.3,MAT.woodDark); frame.position.y = 0.9; g.add(frame);
+  const shelfInset = box(0.9,1.6,0.02,new THREE.MeshStandardMaterial({color:0x1a140e}),false);
+  shelfInset.position.set(0,0.9,0.14); g.add(shelfInset);
+  for (let row=0; row<3; row++){
+    let cx = -0.4;
+    const n = 5;
+    for (let i=0;i<n;i++){
+      const bw = rand(0.06,0.09);
+      const bh = rand(0.32,0.42);
+      const bMesh = box(bw,bh,0.22, pickArr(MAT.book));
+      bMesh.position.set(cx+bw/2, 0.35+row*0.5, 0.1);
+      g.add(bMesh);
+      cx += bw + 0.015;
+    }
+  }
+  return g;
+}
+function makeFloorLamp(withLight){
+  const g = new THREE.Group();
+  const pole = cyl(0.03,0.03,1.4,MAT.metalDark); pole.position.y = 0.7; g.add(pole);
+  const base = cyl(0.18,0.18,0.05,MAT.metalDark); base.position.y = 0.03; g.add(base);
+  const shade = cyl(0.28,0.2,0.32,MAT.lampShade,false); shade.position.y = 1.5; g.add(shade);
+  if (withLight){
+    const light = new THREE.PointLight(0xffb060, 45, 8, 2);
+    light.position.set(0,1.45,0);
+    g.add(light);
+    g.userData.light = light;
+  }
+  return g;
+}
+function makeRug(w,d,mat){
+  const r = new THREE.Mesh(UNIT_BOX, mat);
+  r.scale.set(w,0.02,d); r.position.y = 0.011; r.receiveShadow = true; r.castShadow = false;
+  return r;
+}
+function makeBed(){
+  const g = new THREE.Group();
+  const frame = box(1.7,0.3,2.1,MAT.woodDark); frame.position.y = 0.15; g.add(frame);
+  const mattress = box(1.6,0.25,2.0,MAT.fabricBed); mattress.position.y = 0.42; g.add(mattress);
+  const pillow1 = box(0.55,0.12,0.35,MAT.pillow); pillow1.position.set(-0.4,0.6,-0.82); g.add(pillow1);
+  const pillow2 = box(0.55,0.12,0.35,MAT.pillow); pillow2.position.set(0.4,0.6,-0.82); g.add(pillow2);
+  const blanket = box(1.6,0.1,1.1,MAT.sofa); blanket.position.set(0,0.58,0.4); g.add(blanket);
+  return g;
+}
+function makeNightstand(withLight){
+  const g = new THREE.Group();
+  const body = box(0.4,0.5,0.4,MAT.woodFurn); body.position.y = 0.25; g.add(body);
+  if (withLight){
+    const shade = cyl(0.14,0.1,0.2,MAT.lampShade,false); shade.position.y = 0.6; g.add(shade);
+    const light = new THREE.PointLight(0xffc888, 32, 6, 2);
+    light.position.set(0,0.62,0);
+    g.add(light); g.userData.light = light;
+  }
+  return g;
+}
+function makeWardrobe(){
+  const g = new THREE.Group();
+  const body = box(1.2,2.0,0.6,MAT.woodFurn); body.position.y = 1.0; g.add(body);
+  const seam = box(0.02,1.9,0.02,MAT.woodDark,false); seam.position.set(0,1.0,0.31); g.add(seam);
+  for (const sx of [-0.35,0.35]){
+    const handle = box(0.03,0.15,0.04,MAT.metal,false); handle.position.set(sx,1.0,0.33); g.add(handle);
+  }
+  return g;
+}
+function makeChair(){
+  const g = new THREE.Group();
+  const seat = box(0.42,0.06,0.42,MAT.woodFurn); seat.position.y = 0.46; g.add(seat);
+  const back = box(0.42,0.5,0.06,MAT.woodFurn); back.position.set(0,0.7,-0.2); g.add(back);
+  for (const [sx,sz] of [[-0.18,-0.18],[0.18,-0.18],[-0.18,0.18],[0.18,0.18]]){
+    const leg = box(0.05,0.46,0.05,MAT.woodDark); leg.position.set(sx,0.23,sz); g.add(leg);
+  }
+  return g;
+}
+function makeDiningTable(){
+  const g = new THREE.Group();
+  const top = box(1.3,0.06,0.8,MAT.woodFurn); top.position.y = 0.75; g.add(top);
+  for (const [sx,sz] of [[-0.58,-0.32],[0.58,-0.32],[-0.58,0.32],[0.58,0.32]]){
+    const leg = box(0.06,0.75,0.06,MAT.woodDark); leg.position.set(sx,0.375,sz); g.add(leg);
+  }
+  return g;
+}
+function makeKitchenCounters(){
+  const g = new THREE.Group();
+  const base = box(2.6,0.85,0.6,MAT.applianceWhite); base.position.set(0,0.425,0); g.add(base);
+  const top = box(2.7,0.06,0.66,MAT.counterTop); top.position.set(0,0.88,0); g.add(top);
+  const upper = box(2.6,0.6,0.32,MAT.applianceWhite); upper.position.set(0,1.9,-0.14); g.add(upper);
+  return g;
+}
+function makeFridge(){
+  const g = new THREE.Group();
+  const body = box(0.7,1.8,0.7,MAT.applianceWhite); body.position.y = 0.9; g.add(body);
+  const handle = box(0.03,0.5,0.05,MAT.metal,false); handle.position.set(0.3,1.0,0.37); g.add(handle);
+  return g;
+}
+function makeStove(){
+  const g = new THREE.Group();
+  const body = box(0.6,0.85,0.6,MAT.applianceWhite); body.position.y = 0.425; g.add(body);
+  const top = box(0.62,0.04,0.62,MAT.metalDark); top.position.y = 0.87; g.add(top);
+  for (const [sx,sz] of [[-0.15,-0.15],[0.15,-0.15],[-0.15,0.15],[0.15,0.15]]){
+    const burner = cyl(0.08,0.08,0.01,MAT.metal,false); burner.position.set(sx,0.895,sz); g.add(burner);
+  }
+  return g;
+}
+function makePendantLight(){
+  const g = new THREE.Group();
+  const wire = cyl(0.01,0.01,0.6,MAT.metalDark,false); wire.position.y = 0.3; g.add(wire);
+  const shade = cyl(0.05,0.22,0.18,MAT.lampShade,false); shade.position.y = 0; g.add(shade);
+  const light = new THREE.PointLight(0xffd9a0, 38, 7, 2);
+  light.position.y = -0.05; g.add(light); g.userData.light = light;
+  return g;
+}
+function makePicture(w,h,color){
+  const g = new THREE.Group();
+  const frame = box(w,h,0.04, new THREE.MeshStandardMaterial({color:0x2a2620, roughness:0.6}), false);
+  g.add(frame);
+  const art = new THREE.Mesh(new THREE.PlaneGeometry(w-0.08,h-0.08), new THREE.MeshStandardMaterial({color, roughness:0.9}));
+  art.position.z = 0.021; g.add(art);
+  return g;
+}
+
+/* ============================================================
+   ROOMS
+   ============================================================ */
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+function buildFloorAndCeiling(minX,maxX,minZ,maxZ,y,floorMat,ceilMat,group){
+  const floor = box(maxX-minX, 0.1, maxZ-minZ, floorMat);
+  floor.position.set((minX+maxX)/2, y-0.05, (minZ+maxZ)/2);
+  group.add(floor);
+  const ceil = box(maxX-minX, 0.1, maxZ-minZ, ceilMat, false);
+  ceil.position.set((minX+maxX)/2, y+WALL_H+0.05, (minZ+maxZ)/2);
+  group.add(ceil);
+}
+
+function buildApartment(){
+  const g = new THREE.Group(); worldGroup.add(g);
+  buildFloorAndCeiling(APT.minX+WALL_T/2, APT.maxX-WALL_T/2, APT.minZ+WALL_T/2, APT.maxZ-WALL_T/2, 0, MAT.floorWood, MAT.ceiling, g);
+
+  // Exterior walls with two living-room windows on the west wall (x=-6) and one bedroom window on the east wall (x=6)
+  wallWithOpenings('z', APT.minX, APT.minZ, APT.maxZ, WALL_H, [
+    { from:-3.4, to:-1.8, sillY:0.85, lintelY:2.25 },
+    { from:1.2,  to:2.8,  sillY:0.85, lintelY:2.25 },
+  ], MAT.wall, g);
+  buildWindow('z', APT.minX, -2.6, 1.6, 0.85, 2.25, g);
+  buildWindow('z', APT.minX, 2.0, 1.6, 0.85, 2.25, g);
+
+  wallWithOpenings('z', APT.maxX, APT.minZ, APT.maxZ, WALL_H, [
+    { from:-3.6, to:-2.0, sillY:0.85, lintelY:2.25 },
+  ], MAT.wall, g);
+  buildWindow('z', APT.maxX, -2.8, 1.6, 0.85, 2.25, g);
+
+  // South wall (z=-5), no openings
+  wallWithOpenings('x', APT.minZ, APT.minX, APT.maxX, WALL_H, [], MAT.wall, g);
+
+  // North wall (z=5) with front-door opening (sized to match the single door leaf)
+  wallWithOpenings('x', APT.maxZ, APT.minX, APT.maxX, WALL_H, [
+    { from:-0.65, to:0.65, sillY:0, lintelY:2.3 },
+  ], MAT.wall, g);
+
+  // Interior wall enclosing the bedroom (z=-0.5), with a doorway
+  wallWithOpenings('x', -0.5, 0.3, 6.2, WALL_H, [
+    { from:2.5, to:3.6, sillY:0, lintelY:2.3 },
+  ], MAT.wallBedroom, g);
+  // short wall stub separating bedroom from the apartment's west edge at x=0.3
+  wallSegment('z', 0.3, -5.0, -0.5, 0, WALL_H, MAT.wallBedroom, g);
+
+  // ---- Living room (x: -6..0.3, z: -5..5) ----
+  const rugLR = makeRug(3.2,2.2,MAT.rug); rugLR.position.set(-3.2,0,1.0); g.add(rugLR);
+  const sofa = makeSofa(); sofa.position.set(-3.2,0,2.2); g.add(sofa);
+  addCollider(-4.4,-2.0,1.75,2.65);
+  const table = makeCoffeeTable(); table.position.set(-3.2,0,0.6); g.add(table);
+  addCollider(-3.75,-2.65,0.3,0.9);
+  const tvUnit = makeTVUnit(); tvUnit.position.set(-3.2,0,-1.4); g.add(tvUnit);
+  addCollider(-3.9,-2.5,-1.8,-1.0);
+  const shelf = makeBookshelf(); shelf.rotation.y = Math.PI/2; shelf.position.set(-6+WALL_T+0.16,0,-3.6); g.add(shelf);
+  addCollider(-5.84,-5.54,-4.1,-3.1);
+  const lamp1 = makeFloorLamp(true); lamp1.position.set(-1.3,0,3.8); g.add(lamp1);
+  addCollider(-1.5,-1.1,3.6,4.0);
+  const pic1 = makePicture(0.9,0.6,0x4a6a8a); pic1.rotation.y = Math.PI/2; pic1.position.set(-6+WALL_T+0.03,1.7,1.2); g.add(pic1);
+
+  // ---- Bedroom (x: 0.3..6, z: -5..-0.5) ----
+  const rugBR = makeRug(2.2,1.6,MAT.rugBedroom); rugBR.position.set(4.1,0,-2.6); g.add(rugBR);
+  const bed = makeBed(); bed.rotation.y = Math.PI/2; bed.position.set(4.4,0,-2.7); g.add(bed);
+  addCollider(3.35,5.45,-3.55,-1.85);
+  const stand1 = makeNightstand(true); stand1.position.set(3.5,0,-1.9); g.add(stand1);
+  addCollider(3.3,3.7,-2.1,-1.7);
+  const wardrobe = makeWardrobe(); wardrobe.rotation.y = Math.PI/2; wardrobe.position.set(1.0,0,-3.0); g.add(wardrobe);
+  addCollider(0.7,1.3,-3.6,-2.4);
+  const brShade = cyl(0.22,0.22,0.08,MAT.lampShade,false); brShade.position.set(3.5,2.75,-2.7); g.add(brShade);
+  const brLight = new THREE.PointLight(0xffd9a0, 45, 8, 2); brLight.position.set(3.5,2.6,-2.7); g.add(brLight);
+
+  // ---- Kitchen / dining (x: 0.3..6, z: -0.5..5) ----
+  const counters = makeKitchenCounters(); counters.rotation.y = Math.PI/2; counters.position.set(6-WALL_T-0.33,0,2.6); g.add(counters);
+  addCollider(5.3,5.9,1.3,3.9);
+  const fridge = makeFridge(); fridge.position.set(5.55,0,4.55); g.add(fridge);
+  addCollider(5.2,5.9,4.2,4.9);
+  const stove = makeStove(); stove.position.set(5.6,0,0.2); g.add(stove);
+  addCollider(5.3,5.9,-0.1,0.5);
+  const diningTable = makeDiningTable(); diningTable.position.set(2.2,0,1.6); g.add(diningTable);
+  addCollider(1.55,2.85,1.2,2.0);
+  const chair1 = makeChair(); chair1.position.set(1.9,0,0.9); g.add(chair1);
+  const chair2 = makeChair(); chair2.rotation.y = Math.PI; chair2.position.set(2.5,0,2.3); g.add(chair2);
+  const pendant = makePendantLight(); pendant.position.set(2.2,2.35,1.6); g.add(pendant);
+  const pic2 = makePicture(0.7,0.5,0x8a5a3a); pic2.rotation.y = Math.PI/2; pic2.position.set(0.3+0.03,1.7,3.6); g.add(pic2);
+
+  return g;
+}
+
+/* ---------- Front doorway ----------
+   Previously an animated swinging door: proximity-triggered auto-open swung
+   it a full 99° before the player was close enough to register it existed,
+   and once open it sat nearly edge-on to typical viewing angles — a 0.06-unit
+   sliver that's genuinely hard to see. Rather than keep tuning trigger
+   radius/swing speed/collision to chase that, it's now a plain open archway
+   with a static frame, same as the bedroom doorway (which never had this
+   problem). */
+function buildFrontDoor(){
+  // MeshBasicMaterial ignores scene lighting entirely and always renders at
+  // exactly this color — used deliberately here so the doorway can't get
+  // lost in shadow regardless of how that corner of the room is lit.
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xffcf6a });
+  const jambL = box(0.1, 2.2, 0.22, glowMat, false); jambL.position.set(-0.58, 1.1, 5); worldGroup.add(jambL);
+  const jambR = box(0.1, 2.2, 0.22, glowMat, false); jambR.position.set(0.58, 1.1, 5); worldGroup.add(jambR);
+  const header = box(1.26, 0.1, 0.22, glowMat, false); header.position.set(0, 2.15, 5); worldGroup.add(header);
+  const threshold = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.5), glowMat);
+  threshold.rotation.x = -Math.PI/2;
+  threshold.position.set(0, 0.02, 5);
+  worldGroup.add(threshold);
+}
+
+/* ============================================================
+   LOBBY, ELEVATOR, STAIRS
+   ============================================================ */
+let elevator = null;
+function buildLobby(){
+  const g = new THREE.Group(); worldGroup.add(g);
+  buildFloorAndCeiling(LOBBY.minX, LOBBY.maxX, LOBBY.minZ, LOBBY.maxZ, 0, MAT.floorTile, MAT.ceiling, g);
+
+  wallWithOpenings('x', LOBBY.minZ, LOBBY.minX, LOBBY.maxX, WALL_H, [
+    { from:-0.65, to:0.65, sillY:0, lintelY:2.3 }, // matches apartment front door
+  ], MAT.wall, g);
+  wallWithOpenings('z', LOBBY.maxX, LOBBY.minZ, LOBBY.maxZ, WALL_H, [], MAT.wall, g);
+  wallWithOpenings('z', LOBBY.minX, LOBBY.minZ, LOBBY.maxZ, WALL_H, [], MAT.wall, g);
+
+  // North wall: the stairwell corridor (STAIR.minX..STAIR.maxX) is left fully
+  // open — by the time the player reaches it they've already descended to
+  // street level, so it leads straight outside. A pillar, then the elevator
+  // doorway, then solid wall the rest of the way.
+  wallSegment('x', LOBBY.maxZ, STAIR.maxX, -1.0, 0, WALL_H, MAT.wall, g);
+  wallSegment('x', LOBBY.maxZ, -1.0, 1.0, 2.4, WALL_H, MAT.wall, g);
+  wallSegment('x', LOBBY.maxZ, 1.0, LOBBY.maxX, 0, WALL_H, MAT.wall, g);
+
+  // Elevator shaft/car (fake — just a small room behind the doors)
+  const shaftBack = box(2.2,2.6,0.1,MAT.elevatorWall,false);
+  shaftBack.position.set(0,1.3,LOBBY.maxZ+1.4); g.add(shaftBack);
+  addCollider(-1.1,1.1,LOBBY.maxZ+1.35,LOBBY.maxZ+1.45);
+  const shaftL = box(0.1,2.6,1.6,MAT.elevatorWall,false); shaftL.position.set(-1.1,1.3,LOBBY.maxZ+0.6); g.add(shaftL);
+  addCollider(-1.15,-1.05,LOBBY.maxZ-0.2,LOBBY.maxZ+1.4);
+  const shaftR = box(0.1,2.6,1.6,MAT.elevatorWall,false); shaftR.position.set(1.1,1.3,LOBBY.maxZ+0.6); g.add(shaftR);
+  addCollider(1.05,1.15,LOBBY.maxZ-0.2,LOBBY.maxZ+1.4);
+  const shaftCeil = box(2.2,0.1,1.6,MAT.elevatorWall,false); shaftCeil.position.set(0,2.6,LOBBY.maxZ+0.6); g.add(shaftCeil);
+  const shaftFloor = box(2.2,0.1,1.6,MAT.floorTile,false); shaftFloor.position.set(0,0,LOBBY.maxZ+0.6); g.add(shaftFloor);
+  const carLight = new THREE.PointLight(0xdfe8ff, 30, 5, 2); carLight.position.set(0,2.3,LOBBY.maxZ+0.6); g.add(carLight);
+
+  // Lobby ceiling light — otherwise this whole room only gets ambient/moon light
+  const lobbyShade = cyl(0.28,0.28,0.1,MAT.lampShade,false); lobbyShade.position.set(0,2.75,7.5); g.add(lobbyShade);
+  const lobbyLight = new THREE.PointLight(0xfff0d0, 55, 9, 2); lobbyLight.position.set(0,2.6,7.5); g.add(lobbyLight);
+
+  const doorL = box(1.0,2.35,0.06,MAT.elevatorDoor,false);
+  doorL.position.set(-0.5, 1.175, LOBBY.maxZ+0.02); g.add(doorL);
+  const doorR = box(1.0,2.35,0.06,MAT.elevatorDoor,false);
+  doorR.position.set(0.5, 1.175, LOBBY.maxZ+0.02); g.add(doorR);
+
+  const buttonMat = new THREE.MeshBasicMaterial({ color:0xff8a3d });
+  const button = new THREE.Mesh(new THREE.CircleGeometry(0.06,10), buttonMat);
+  button.position.set(1.35,1.1,LOBBY.maxZ-0.02); g.add(button);
+
+  elevator = { doorL, doorR, button, phase:'idle', t:0, carLight, openFrac:0 };
+
+  // ---- Staircase ----
+  const STEPS = 14, STEP_H = 3.5/STEPS, STEP_D = 3.5/STEPS;
+  for (let i=0;i<STEPS;i++){
+    const stepY = -STEP_H*(i+1);
+    const stepZ = 6 + STEP_D*i;
+    const step = box(2.2, STEP_H+0.05, STEP_D+0.02, MAT.floorTile);
+    step.position.set(-3.0, stepY + STEP_H/2, stepZ + STEP_D/2);
+    g.add(step);
+  }
+  // handrails on both sides — the east rail also doubles as the only thing
+  // stopping the player from stepping off the side of the stairs mid-descent
+  // (there's no wall there, since the stairwell is open to the lobby floor)
+  for (const railX of [-3.95, -2.05]){
+    for (let i=0;i<=STEPS;i+=2){
+      const railY = -STEP_H*i + 0.9;
+      const railZ = 6 + STEP_D*i;
+      const post = cyl(0.02,0.02,0.9,MAT.metalDark,false);
+      post.position.set(railX, railY-0.45, railZ);
+      g.add(post);
+    }
+    const railTop = box(0.04,0.04,3.7,MAT.metalDark,false);
+    railTop.position.set(railX, -1.75+0.9, 6+1.75);
+    railTop.rotation.x = Math.atan2(3.5,3.5);
+    g.add(railTop);
+  }
+  addCollider(-2.15,-1.95,STAIR.minZ,STAIR.maxZ);
+
+  return g;
+}
+
+/* ============================================================
+   OUTDOOR STREET
+   ============================================================ */
+const outdoorGroup = new THREE.Group();
+function buildOutdoor(){
+  worldGroup.add(outdoorGroup);
+  const g = outdoorGroup;
+
+  const street = box(80,0.1,60,MAT.street,false);
+  street.position.set(0, STREET_Y-0.05, 15);
+  street.receiveShadow = true;
+  g.add(street);
+
+  // Sidewalk + facade are positioned around z≈9-16, right where the
+  // elevator (exits at z=16) and stairwell (opens at z≈9.6) actually emerge —
+  // otherwise the "your building" backdrop would be nowhere near the player.
+  const sidewalk = box(80,0.15,14,MAT.sidewalk,false);
+  sidewalk.position.set(0, STREET_Y+0.02, 10);
+  g.add(sidewalk);
+
+  const facade = box(14,22,10, MAT.buildingFacade,false);
+  facade.position.set(0, STREET_Y+11, 9);
+  g.add(facade);
+  buildWindowGrid(facade.position, 14,22, 6, 9, true);
+
+  // Entrance canopy over the lobby's exit
+  const canopy = box(4.5,0.15,2.2, MAT.metalDark,false);
+  canopy.position.set(-1.4, STREET_Y+2.6, 10.4);
+  g.add(canopy);
+
+  // Distant fake skyline (cheap, instanced windows)
+  const farBuildings = [];
+  for (let i=0;i<16;i++){
+    const w = rand(4,9), h = rand(8,26), d = rand(4,9);
+    const x = rand(-70,70);
+    if (Math.abs(x) < 12) continue;
+    const z = rand(-40,-15);
+    const bMesh = new THREE.Mesh(UNIT_BOX, MAT.buildingFar);
+    bMesh.scale.set(w,h,d);
+    bMesh.position.set(x, STREET_Y + h/2, z);
+    bMesh.castShadow = false; bMesh.receiveShadow = false;
+    g.add(bMesh);
+    farBuildings.push({x,y:STREET_Y,z,w,h,d});
+  }
+  buildFarWindows(farBuildings);
+
+  // Streetlights
+  for (const x of [-8,-22,10,26]){
+    const pole = cyl(0.06,0.06,4.5, MAT.poleMat,false);
+    pole.position.set(x, STREET_Y+2.25, 13);
+    g.add(pole);
+    const arm = box(1.2,0.05,0.05, MAT.poleMat,false);
+    arm.position.set(x+0.55, STREET_Y+4.4, 13);
+    g.add(arm);
+    const lampHead = sph(0.14, MAT.windowLit,false);
+    lampHead.position.set(x+1.1, STREET_Y+4.3, 13);
+    g.add(lampHead);
+    const sLight = new THREE.PointLight(0xffcf8a, 75, 12, 2);
+    sLight.position.set(x+1.1, STREET_Y+4.0, 13);
+    g.add(sLight);
+  }
+
+  // A couple of parked cars for flavor
+  for (const x of [-14,18]){
+    const car = new THREE.Group();
+    const body = box(2.0,0.5,0.9,MAT.carBody); body.position.y = 0.4; car.add(body);
+    const cabin = box(1.1,0.4,0.85,MAT.carBody); cabin.position.set(-0.1,0.85,0); car.add(cabin);
+    for (const [sx,sz] of [[-0.7,-0.42],[0.7,-0.42],[-0.7,0.42],[0.7,0.42]]){
+      const wheel = cyl(0.22,0.22,0.18, MAT.metalDark); wheel.rotation.z = Math.PI/2; wheel.position.set(sx,0.22,sz); car.add(wheel);
+    }
+    car.position.set(x, STREET_Y, 7);
+    car.rotation.y = Math.PI/2;
+    g.add(car);
+  }
+
+  // Bench + trash can near entrance
+  const bench = new THREE.Group();
+  const bseat = box(1.4,0.08,0.4,MAT.woodDark); bseat.position.y = 0.45; bench.add(bseat);
+  const bback = box(1.4,0.4,0.06,MAT.woodDark); bback.position.set(0,0.68,-0.17); bench.add(bback);
+  for (const sx of [-0.6,0.6]){ const leg = box(0.06,0.45,0.35,MAT.metalDark); leg.position.set(sx,0.225,0); bench.add(leg); }
+  bench.position.set(4.5, STREET_Y, 8);
+  g.add(bench);
+
+  const trash = cyl(0.25,0.2,0.6,MAT.metalDark);
+  trash.position.set(-4.5, STREET_Y+0.3, 8);
+  g.add(trash);
+}
+function buildWindowGrid(centerPos, facadeW, facadeH, cols, rows, highlightOne){
+  const geo = new THREE.PlaneGeometry(0.5,0.7);
+  const inst = new THREE.InstancedMesh(geo, MAT.windowLit, cols*rows);
+  const m = new THREE.Matrix4();
+  let idx = 0;
+  const startX = centerPos.x - facadeW/2 + 1.2;
+  const startY = centerPos.y - facadeH/2 + 1.2;
+  const highlightIdx = Math.floor(Math.random()*cols*rows);
+  for (let r=0;r<rows;r++){
+    for (let c=0;c<cols;c++){
+      const lit = Math.random() < 0.4 || idx === highlightIdx;
+      const x = startX + c*((facadeW-2.4)/(cols-1));
+      const y = startY + r*((facadeH-2.4)/(rows-1));
+      m.makeTranslation(x,y, centerPos.z + 5.02);
+      inst.setMatrixAt(idx, lit ? m : m.clone().scale(new THREE.Vector3(0.001,0.001,0.001)));
+      idx++;
+    }
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  outdoorGroup.add(inst);
+}
+function buildFarWindows(buildings){
+  const geo = new THREE.PlaneGeometry(0.4,0.5);
+  const total = buildings.length * 24;
+  const inst = new THREE.InstancedMesh(geo, MAT.windowLit, total);
+  const m = new THREE.Matrix4();
+  let idx = 0;
+  for (const b of buildings){
+    for (let i=0;i<24;i++){
+      const lit = Math.random() < 0.35;
+      const x = b.x + rand(-b.w/2+0.4, b.w/2-0.4);
+      const y = b.y + rand(0.6, b.h-0.6);
+      m.makeTranslation(x,y,b.z + b.d/2 + 0.02);
+      if (!lit) m.scale(new THREE.Vector3(0.001,0.001,0.001));
+      inst.setMatrixAt(idx, m);
+      idx++;
+    }
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  outdoorGroup.add(inst);
+}
+
+/* ============================================================
+   LIGHTING
+   ============================================================ */
+// A flat baseline light with zero falloff and zero direction-dependency —
+// unlike hemisphere/point/directional lights, this cannot fail to reach a
+// surface regardless of distance, angle, or any other lighting quirk, so
+// nothing in the scene can ever render as pure unlit black.
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+scene.add(new THREE.HemisphereLight(0x4a5a78, 0x22242c, 2.6));
+const moonLight = new THREE.DirectionalLight(0x9fb4ff, 2.4);
+moonLight.position.set(-8, 14, 6);
+moonLight.castShadow = true;
+moonLight.shadow.mapSize.set(512,512);
+moonLight.shadow.camera.left = -12; moonLight.shadow.camera.right = 12;
+moonLight.shadow.camera.top = 12; moonLight.shadow.camera.bottom = -12;
+moonLight.shadow.camera.near = 1; moonLight.shadow.camera.far = 40;
+scene.add(moonLight);
+scene.add(moonLight.target);
+const BASE_MOON_INTENSITY = 2.4;
+
+scene.fog = new THREE.Fog(0x05070c, 8, 40);
+
+/* ============================================================
+   RAIN
+   ============================================================ */
+const RAIN_COUNT = 1800;
+const rainGeo = new THREE.BufferGeometry();
+const rainPos = new Float32Array(RAIN_COUNT*3);
+for (let i=0;i<RAIN_COUNT;i++){
+  rainPos[i*3] = rand(-22,22);
+  rainPos[i*3+1] = rand(0,22);
+  rainPos[i*3+2] = rand(-22,22);
+}
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos,3));
+const rainMat = new THREE.PointsMaterial({ color:0xbfdcff, size:0.07, transparent:true, opacity:0.8 });
+const rainPoints = new THREE.Points(rainGeo, rainMat);
+rainPoints.position.y = STREET_Y;
+scene.add(rainPoints);
+
+function updateRain(dt, camX, camZ){
+  rainPoints.position.x = camX;
+  rainPoints.position.z = camZ;
+  const arr = rainGeo.attributes.position.array;
+  for (let i=0;i<RAIN_COUNT;i++){
+    arr[i*3+1] -= dt * 19;
+    if (arr[i*3+1] < 0){
+      arr[i*3+1] = 22;
+      arr[i*3] = rand(-22,22);
+      arr[i*3+2] = rand(-22,22);
+    }
+  }
+  rainGeo.attributes.position.needsUpdate = true;
+}
+
+/* ============================================================
+   LIGHTNING + AUDIO
+   ============================================================ */
+let audioCtx = null;
+function ensureAudio(){ if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if (audioCtx.state==='suspended') audioCtx.resume(); }
+
+let rainAmbGain = null;
+function startRainAmbience(){
+  ensureAudio();
+  const bufferSize = audioCtx.sampleRate * 2;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let last = 0;
+  for (let i=0;i<bufferSize;i++){
+    const white = Math.random()*2-1;
+    last = (last + 0.02*white) / 1.02;
+    data[i] = last * 3.2;
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer; src.loop = true;
+  const filter = audioCtx.createBiquadFilter(); filter.type='lowpass'; filter.frequency.value = 1200;
+  rainAmbGain = audioCtx.createGain(); rainAmbGain.gain.value = 0;
+  src.connect(filter); filter.connect(rainAmbGain); rainAmbGain.connect(audioCtx.destination);
+  src.start();
+}
+function playThunder(){
+  if (!audioCtx) return;
+  const bufferSize = audioCtx.sampleRate * 1.2;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * Math.pow(1 - i/bufferSize, 2);
+  const src = audioCtx.createBufferSource(); src.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter(); filter.type='lowpass'; filter.frequency.value = 400;
+  const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+1.1);
+  src.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+  src.start();
+}
+
+const flashEl = document.getElementById('cine-flash');
+let lightningTimer = rand(1.5,3.5);
+function flashOnce(delayMs, holdMs, peak){
+  setTimeout(() => {
+    flashEl.style.transition = 'none';
+    flashEl.style.opacity = String(peak);
+    moonLight.intensity = 22;
+    setTimeout(() => {
+      flashEl.style.transition = 'opacity .4s ease';
+      flashEl.style.opacity = '0';
+      moonLight.intensity = BASE_MOON_INTENSITY;
+    }, holdMs);
+  }, delayMs);
+}
+function updateLightning(dt, outside){
+  if (!outside) return;
+  lightningTimer -= dt;
+  if (lightningTimer <= 0){
+    lightningTimer = rand(2.5,6);
+    // A real strike usually flickers 2-3 times in quick succession
+    flashOnce(0, 90, 0.92);
+    if (Math.random() < 0.6) flashOnce(140, 70, 0.6);
+    if (Math.random() < 0.3) flashOnce(260, 60, 0.75);
+    playThunder();
+    setTimeout(() => playThunder(), rand(150,500));
+  }
+}
+
+/* ============================================================
+   INPUT: keyboard, mouse look (pointer lock), touch
+   ============================================================ */
+const keys = new Set();
+window.addEventListener('keydown', (e) => { keys.add(e.code); if (e.code==='KeyE') tryInteract(); });
+window.addEventListener('keyup', (e) => keys.delete(e.code));
+
+let yaw = Math.PI, pitch = -0.05;
+const MOUSE_SENS = 0.0022, TOUCH_SENS = 0.0032;
+
+function applyLook(){
+  pitch = clamp(pitch, -1.2, 1.2);
+  camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+}
+
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+document.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement !== canvas) return;
+  yaw -= e.movementX * MOUSE_SENS;
+  pitch -= e.movementY * MOUSE_SENS;
+});
+canvas.addEventListener('click', () => {
+  if (!isTouch && gameStarted) canvas.requestPointerLock();
+});
+
+/* ---- touch joystick (move) + drag look ---- */
+const touchMoveEl = document.getElementById('touch-move');
+const touchLookEl = document.getElementById('touch-look');
+const joyBase = document.getElementById('joystick-base');
+const joyKnob = document.getElementById('joystick-knob');
+let moveVec = { x:0, y:0 };
+let moveTouchId = null, lookTouchId = null, lookLast = null;
+
+touchMoveEl.addEventListener('touchstart', (e) => {
+  const t = e.changedTouches[0];
+  moveTouchId = t.identifier;
+  joyBase.style.display = 'block';
+  joyBase.style.left = (t.clientX - 48) + 'px';
+  joyBase.style.top = (t.clientY - 48) + 'px';
+  joyKnob.style.left = '50%'; joyKnob.style.top = '50%';
+}, { passive:true });
+touchMoveEl.addEventListener('touchmove', (e) => {
+  for (const t of e.changedTouches){
+    if (t.identifier !== moveTouchId) continue;
+    const rect = joyBase.getBoundingClientRect();
+    const cx = rect.left + 48, cy = rect.top + 48;
+    let dx = t.clientX - cx, dy = t.clientY - cy;
+    const dist = Math.min(48, Math.hypot(dx,dy));
+    const ang = Math.atan2(dy,dx);
+    dx = Math.cos(ang)*dist; dy = Math.sin(ang)*dist;
+    joyKnob.style.left = (48+dx) + 'px'; joyKnob.style.top = (48+dy) + 'px';
+    moveVec.x = dx/48; moveVec.y = dy/48;
+  }
+}, { passive:true });
+function endMoveTouch(e){
+  for (const t of e.changedTouches){
+    if (t.identifier !== moveTouchId) continue;
+    moveTouchId = null; moveVec.x = 0; moveVec.y = 0; joyBase.style.display = 'none';
+  }
+}
+touchMoveEl.addEventListener('touchend', endMoveTouch);
+touchMoveEl.addEventListener('touchcancel', endMoveTouch);
+
+touchLookEl.addEventListener('touchstart', (e) => {
+  const t = e.changedTouches[0];
+  lookTouchId = t.identifier;
+  lookLast = { x:t.clientX, y:t.clientY };
+}, { passive:true });
+touchLookEl.addEventListener('touchmove', (e) => {
+  for (const t of e.changedTouches){
+    if (t.identifier !== lookTouchId) continue;
+    const dx = t.clientX - lookLast.x, dy = t.clientY - lookLast.y;
+    lookLast = { x:t.clientX, y:t.clientY };
+    yaw -= dx * TOUCH_SENS * 3;
+    pitch -= dy * TOUCH_SENS * 3;
+  }
+}, { passive:true });
+function endLookTouch(e){
+  for (const t of e.changedTouches){ if (t.identifier===lookTouchId){ lookTouchId=null; lookLast=null; } }
+}
+touchLookEl.addEventListener('touchend', endLookTouch);
+touchLookEl.addEventListener('touchcancel', endLookTouch);
+
+document.getElementById('touch-interact-btn').addEventListener('click', tryInteract);
+
+/* ============================================================
+   INTERACT SYSTEM
+   ============================================================ */
+const promptEl = document.getElementById('interact-prompt');
+let currentInteractable = null; // 'elevator' | null
+
+function updateInteractPrompt(px, pz){
+  const distToElevator = Math.hypot(px-0, pz-(LOBBY.maxZ-0.6));
+  if (distToElevator < 2.2 && elevator.phase === 'idle'){
+    currentInteractable = 'elevator';
+    promptEl.textContent = 'Press E to call the elevator';
+    promptEl.classList.add('show');
+  } else {
+    currentInteractable = null;
+    promptEl.classList.remove('show');
+  }
+}
+function tryInteract(){
+  if (currentInteractable === 'elevator') callElevator();
+}
+
+/* ============================================================
+   ELEVATOR STATE MACHINE
+   ============================================================ */
+const OPEN_T = 0.9, HOLD_T = 1.6, RIDE_T = 2.4;
+const rideFadeEl = document.getElementById('ride-fade');
+const debugEl = document.getElementById('debug-readout');
+function zoneNameAt(x,z){
+  if (inStairCorridorX(x) && z >= STAIR.maxZ) return 'street(stairs)';
+  if (insideRect(x,z,STAIR)) return 'stairs';
+  if (insideRect(x,z,APT)) return 'apartment';
+  if (insideRect(x,z,LOBBY)) return 'lobby';
+  return 'street';
+}
+let pendingTeleport = false;
+
+function callElevator(){
+  if (elevator.phase !== 'idle') return;
+  elevator.phase = 'opening'; elevator.t = 0;
+}
+function elevatorDoorOffset(t01){ return t01 * 0.48; }
+// Like the front door, the elevator doors never had collision tied to their
+// actual open/closed state — this tracks how open they currently are (0..1)
+// so movement can be blocked while they're shut, matching what you see.
+function elevatorBlocks(x,z){
+  if (!elevator || elevator.openFrac >= 0.5) return false;
+  const r = PLAYER_RADIUS;
+  return x+r > -1.0 && x-r < 1.0 && z+r > LOBBY.maxZ-0.15 && z-r < LOBBY.maxZ+0.15;
+}
+function updateElevator(dt, playerPos){
+  const e = elevator;
+  if (e.phase === 'idle'){ e.openFrac = 0; return; }
+
+  if (e.phase === 'opening'){
+    e.t += dt;
+    const p = clamp(e.t/OPEN_T,0,1);
+    e.doorL.position.x = -0.5 - elevatorDoorOffset(p);
+    e.doorR.position.x = 0.5 + elevatorDoorOffset(p);
+    e.openFrac = p;
+    if (p >= 1){ e.phase = 'holdOpen'; e.t = 0; }
+  } else if (e.phase === 'holdOpen'){
+    e.t += dt;
+    e.openFrac = 1;
+    if (e.t >= HOLD_T){ e.phase = 'closing'; e.t = 0; }
+  } else if (e.phase === 'closing'){
+    e.t += dt;
+    const p = 1 - clamp(e.t/OPEN_T,0,1);
+    e.doorL.position.x = -0.5 - elevatorDoorOffset(p);
+    e.doorR.position.x = 0.5 + elevatorDoorOffset(p);
+    e.openFrac = p;
+    if (e.t >= OPEN_T){
+      e.phase = 'riding'; e.t = 0;
+      e.openFrac = 0;
+      const inCar = playerPos.x > -1.0 && playerPos.x < 1.0 && playerPos.z > LOBBY.maxZ-0.2 && playerPos.z < LOBBY.maxZ+1.5;
+      pendingTeleport = inCar;
+      rideFadeEl.classList.add('on');
+    }
+  } else if (e.phase === 'riding'){
+    e.t += dt;
+    if (e.t >= RIDE_T){
+      if (pendingTeleport){
+        playerPos.x = 0; playerPos.z = 16;
+        pendingTeleport = false;
+      }
+      e.phase = 'arriving'; e.t = 0;
+      rideFadeEl.classList.remove('on');
+    }
+  } else if (e.phase === 'arriving'){
+    e.t += dt;
+    const p = clamp(e.t/OPEN_T,0,1);
+    e.doorL.position.x = -0.5 - elevatorDoorOffset(p);
+    e.doorR.position.x = 0.5 + elevatorDoorOffset(p);
+    e.openFrac = p;
+    if (p >= 1){ e.phase = 'holdOpen2'; e.t = 0; }
+  } else if (e.phase === 'holdOpen2'){
+    e.t += dt;
+    e.openFrac = 1;
+    if (e.t >= HOLD_T){ e.phase = 'closing2'; e.t = 0; }
+  } else if (e.phase === 'closing2'){
+    e.t += dt;
+    const p = 1 - clamp(e.t/OPEN_T,0,1);
+    e.doorL.position.x = -0.5 - elevatorDoorOffset(p);
+    e.doorR.position.x = 0.5 + elevatorDoorOffset(p);
+    e.openFrac = p;
+    if (e.t >= OPEN_T){ e.phase = 'idle'; e.t = 0; }
+  }
+}
+
+/* ============================================================
+   BUILD WORLD
+   ============================================================ */
+buildApartment();
+buildFrontDoor();
+buildLobby();
+buildOutdoor();
+
+/* ============================================================
+   PLAYER
+   ============================================================ */
+const player = { pos: new THREE.Vector3(-1.5, EYE_HEIGHT, 3.2) };
+camera.position.copy(player.pos);
+applyLook();
+
+/* ============================================================
+   START / FLOW
+   ============================================================ */
+let gameStarted = false;
+const startScreen = document.getElementById('start-screen');
+const hud = document.getElementById('hud');
+document.getElementById('start-btn').addEventListener('click', () => {
+  gameStarted = true;
+  startScreen.classList.add('hidden');
+  hud.classList.add('show');
+  if (isTouch){
+    document.getElementById('touch-interact-btn').style.display = 'flex';
+    touchMoveEl.style.pointerEvents = 'auto';
+    touchLookEl.style.pointerEvents = 'auto';
+  } else {
+    canvas.requestPointerLock();
+  }
+  ensureAudio();
+  startRainAmbience();
+});
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (gameStarted){
+    applyLook();
+
+    // movement input (keyboard + touch joystick), relative to yaw
+    let inX = 0, inZ = 0;
+    if (keys.has('KeyW')) inZ -= 1;
+    if (keys.has('KeyS')) inZ += 1;
+    if (keys.has('KeyA')) inX -= 1;
+    if (keys.has('KeyD')) inX += 1;
+    inX += moveVec.x; inZ += moveVec.y;
+    const len = Math.hypot(inX,inZ);
+    if (len > 0.001){
+      inX /= Math.max(len,1); inZ /= Math.max(len,1);
+      const speed = 3.6;
+      const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
+      const dx = (inX*cosY + inZ*sinY) * speed * dt;
+      const dz = (inZ*cosY - inX*sinY) * speed * dt;
+      resolveMove(player.pos, dx, dz);
+    }
+
+    const groundY = groundHeightAt(player.pos.x, player.pos.z);
+    player.pos.y = lerp(player.pos.y, groundY + EYE_HEIGHT, Math.min(1, dt*10));
+    camera.position.copy(player.pos);
+
+    updateElevator(dt, player.pos);
+    updateInteractPrompt(player.pos.x, player.pos.z);
+
+    const outside = !isIndoors(player.pos.x, player.pos.z);
+    // Rain stays active everywhere — the walls already occlude it correctly,
+    // so it only actually shows through window glass when you're indoors,
+    // which is exactly the effect we want (rain visible from inside, looking out).
+    updateRain(dt, player.pos.x, player.pos.z);
+    updateLightning(dt, outside);
+    scene.fog.near = outside ? 8 : 20;
+    scene.fog.far = outside ? 40 : 60;
+    if (rainAmbGain){
+      const target = outside ? 0.5 : 0.04;
+      rainAmbGain.gain.value = lerp(rainAmbGain.gain.value, target, dt*2);
+    }
+
+    debugEl.textContent = `x=${player.pos.x.toFixed(2)} y=${player.pos.y.toFixed(2)} z=${player.pos.z.toFixed(2)} zone=${zoneNameAt(player.pos.x, player.pos.z)} yaw=${(yaw*180/Math.PI).toFixed(0)}° pitch=${(pitch*180/Math.PI).toFixed(0)}°`;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

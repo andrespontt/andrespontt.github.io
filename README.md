@@ -15,6 +15,7 @@ Personal website and playground for Andres Pontt, hosted on GitHub Pages. The si
 ### Apps & Games
 Located in the `apps/` directory:
 - **ABC Learning** (`abc.html`) - Interactive alphabet practice for young learners
+- **Apartment** (`apartment.html`) - Detailed low-poly Three.js first-person apartment walkthrough with a rainy night storm
 - **Bridge Math** (`bridge-math.html`) - Equation game where correct answers rebuild a bridge
 - **Chromatic Keyboard** (`keyboard.html`) - Browser keyboard with octave controls
 - **Count Cats** (`count-cats.html`) - Counting game for kids
