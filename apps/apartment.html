@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Apartment - Andres Pontt</title>
-<meta name="description" content="A low-poly Three.js first-person apartment walkthrough with furnished rooms, a rainy night storm, and an elevator or stairs down to the street.">
+<meta name="description" content="A low-poly Three.js first-person house walkthrough with furnished rooms, a rainy night storm, and a guarded main entrance.">
 <meta name="theme-color" content="#0a0c10">
 <link rel="manifest" href="apartment-manifest.json">
 <link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml">
@@ -41,6 +41,15 @@
     white-space:nowrap; box-shadow:0 4px 20px rgba(0,0,0,.5);
   }
   #interact-prompt.show{ opacity:1; }
+  #closed-caption{
+    position:absolute; left:50%; bottom:11%; transform:translate(-50%,8px);
+    max-width:min(560px,calc(100vw - 32px)); padding:10px 16px; border-radius:8px;
+    background:rgba(5,7,11,.9); border:1px solid rgba(255,255,255,.22);
+    color:#f4f6f8; font-size:.92rem; line-height:1.35; text-align:center;
+    box-shadow:0 5px 24px rgba(0,0,0,.55); opacity:0; transition:opacity .18s,transform .18s;
+  }
+  #closed-caption.show{ opacity:1; transform:translate(-50%,0); }
+  #closed-caption .speaker{ color:#f0c87b; font-size:.7rem; font-weight:800; letter-spacing:.09em; margin-right:.5em; }
 
   #back-link{
     pointer-events:auto; position:absolute; top:max(12px, env(safe-area-inset-top)); left:max(12px, env(safe-area-inset-left));
@@ -94,8 +103,6 @@
   }
 
   #cine-flash{ position:fixed; inset:0; z-index:45; background:#fff; opacity:0; pointer-events:none; }
-  #ride-fade{ position:fixed; inset:0; z-index:44; background:#000; opacity:0; pointer-events:none; transition:opacity .5s ease; }
-  #ride-fade.on{ opacity:1; }
 
   .hidden{ display:none !important; }
 </style>
@@ -107,9 +114,10 @@
 <div id="hud">
   <div id="crosshair"></div>
   <div id="interact-prompt"></div>
+  <div id="closed-caption" role="status" aria-live="polite"></div>
   <a href="index.html" id="back-link" title="Back to Apps">←</a>
-  <div id="version-badge"><span class="dot"></span><span id="version-text">v2.1 · Updated just now</span></div>
-  <div id="hint-line">WASD / drag to move · click / drag to look · E or USE to interact</div>
+  <div id="version-badge"><span class="dot"></span><span id="version-text">v2.6 · Updated just now</span></div>
+  <div id="hint-line">WASD / drag to move · click / drag to look</div>
   <div id="debug-readout"></div>
   <div id="touch-move">
     <div id="joystick-base"><div id="joystick-knob"></div></div>
@@ -119,7 +127,6 @@
 </div>
 
 <div id="cine-flash"></div>
-<div id="ride-fade"></div>
 
 <script type="module">
 import * as THREE from "three";
@@ -131,7 +138,7 @@ if ('serviceWorker' in navigator) {
 /* ============================================================
    APP VERSION & UPDATED TIME
    ============================================================ */
-const APP_VERSION = 'v2.1';
+const APP_VERSION = 'v2.6';
 const BUILD_TIME = new Date('2026-08-16T12:00:00-04:00').getTime();
 
 function formatRelativeTime(fromTime){
@@ -246,13 +253,17 @@ const MAT = {
   counterTop: new THREE.MeshStandardMaterial({ color:0x2c2f34, roughness:0.3 }),
   door: new THREE.MeshStandardMaterial({ color:0x5a3d2a, roughness:0.6 }),
   doorFrame: new THREE.MeshStandardMaterial({ color:0xe8e4da, roughness:0.6 }),
-  elevatorWall: new THREE.MeshStandardMaterial({ color:0x8f939a, roughness:0.4, metalness:0.5 }),
-  elevatorFrame: new THREE.MeshStandardMaterial({ color:0x555b64, roughness:0.35, metalness:0.75 }),
-  elevatorDoor: new THREE.MeshStandardMaterial({ color:0xd0d8e4, roughness:0.18, metalness:0.92 }),
   book: [0x8a3a3a,0x3a5a8a,0x3a8a5a,0x8a7a3a,0x5a3a8a].map(c => new THREE.MeshStandardMaterial({color:c, roughness:0.8})),
   street: new THREE.MeshStandardMaterial({ color:0x14161b, roughness:0.35 }),
   sidewalk: new THREE.MeshStandardMaterial({ color:0x2c2e33, roughness:0.7 }),
   buildingFacade: new THREE.MeshStandardMaterial({ color:0x1c2027, roughness:0.85 }),
+  houseFacade: new THREE.MeshStandardMaterial({ color:0xb7aa92, roughness:0.92 }),
+  houseTrim: new THREE.MeshStandardMaterial({ color:0xe1d8c8, roughness:0.75 }),
+  houseRoof: new THREE.MeshStandardMaterial({ color:0x302b31, roughness:0.88 }),
+  guardSuit: new THREE.MeshStandardMaterial({ color:0x111823, roughness:0.78 }),
+  guardShirt: new THREE.MeshStandardMaterial({ color:0xe7e9ec, roughness:0.72 }),
+  guardTie: new THREE.MeshStandardMaterial({ color:0x651f28, roughness:0.68 }),
+  guardSkin: new THREE.MeshStandardMaterial({ color:0x8f6047, roughness:0.86 }),
   buildingFar: new THREE.MeshStandardMaterial({ color:0x11141a, roughness:0.9 }),
   windowLit: new THREE.MeshBasicMaterial({ color:0xffdba0 }),
   carBody: new THREE.MeshStandardMaterial({ color:0x2a3a55, roughness:0.4, metalness:0.3 }),
@@ -304,7 +315,6 @@ function collidesAt(x,z,y=0){
       if (x+r > c.minX && x-r < c.maxX && z+r > c.minZ && z-r < c.maxZ) return true;
     }
   }
-  if (elevatorBlocks(x,z,y)) return true;
   return false;
 }
 
@@ -412,7 +422,9 @@ function makeBookshelf(){
   const g = new THREE.Group();
   const frame = box(1.0,1.8,0.3,MAT.woodDark); frame.position.y = 0.9; g.add(frame);
   const shelfInset = box(0.9,1.6,0.02,new THREE.MeshStandardMaterial({color:0x1a140e}),false);
-  shelfInset.position.set(0,0.9,0.14); g.add(shelfInset);
+  // Keep the backing visibly in front of the cabinet face. Its old front face
+  // was exactly coplanar with the frame, which caused motion-dependent flicker.
+  shelfInset.position.set(0,0.9,0.165); g.add(shelfInset);
   for (let row=0; row<3; row++){
     let cx = -0.4;
     const n = 5;
@@ -548,24 +560,6 @@ function makeDoorLeaf(w, h, d, mat, handleMat){
   return g;
 }
 
-function makeElevatorDoor(side){
-  const g = new THREE.Group();
-  const panel = box(0.98, 2.34, 0.05, MAT.elevatorDoor, false);
-  g.add(panel);
-
-  const edgeX = (side === 'left') ? 0.47 : -0.47;
-  const bumper = box(0.04, 2.34, 0.07, MAT.metalDark, false);
-  bumper.position.set(edgeX, 0, 0);
-  g.add(bumper);
-
-  for (const y of [-0.6, 0, 0.6]){
-    const groove = box(0.85, 0.02, 0.054, MAT.metalDark, false);
-    groove.position.set((side === 'left') ? -0.04 : 0.04, y, 0);
-    g.add(groove);
-  }
-  return g;
-}
-
 /* ============================================================
    ROOMS
    ============================================================ */
@@ -694,15 +688,13 @@ function buildFrontDoor(){
 }
 
 /* ============================================================
-   LOBBY, ELEVATOR, STAIRS
+   FOYER + STAIRS
    ============================================================ */
-let elevator = null;
 
 function buildLobby(){
   const g = new THREE.Group(); worldGroup.add(g);
 
-  // Lobby floor with a real stairwell opening. The main slab covers the
-  // elevator side; the left slab stops at the top landing.
+  // Foyer floor with a real stairwell opening.
   const mainFloor = box(LOBBY.maxX - STAIR.maxX, 0.1, LOBBY.maxZ - LOBBY.minZ, MAT.floorTile);
   mainFloor.position.set((STAIR.maxX + LOBBY.maxX)/2, -0.05, (LOBBY.minZ + LOBBY.maxZ)/2);
   g.add(mainFloor);
@@ -718,114 +710,19 @@ function buildLobby(){
   wallWithOpenings('z', LOBBY.minX, LOBBY.minZ, LOBBY.maxZ, WALL_H, [], MAT.wall, g, WALL_T, 0);
 
   // Full-height stairwell walls continue below lobby level and prevent the
-  // stairs from reading as an exposed hole beside the elevator.
+  // stairs from reading as an exposed hole beside the foyer.
   const stairOuterWall = box(0.14, 3.5, STAIR.maxZ - STAIR.minZ, MAT.wall, false);
   stairOuterWall.position.set(STAIR.minX, -1.75, (STAIR.minZ + STAIR.maxZ)/2); g.add(stairOuterWall);
   const stairDivider = box(0.14, 6.5, STAIR.maxZ - STAIR.minZ, MAT.wall, false);
   stairDivider.position.set(STAIR.maxX, -0.25, (STAIR.minZ + STAIR.maxZ)/2); g.add(stairDivider);
   addCollider(STAIR.maxX-0.08, STAIR.maxX+0.08, STAIR.minZ, STAIR.maxZ, -4.0, 3.0);
 
-  // North wall of lobby
-  wallSegment('x', LOBBY.maxZ, STAIR.maxX, -1.0, 0, WALL_H, MAT.wall, g, WALL_T, 0);
-  wallSegment('x', LOBBY.maxZ, -1.0, 1.0, 2.4, WALL_H, MAT.wall, g, WALL_T, 0);
-  wallSegment('x', LOBBY.maxZ, 1.0, LOBBY.maxX, 0, WALL_H, MAT.wall, g, WALL_T, 0);
+  // A continuous back wall keeps the foyer enclosed beneath the house roofline.
+  wallSegment('x', LOBBY.maxZ, STAIR.maxX, LOBBY.maxX, 0, WALL_H, MAT.wall, g, WALL_T, 0);
 
-  // Elevator shaft enclosure (spans ground level -3.5 to ceiling 3.0)
-  const shaftBack = box(2.2, 6.6, 0.1, MAT.elevatorWall, false);
-  shaftBack.position.set(0, -3.5 + 3.3, LOBBY.maxZ+1.4); g.add(shaftBack);
-  addCollider(-1.1, 1.1, LOBBY.maxZ+1.35, LOBBY.maxZ+1.45, -4.0, 3.5);
-
-  const shaftL = box(0.1, 6.6, 1.6, MAT.elevatorWall, false);
-  shaftL.position.set(-1.1, -3.5 + 3.3, LOBBY.maxZ+0.6); g.add(shaftL);
-  addCollider(-1.15, -1.05, LOBBY.maxZ-0.2, LOBBY.maxZ+1.4, -4.0, 3.5);
-
-  const shaftR = box(0.1, 6.6, 1.6, MAT.elevatorWall, false);
-  shaftR.position.set(1.1, -3.5 + 3.3, LOBBY.maxZ+0.6); g.add(shaftR);
-  addCollider(1.05, 1.15, LOBBY.maxZ-0.2, LOBBY.maxZ+1.4, -4.0, 3.5);
-
-  const shaftCeil = box(2.2, 0.1, 1.6, MAT.elevatorWall, false);
-  shaftCeil.position.set(0, 3.0, LOBBY.maxZ+0.6); g.add(shaftCeil);
-
-  const shaftFloorGround = box(2.2, 0.1, 1.6, MAT.floorTile, false);
-  shaftFloorGround.position.set(0, STREET_Y, LOBBY.maxZ+0.6); g.add(shaftFloorGround);
-
-  const carLight = new THREE.PointLight(0xdfe8ff, 35, 7, 2);
-  carLight.position.set(0, 2.3, LOBBY.maxZ+0.6); g.add(carLight);
-
-  // Lobby ceiling light
+  // Foyer ceiling light
   const lobbyShade = cyl(0.28,0.28,0.1,MAT.lampShade,false); lobbyShade.position.set(0,2.75,7.5); g.add(lobbyShade);
   const lobbyLight = new THREE.PointLight(0xfff0d0, 60, 10, 2); lobbyLight.position.set(0,2.6,7.5); g.add(lobbyLight);
-
-  // ---- 2nd Floor (Lobby) Grand Elevator Portal & Doors ----
-  const floor2Y = 0;
-  // Restrained metal architrave, flush with the elevator wall.
-  const archL2 = box(0.16, 2.45, 0.18, MAT.elevatorFrame, false);
-  archL2.position.set(-1.12, floor2Y + 1.25, 10.08); g.add(archL2);
-  const archR2 = box(0.16, 2.45, 0.18, MAT.elevatorFrame, false);
-  archR2.position.set(1.12, floor2Y + 1.25, 10.08); g.add(archR2);
-  const archTop2 = box(2.4, 0.22, 0.18, MAT.elevatorFrame, false);
-  archTop2.position.set(0, floor2Y + 2.52, 10.08); g.add(archTop2);
-
-  // Digital LED Display Panel
-  const dispBg2 = box(0.85, 0.22, 0.05, new THREE.MeshBasicMaterial({ color: 0x080a10 }), false);
-  dispBg2.position.set(0, floor2Y + 2.55, 9.94); g.add(dispBg2);
-  const dispPlate2 = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.18), new THREE.MeshBasicMaterial({ color: 0x38e892 }));
-  dispPlate2.position.set(0, floor2Y + 2.55, 9.91); g.add(dispPlate2);
-
-  // Direct downlight spotlight
-  const elSpot2 = new THREE.PointLight(0xffedd0, 55, 7, 2);
-  elSpot2.position.set(0, floor2Y + 2.65, 9.75); g.add(elSpot2);
-
-  // 2nd Floor Doors
-  const doorL2 = makeElevatorDoor('left');
-  doorL2.position.set(-0.5, floor2Y + 1.17, 10.18); g.add(doorL2);
-  const doorR2 = makeElevatorDoor('right');
-  doorR2.position.set(0.5, floor2Y + 1.17, 10.18); g.add(doorR2);
-
-  // Stainless Steel Call Station with glowing buttons
-  const callPlate2 = box(0.18, 0.44, 0.04, MAT.metal, false);
-  callPlate2.position.set(1.45, floor2Y + 1.2, 10.08); g.add(callPlate2);
-  const button2 = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), new THREE.MeshBasicMaterial({ color: 0xff8820 }));
-  button2.position.set(1.45, floor2Y + 1.2, 10.05); g.add(button2);
-
-  // ---- 1st Floor (Ground / Street Level) Elevator Entrance ----
-  const floor1Y = STREET_Y;
-  const archL1 = box(0.16, 2.45, 0.18, MAT.elevatorFrame, false);
-  archL1.position.set(-1.12, floor1Y + 1.25, 10.08); g.add(archL1);
-  const archR1 = box(0.16, 2.45, 0.18, MAT.elevatorFrame, false);
-  archR1.position.set(1.12, floor1Y + 1.25, 10.08); g.add(archR1);
-  const archTop1 = box(2.4, 0.22, 0.18, MAT.elevatorFrame, false);
-  archTop1.position.set(0, floor1Y + 2.52, 10.08); g.add(archTop1);
-
-  const dispBg1 = box(0.85, 0.22, 0.05, new THREE.MeshBasicMaterial({ color: 0x080a10 }), false);
-  dispBg1.position.set(0, floor1Y + 2.55, 9.94); g.add(dispBg1);
-  const dispPlate1 = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.18), new THREE.MeshBasicMaterial({ color: 0x38e892 }));
-  dispPlate1.position.set(0, floor1Y + 2.55, 9.91); g.add(dispPlate1);
-
-  const elSpot1 = new THREE.PointLight(0xffedd0, 50, 7, 2);
-  elSpot1.position.set(0, floor1Y + 2.65, 9.75); g.add(elSpot1);
-
-  const doorL1 = makeElevatorDoor('left');
-  doorL1.position.set(-0.5, floor1Y + 1.17, 10.18); g.add(doorL1);
-  const doorR1 = makeElevatorDoor('right');
-  doorR1.position.set(0.5, floor1Y + 1.17, 10.18); g.add(doorR1);
-
-  const callPlate1 = box(0.18, 0.44, 0.04, MAT.metal, false);
-  callPlate1.position.set(1.45, floor1Y + 1.2, 10.08); g.add(callPlate1);
-  const button1 = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), new THREE.MeshBasicMaterial({ color: 0xff8820 }));
-  button1.position.set(1.45, floor1Y + 1.2, 10.05); g.add(button1);
-
-  elevator = {
-    floor: 2,
-    targetFloor: 2,
-    phase: 'idle',
-    t: 0,
-    openFrac: 0,
-    doorL2, doorR2,
-    doorL1, doorR1,
-    button2, button1,
-    carLight
-  };
 
   // ---- Staircase ----
   const STEPS = 14, STEP_H = 3.5/STEPS, STEP_D = (STAIR.maxZ - STAIR.minZ)/STEPS;
@@ -856,10 +753,43 @@ function buildLobby(){
   return g;
 }
 
+function makeBodyguard(){
+  const g = new THREE.Group();
+
+  // Polished shoes and straight-cut suit trousers.
+  for (const x of [-0.14,0.14]){
+    const leg = box(0.19,0.78,0.2,MAT.guardSuit); leg.position.set(x,0.42,0); g.add(leg);
+    const shoe = box(0.21,0.1,0.34,MAT.metalDark); shoe.position.set(x,0.06,0.07); g.add(shoe);
+  }
+
+  const torso = box(0.62,0.76,0.3,MAT.guardSuit); torso.position.set(0,1.18,0); g.add(torso);
+  const shirt = box(0.18,0.48,0.025,MAT.guardShirt,false); shirt.position.set(0,1.23,0.165); g.add(shirt);
+  const tie = box(0.045,0.38,0.035,MAT.guardTie,false); tie.position.set(0,1.2,0.19); g.add(tie);
+  for (const x of [-0.37,0.37]){
+    const arm = box(0.15,0.72,0.2,MAT.guardSuit); arm.position.set(x,1.17,0); g.add(arm);
+    const hand = sph(0.09,MAT.guardSkin); hand.position.set(x,0.78,0.02); g.add(hand);
+  }
+
+  const neck = cyl(0.09,0.09,0.14,MAT.guardSkin); neck.position.y = 1.61; g.add(neck);
+  const head = sph(0.19,MAT.guardSkin); head.position.set(0,1.78,0); g.add(head);
+
+  // Sunglasses and a security earpiece with its visible wire down the collar.
+  for (const x of [-0.09,0.09]){
+    const lens = box(0.14,0.055,0.035,MAT.screenOff,false); lens.position.set(x,1.82,0.175); g.add(lens);
+  }
+  const bridge = box(0.05,0.025,0.035,MAT.screenOff,false); bridge.position.set(0,1.82,0.176); g.add(bridge);
+  const earbud = sph(0.035,MAT.metalDark,false); earbud.position.set(0.19,1.8,0.01); g.add(earbud);
+  const earWire = cyl(0.012,0.012,0.34,MAT.metalDark,false); earWire.position.set(0.2,1.62,0.015); g.add(earWire);
+  const collarWire = cyl(0.01,0.01,0.22,MAT.metalDark,false); collarWire.position.set(0.13,1.47,0.13); collarWire.rotation.z = -0.55; g.add(collarWire);
+
+  return g;
+}
+
 /* ============================================================
    OUTDOOR STREET
    ============================================================ */
 const outdoorGroup = new THREE.Group();
+const guards = [];
 function buildOutdoor(){
   worldGroup.add(outdoorGroup);
   const g = outdoorGroup;
@@ -873,10 +803,71 @@ function buildOutdoor(){
   sidewalk.position.set(0, STREET_Y-0.075, 10);
   g.add(sidewalk);
 
-  // Entrance canopy over the ground exit
-  const canopy = box(4.5,0.15,2.2, MAT.metalDark,false);
-  canopy.position.set(-1.4, STREET_Y+2.6, 10.4);
-  g.add(canopy);
+  // ---- House exterior (visual-only shell around the existing entrances) ----
+  // Keep the architectural shell in front of the original foyer wall. The
+  // previous 9.72 position left that dark structural wall visible at angles.
+  const facadeZ = 10.48;
+  const facadeH = 7.3;
+  const facadeY = STREET_Y + facadeH/2;
+  for (const [from,to] of [[-7.5,-4.2],[-1.8,7.5]]){
+    const section = box(to-from,facadeH,0.34,MAT.houseFacade,false);
+    section.position.set((from+to)/2,facadeY,facadeZ); g.add(section);
+  }
+  const stairDoorLintel = box(STAIR.maxX-STAIR.minX,4.6,0.34,MAT.houseFacade,false);
+  stairDoorLintel.position.set((STAIR.minX+STAIR.maxX)/2,1.5,facadeZ); g.add(stairDoorLintel);
+
+  // Stone base and horizontal belt make the wide shell read as a two-story home.
+  for (const [from,to] of [[-7.5,-4.2],[-1.8,7.5]]){
+    const stoneBase = box(to-from,0.48,0.42,MAT.houseTrim,false);
+    stoneBase.position.set((from+to)/2,STREET_Y+0.24,facadeZ+0.03); g.add(stoneBase);
+  }
+  const floorBandL = box(6.4,0.18,0.42,MAT.houseTrim,false);
+  floorBandL.position.set(-4.3,0.05,facadeZ+0.03); g.add(floorBandL);
+  const floorBandR = box(6.4,0.18,0.42,MAT.houseTrim,false);
+  floorBandR.position.set(4.3,0.05,facadeZ+0.03); g.add(floorBandR);
+
+  function addHouseWindow(x,y,w=1.3,h=1.25){
+    const pane = box(w,h,0.04,MAT.screenOff,false); pane.position.set(x,y,facadeZ+0.2); g.add(pane);
+    const top = box(w+0.18,0.1,0.1,MAT.houseTrim,false); top.position.set(x,y+h/2+0.05,facadeZ+0.24); g.add(top);
+    const sill = box(w+0.22,0.1,0.16,MAT.houseTrim,false); sill.position.set(x,y-h/2-0.05,facadeZ+0.27); g.add(sill);
+    const mullion = box(0.07,h,0.08,MAT.houseTrim,false); mullion.position.set(x,y,facadeZ+0.24); g.add(mullion);
+  }
+  addHouseWindow(-5.8,1.45);
+  addHouseWindow(-3.6,1.45);
+  addHouseWindow(3.4,1.45);
+  addHouseWindow(5.7,1.45);
+  addHouseWindow(3.5,-1.7,1.15,1.1);
+  addHouseWindow(5.7,-1.7,1.15,1.1);
+
+  // Broad hipped roof and chimney complete the house silhouette from the street.
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(10.8,2.65,4),MAT.houseRoof);
+  roof.position.set(0,5.15,7.25); roof.rotation.y = Math.PI/4; roof.scale.z = 0.52;
+  roof.castShadow = true; g.add(roof);
+  const chimney = box(0.75,2.0,0.75,MAT.houseFacade,false);
+  chimney.position.set(4.4,5.55,7.1); g.add(chimney);
+  const chimneyCap = box(0.9,0.16,0.9,MAT.houseTrim,false);
+  chimneyCap.position.set(4.4,6.56,7.1); g.add(chimneyCap);
+
+  // Main-entry portico centered on the staircase doorway.
+  const porch = box(4.5,0.16,2.0,MAT.houseTrim,false);
+  porch.position.set(-3.0,STREET_Y+0.08,10.65); g.add(porch);
+  const porticoRoof = box(4.8,0.2,2.25,MAT.houseRoof,false);
+  porticoRoof.position.set(-3.0,STREET_Y+2.85,10.55); g.add(porticoRoof);
+  for (const x of [-5.05,-0.95]){
+    const column = cyl(0.15,0.18,2.75,MAT.houseTrim,false);
+    column.position.set(x,STREET_Y+1.38,10.72); g.add(column);
+  }
+
+  // Two formal guards flank the main doorway while leaving its center clear.
+  const guardLeft = makeBodyguard(); guardLeft.position.set(-4.55,STREET_Y+0.16,10.78); guardLeft.rotation.y = 0.08; g.add(guardLeft);
+  const guardRight = makeBodyguard(); guardRight.position.set(-1.45,STREET_Y+0.16,10.78); guardRight.rotation.y = -0.08; g.add(guardRight);
+  for (const guard of [guardLeft,guardRight]){
+    guard.userData.restYaw = guard.rotation.y;
+    guard.userData.lookUntil = 0;
+    guards.push(guard);
+  }
+  addCollider(-4.93,-4.17,10.42,11.12,-4.0,-1.25);
+  addCollider(-1.83,-1.07,10.42,11.12,-4.0,-1.25);
 
   // Distant fake skyline
   const farBuildings = [];
@@ -942,8 +933,7 @@ function buildOutdoor(){
   addCollider(-4.8, -4.2, 7.7, 8.3, -4.5, 0.0);
 
   // Ground level building facade colliders (ONLY active on ground floor Y < -1.5)
-  addCollider(1.1, 7.5, 9.8, 10.5, -4.5, -1.5);   // East of elevator entrance
-  addCollider(-1.8, -1.1, 9.8, 10.5, -4.5, -1.5); // Between elevator and stair exit
+  addCollider(-1.8, 7.5, 9.8, 10.5, -4.5, -1.5);  // East of the main stair entrance
   addCollider(-7.5, -4.2, 9.8, 10.5, -4.5, -1.5); // West of stair exit
   addCollider(6.8, 7.5, 3.8, 10.5, -4.5, -1.5);   // East building side
   addCollider(-7.5, -6.8, 3.8, 10.5, -4.5, -1.5); // West building side
@@ -989,6 +979,9 @@ moonLight.shadow.mapSize.set(1024,1024);
 moonLight.shadow.camera.left = -12; moonLight.shadow.camera.right = 12;
 moonLight.shadow.camera.top = 12; moonLight.shadow.camera.bottom = -12;
 moonLight.shadow.camera.near = 1; moonLight.shadow.camera.far = 40;
+// Suppress self-shadow acne on narrow door trim and other shallow wall details.
+moonLight.shadow.bias = -0.00035;
+moonLight.shadow.normalBias = 0.035;
 scene.add(moonLight);
 scene.add(moonLight.target);
 const BASE_MOON_INTENSITY = 0.65;
@@ -1154,7 +1147,7 @@ function updateLightning(dt, outside){
    INPUT: keyboard, mouse look (pointer lock), touch
    ============================================================ */
 const keys = new Set();
-window.addEventListener('keydown', (e) => { keys.add(e.code); if (e.code==='KeyE') tryInteract(); });
+window.addEventListener('keydown', (e) => { keys.add(e.code); if (e.code==='KeyE' && !e.repeat) tryInteract(); });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
 
 let yaw = Math.PI, pitch = -0.05;
@@ -1251,41 +1244,85 @@ document.getElementById('touch-interact-btn').addEventListener('click', tryInter
    ============================================================ */
 const promptEl = document.getElementById('interact-prompt');
 const touchInteractBtn = document.getElementById('touch-interact-btn');
+const captionEl = document.getElementById('closed-caption');
 let currentInteractable = null;
+let captionTimer = 0;
+
+function nearestGuard(px,pz){
+  let nearest = null, nearestDist = Infinity;
+  for (const guard of guards){
+    const distance = Math.hypot(px-guard.position.x,pz-guard.position.z);
+    if (distance < nearestDist){ nearest = guard; nearestDist = distance; }
+  }
+  return nearestDist <= 3.4 ? nearest : null;
+}
 
 function updateInteractPrompt(px, pz, py){
-  const distToElevatorLobby = Math.hypot(px - 0, pz - (LOBBY.maxZ - 0.6));
-  const distToElevatorStreet = Math.hypot(px - 0, pz - (LOBBY.maxZ + 0.4));
-  const isFloor2 = (py > -1.5);
+  const guard = py < -1.5 ? nearestGuard(px,pz) : null;
+  currentInteractable = guard ? { type:'guard', guard } : null;
+  promptEl.classList.toggle('show', Boolean(guard));
+  if (guard) promptEl.textContent = 'Press E or USE to speak with security';
+  if (touchInteractBtn){
+    touchInteractBtn.classList.toggle('active', Boolean(guard));
+    if (('ontouchstart' in window) || navigator.maxTouchPoints > 0) touchInteractBtn.style.display = guard ? 'flex' : 'none';
+  }
+}
 
-  if (isFloor2 && distToElevatorLobby < 2.5 && elevator && elevator.phase === 'idle'){
-    currentInteractable = 'elevator';
-    const dest = (elevator.floor === 2) ? 'Down' : 'to 2nd Floor';
-    promptEl.textContent = `Press E or USE to call elevator (${dest})`;
-    promptEl.classList.add('show');
-    if (touchInteractBtn) touchInteractBtn.classList.add('active');
-  } else if (!isFloor2 && distToElevatorStreet < 2.8 && elevator && elevator.phase === 'idle'){
-    currentInteractable = 'elevator';
-    const dest = (elevator.floor === 1) ? 'Up' : 'to Ground Floor';
-    promptEl.textContent = `Press E or USE to call elevator (${dest})`;
-    promptEl.classList.add('show');
-    if (touchInteractBtn) touchInteractBtn.classList.add('active');
+function selectGuardVoice(){
+  const voices = window.speechSynthesis?.getVoices?.() || [];
+  const preferred = [
+    /Microsoft.*(Guy|Ryan|Andrew).*Natural/i,
+    /Microsoft.*Natural/i,
+    /(Guy|Ryan|Andrew|David)/i,
+    /Google US English/i,
+    /English.*United States/i
+  ];
+  for (const pattern of preferred){
+    const voice = voices.find(v => /^en(-|_)/i.test(v.lang) && pattern.test(v.name));
+    if (voice) return voice;
+  }
+  return voices.find(v => /^en-US/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang)) || null;
+}
+
+function speakGuard(guard){
+  const line = 'Perimeter secured. Enjoy your day.';
+  guard.userData.lookUntil = performance.now() + 4800;
+  captionEl.innerHTML = `<span class="speaker">SECURITY</span>${line}`;
+  captionEl.classList.add('show');
+  clearTimeout(captionTimer);
+
+  if ('speechSynthesis' in window){
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(line);
+    const voice = selectGuardVoice();
+    if (voice) utterance.voice = voice;
+    utterance.lang = voice?.lang || 'en-US';
+    utterance.rate = 0.92;
+    utterance.pitch = 0.88;
+    utterance.volume = 1;
+    utterance.onend = () => { captionTimer = setTimeout(() => captionEl.classList.remove('show'), 650); };
+    utterance.onerror = () => { captionTimer = setTimeout(() => captionEl.classList.remove('show'), 3200); };
+    window.speechSynthesis.speak(utterance);
   } else {
-    currentInteractable = null;
-    promptEl.classList.remove('show');
-    if (touchInteractBtn) touchInteractBtn.classList.remove('active');
+    captionTimer = setTimeout(() => captionEl.classList.remove('show'), 3600);
   }
 }
 
 function tryInteract(){
-  if (currentInteractable === 'elevator') callElevator();
+  if (currentInteractable?.type === 'guard') speakGuard(currentInteractable.guard);
 }
 
-/* ============================================================
-   ELEVATOR STATE MACHINE (Two-Way Travel)
-   ============================================================ */
-const OPEN_T = 0.9, HOLD_T = 1.6, RIDE_T = 2.4;
-const rideFadeEl = document.getElementById('ride-fade');
+function updateGuards(dt){
+  const now = performance.now();
+  for (const guard of guards){
+    const target = now < guard.userData.lookUntil
+      ? Math.atan2(player.pos.x-guard.position.x,player.pos.z-guard.position.z)
+      : guard.userData.restYaw;
+    const delta = Math.atan2(Math.sin(target-guard.rotation.y),Math.cos(target-guard.rotation.y));
+    guard.rotation.y += delta * Math.min(1,dt*6);
+  }
+}
+
 const debugEl = document.getElementById('debug-readout');
 const debugRaycaster = new THREE.Raycaster();
 const debugLookPoint = new THREE.Vector3();
@@ -1305,138 +1342,6 @@ function zoneNameAt(x,z,y){
     return 'lobby';
   }
   return 'street';
-}
-
-let pendingTeleport = false;
-
-function callElevator(){
-  if (!elevator || elevator.phase !== 'idle') return;
-  const playerFloor = (player.pos.y > -1.5) ? 2 : 1;
-  if (elevator.floor === playerFloor){
-    elevator.phase = 'opening';
-    elevator.t = 0;
-  } else {
-    elevator.targetFloor = playerFloor;
-    elevator.phase = 'transit_to_call';
-    elevator.t = 0;
-  }
-}
-
-function elevatorDoorOffset(t01){ return t01 * 0.48; }
-
-function setElevatorDoors(floor, openFrac){
-  const offset = elevatorDoorOffset(openFrac);
-  if (floor === 2){
-    elevator.doorL2.position.x = -0.5 - offset;
-    elevator.doorR2.position.x = 0.5 + offset;
-  } else {
-    elevator.doorL1.position.x = -0.5 - offset;
-    elevator.doorR1.position.x = 0.5 + offset;
-  }
-}
-
-function elevatorBlocks(x,z,y=0){
-  const r = PLAYER_RADIUS;
-  if (x+r > -1.0 && x-r < 1.0){
-    const isFloor2 = (y > -1.5);
-    if (elevator && elevator.openFrac >= 0.5 && ((isFloor2 && elevator.floor === 2) || (!isFloor2 && elevator.floor === 1))){
-      return false;
-    }
-    if (z+r > LOBBY.maxZ-0.15 && z-r < LOBBY.maxZ+0.25) return true;
-  }
-  return false;
-}
-
-function updateElevator(dt, playerPos){
-  const e = elevator;
-  if (!e) return;
-
-  if (e.phase === 'idle'){
-    e.openFrac = 0;
-    setElevatorDoors(1, 0);
-    setElevatorDoors(2, 0);
-    return;
-  }
-
-  if (e.phase === 'transit_to_call'){
-    e.t += dt;
-    if (e.t >= RIDE_T * 0.7){
-      e.floor = e.targetFloor;
-      e.carLight.position.y = (e.floor === 2 ? 0 : STREET_Y) + 2.3;
-      e.phase = 'opening';
-      e.t = 0;
-    }
-  } else if (e.phase === 'opening'){
-    e.t += dt;
-    const p = clamp(e.t/OPEN_T, 0, 1);
-    e.openFrac = p;
-    setElevatorDoors(e.floor, p);
-    if (p >= 1){ e.phase = 'holdOpen'; e.t = 0; }
-  } else if (e.phase === 'holdOpen'){
-    e.t += dt;
-    e.openFrac = 1;
-    setElevatorDoors(e.floor, 1);
-    if (e.t >= HOLD_T){ e.phase = 'closing'; e.t = 0; }
-  } else if (e.phase === 'closing'){
-    e.t += dt;
-    const p = 1 - clamp(e.t/OPEN_T, 0, 1);
-    e.openFrac = p;
-    setElevatorDoors(e.floor, p);
-    if (e.t >= OPEN_T){
-      e.openFrac = 0;
-      setElevatorDoors(e.floor, 0);
-      const inCar = playerPos.x > -1.0 && playerPos.x < 1.0 && playerPos.z > LOBBY.maxZ-0.2 && playerPos.z < LOBBY.maxZ+1.5;
-      if (inCar){
-        pendingTeleport = true;
-        e.targetFloor = (e.floor === 2) ? 1 : 2;
-        e.phase = 'riding';
-        e.t = 0;
-        rideFadeEl.classList.add('on');
-      } else {
-        e.phase = 'idle';
-        e.t = 0;
-      }
-    }
-  } else if (e.phase === 'riding'){
-    e.t += dt;
-    if (e.t >= RIDE_T){
-      if (pendingTeleport){
-        e.floor = e.targetFloor;
-        e.carLight.position.y = (e.floor === 2 ? 0 : STREET_Y) + 2.3;
-        if (e.floor === 1){
-          playerPos.set(0, STREET_Y + EYE_HEIGHT, LOBBY.maxZ + 0.6);
-        } else {
-          playerPos.set(0, EYE_HEIGHT, LOBBY.maxZ + 0.6);
-        }
-        pendingTeleport = false;
-        rideFadeEl.classList.remove('on');
-      }
-      e.phase = 'arriving';
-      e.t = 0;
-    }
-  } else if (e.phase === 'arriving'){
-    e.t += dt;
-    const p = clamp(e.t/OPEN_T, 0, 1);
-    e.openFrac = p;
-    setElevatorDoors(e.floor, p);
-    if (p >= 1){ e.phase = 'holdOpen2'; e.t = 0; }
-  } else if (e.phase === 'holdOpen2'){
-    e.t += dt;
-    e.openFrac = 1;
-    setElevatorDoors(e.floor, 1);
-    if (e.t >= HOLD_T){ e.phase = 'closing2'; e.t = 0; }
-  } else if (e.phase === 'closing2'){
-    e.t += dt;
-    const p = 1 - clamp(e.t/OPEN_T, 0, 1);
-    e.openFrac = p;
-    setElevatorDoors(e.floor, p);
-    if (e.t >= OPEN_T){
-      e.openFrac = 0;
-      setElevatorDoors(e.floor, 0);
-      e.phase = 'idle';
-      e.t = 0;
-    }
-  }
 }
 
 /* ============================================================
@@ -1467,8 +1372,6 @@ let gameStarted = true;
 
 const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 if (hasTouch){
-  const touchBtn = document.getElementById('touch-interact-btn');
-  if (touchBtn) touchBtn.style.display = 'flex';
   touchMoveEl.style.pointerEvents = 'auto';
   touchLookEl.style.pointerEvents = 'auto';
 }
@@ -1516,8 +1419,8 @@ function animate(){
     player.pos.y = lerp(player.pos.y, groundY + EYE_HEIGHT, Math.min(1, dt*10));
     camera.position.copy(player.pos);
 
-    updateElevator(dt, player.pos);
     updateInteractPrompt(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
+    updateGuards(dt);
 
     const outside = !isIndoors(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
     rainPoints.visible = outside;
@@ -1538,7 +1441,7 @@ function animate(){
     if (hintEl){
       if (isInsideApt){
         if (angleDeg >= 135 && angleDeg < 225){
-          hintEl.textContent = '🟢 Facing North · [Doorway & Elevator straight ahead ➔]';
+          hintEl.textContent = '🟢 Facing North · [Front doorway and foyer straight ahead ➔]';
         } else if (angleDeg >= 225 && angleDeg < 315){
           hintEl.textContent = '🧭 Facing West · [Turn Right for Front Doorway]';
         } else if (angleDeg >= 45 && angleDeg < 135){
@@ -1547,9 +1450,9 @@ function animate(){
           hintEl.textContent = '🧭 Facing South (TV) · [Turn around 180° for Front Doorway ➔]';
         }
       } else if (insideRect(player.pos.x, player.pos.z, LOBBY) && (player.pos.y - EYE_HEIGHT >= -1.0)){
-        hintEl.textContent = '🛗 In Lobby · [Elevator straight ahead · Stairs on left]';
+        hintEl.textContent = '🏠 In Foyer · [Main stairs on the left]';
       } else {
-        hintEl.textContent = '🌧️ Street Level · [Press E or USE to ride Elevator up · Stairs on right]';
+        hintEl.textContent = '🌧️ Street Level · [Guarded main entrance and stairs ahead]';
       }
     }
 
