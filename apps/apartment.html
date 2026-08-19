@@ -108,8 +108,31 @@
     color:#e8f5ff; font-size:.68rem; font-weight:850; box-shadow:0 4px 16px rgba(0,0,0,.35);
   }
   #touch-jump-btn:active{ transform:scale(.94); background:rgba(90,145,210,.52); }
+  #touch-crouch-btn{
+    position:absolute; right:max(92px, calc(env(safe-area-inset-right) + 92px)); bottom:max(20px, calc(env(safe-area-inset-bottom) + 20px));
+    width:58px; height:58px; border-radius:50%; display:none; align-items:center; justify-content:center;
+    pointer-events:auto; background:rgba(105,115,135,.34); border:1px solid rgba(210,220,235,.5);
+    color:#f0f4fa; font-size:.62rem; font-weight:850; box-shadow:0 4px 16px rgba(0,0,0,.35);
+  }
+  #touch-crouch-btn.active{ background:rgba(125,155,105,.5); border-color:#d5efbb; }
+  #touch-throw-btn{
+    position:absolute; right:max(92px, calc(env(safe-area-inset-right) + 92px)); bottom:max(90px, calc(env(safe-area-inset-bottom) + 90px));
+    width:64px; height:64px; border-radius:50%; display:none; align-items:center; justify-content:center;
+    pointer-events:auto; background:rgba(205,105,55,.4); border:1px solid rgba(255,190,130,.7);
+    color:#fff4e8; font-size:.68rem; font-weight:850; box-shadow:0 4px 16px rgba(0,0,0,.35);
+  }
+  #touch-throw-btn:active{ transform:scale(.94); background:rgba(225,115,55,.62); }
 
   #cine-flash{ position:fixed; inset:0; z-index:45; background:#fff; opacity:0; pointer-events:none; }
+  #game-over{
+    position:fixed; inset:0; z-index:90; display:none; place-items:center; text-align:center;
+    background:radial-gradient(circle,rgba(80,0,12,.5),rgba(0,0,0,.94)); color:#f5eee8;
+    font-family:ui-monospace,monospace;
+  }
+  #game-over.show{ display:grid; }
+  #game-over h1{ margin:0 0 10px; font-size:clamp(2rem,7vw,5rem); letter-spacing:.12em; color:#d54a52; }
+  #game-over p{ margin:0 0 24px; color:#c9bfc0; }
+  #restart-btn{ padding:11px 20px; border:1px solid #9a5559; border-radius:7px; background:#231316; color:#fff; cursor:pointer; }
 
   .hidden{ display:none !important; }
 </style>
@@ -123,18 +146,23 @@
   <div id="interact-prompt"></div>
   <div id="closed-caption" role="status" aria-live="polite"></div>
   <a href="index.html" id="back-link" title="Back to Apps">←</a>
-  <div id="version-badge"><span class="dot"></span><span id="version-text">v3.1 · Updated just now</span></div>
-  <div id="hint-line">WASD / drag to move · click / drag to look · Space to jump</div>
+  <div id="version-badge"><span class="dot"></span><span id="version-text">v5.0 · Updated just now</span></div>
+  <div id="hint-line">WASD / drag move · E interact · Space jump · C toggle crouch · Ctrl hold crouch</div>
   <div id="debug-readout"></div>
   <div id="touch-move">
     <div id="joystick-base"><div id="joystick-knob"></div></div>
   </div>
   <div id="touch-look"></div>
   <button id="touch-interact-btn">USE</button>
+  <button id="touch-throw-btn" aria-label="Throw held object">THROW</button>
+  <button id="touch-crouch-btn" aria-label="Toggle crouch">CROUCH</button>
   <button id="touch-jump-btn" aria-label="Jump">JUMP</button>
 </div>
 
 <div id="cine-flash"></div>
+<div id="game-over" role="dialog" aria-modal="true">
+  <div><h1>GAME OVER</h1><p>The clown caught you outside.</p><button id="restart-btn">TRY AGAIN</button></div>
+</div>
 
 <script type="module">
 import * as THREE from "three";
@@ -146,7 +174,7 @@ if ('serviceWorker' in navigator) {
 /* ============================================================
    APP VERSION & UPDATED TIME
    ============================================================ */
-const APP_VERSION = 'v3.1';
+const APP_VERSION = 'v5.0';
 const BUILD_TIME = new Date('2026-08-16T12:00:00-04:00').getTime();
 
 function formatRelativeTime(fromTime){
@@ -194,7 +222,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.05, 200);
+scene.add(camera);
 const EYE_HEIGHT = 1.7;
+const CROUCH_HEIGHT = 1.02;
 
 function onResize(){
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -281,6 +311,9 @@ const MAT = {
   foliageLight: new THREE.MeshStandardMaterial({ color:0x3f6a42, roughness:0.95 }),
   trunk: new THREE.MeshStandardMaterial({ color:0x4c3828, roughness:1 }),
   planter: new THREE.MeshStandardMaterial({ color:0x655447, roughness:0.9 }),
+  ceramic: new THREE.MeshStandardMaterial({ color:0xf1f2ef, roughness:0.28 }),
+  utilityBlue: new THREE.MeshStandardMaterial({ color:0x63798a, roughness:0.72 }),
+  mirror: new THREE.MeshStandardMaterial({ color:0x9fc4cf, roughness:0.08, metalness:0.65 }),
 };
 
 /* ============================================================
@@ -332,7 +365,7 @@ function collidesAt(x,z,y=0){
 }
 
 function resolveMove(pos, dx, dz){
-  const playerY = pos.y - EYE_HEIGHT;
+  const playerY = pos.y - player.eyeHeight;
   const nx = pos.x + dx;
   if (!collidesAt(nx, pos.z, playerY)) pos.x = nx;
   const nz = pos.z + dz;
@@ -422,6 +455,9 @@ function makeSofa(){
   const armR = box(0.22,0.55,0.9,MAT.sofa); armR.position.set(1.09,0.55,0); g.add(armR);
   for (let i=-1;i<=1;i++){
     const pillow = box(0.4,0.25,0.25,MAT.sofaPillow); pillow.rotation.z = rand(-0.15,0.15);
+    pillow.userData.grabbable = true;
+    pillow.userData.grabLabel = 'cushion';
+    pillow.userData.throwRadius = 0.14;
     pillow.position.set(i*0.65, 0.55, -0.18); g.add(pillow);
   }
   return g;
@@ -456,6 +492,9 @@ function makeBookshelf(){
       const bw = rand(0.06,0.09);
       const bh = rand(0.32,0.42);
       const bMesh = box(bw,bh,0.22, pickArr(MAT.book));
+      bMesh.userData.grabbable = true;
+      bMesh.userData.grabLabel = 'book';
+      bMesh.userData.throwRadius = 0.18;
       bMesh.position.set(cx+bw/2, 0.35+row*0.5, 0.1);
       g.add(bMesh);
       cx += bw + 0.015;
@@ -483,6 +522,8 @@ function makeRug(w,d,mat){
 }
 function makeBed(){
   const g = new THREE.Group();
+  g.userData.sleepSurface = true;
+  g.userData.sleepLabel = 'bed';
   const frame = box(1.7,0.3,2.1,MAT.woodDark); frame.position.y = 0.15; g.add(frame);
   const mattress = box(1.6,0.25,2.0,MAT.fabricBed); mattress.position.y = 0.42; g.add(mattress);
   const pillow1 = box(0.55,0.12,0.35,MAT.pillow); pillow1.position.set(-0.4,0.6,-0.82); g.add(pillow1);
@@ -518,6 +559,12 @@ function makeChair(){
     const leg = box(0.05,0.46,0.05,MAT.woodDark); leg.position.set(sx,0.23,sz); g.add(leg);
   }
   return g;
+}
+function markSeat(object,label,sitEyeHeight=1.16){
+  object.userData.seat = true;
+  object.userData.seatLabel = label;
+  object.userData.sitEyeHeight = sitEyeHeight;
+  return object;
 }
 function makeDiningTable(){
   const g = new THREE.Group();
@@ -599,6 +646,69 @@ function buildFloorAndCeiling(minX,maxX,minZ,maxZ,y,floorMat,ceilMat,group){
   group.add(ceil);
 }
 
+function buildAdditionalRooms(g){
+  // ---- Enclosed bathroom ----
+  wallWithOpenings('z',3.1,0.3,2.8,WALL_H,[
+    {from:0.75,to:2.2,sillY:0,lintelY:2.35}
+  ],MAT.wall,g,WALL_T,0);
+  wallSegment('x',0.3,3.1,APT.maxX,0,WALL_H,MAT.wall,g,WALL_T,0);
+  wallSegment('x',2.8,3.1,APT.maxX,0,WALL_H,MAT.wall,g,WALL_T,0);
+  const bathFloor = makeRug(2.95,2.3,MAT.floorTile); bathFloor.position.set(4.63,0.012,1.55); g.add(bathFloor);
+  const showerBase = box(0.82,0.12,0.82,MAT.ceramic); showerBase.position.set(5.62,0.06,0.98); g.add(showerBase);
+  const showerGlass = box(0.04,1.75,0.82,MAT.glass,false); showerGlass.position.set(5.18,0.9,0.98); g.add(showerGlass);
+  const toiletBase = cyl(0.24,0.3,0.38,MAT.ceramic); toiletBase.position.set(5.55,0.19,2.02); g.add(toiletBase);
+  const toiletTank = box(0.5,0.52,0.2,MAT.ceramic); toiletTank.position.set(5.85,0.56,2.02); g.add(toiletTank);
+  const vanity = box(0.82,0.78,0.42,MAT.woodFurn); vanity.position.set(4.25,0.39,0.62); g.add(vanity);
+  const basin = cyl(0.24,0.2,0.1,MAT.ceramic,false); basin.position.set(4.25,0.84,0.62); g.add(basin);
+  const mirror = box(0.68,0.72,0.035,MAT.mirror,false); mirror.position.set(4.25,1.5,0.39); g.add(mirror);
+  addCollider(5.12,6.08,0.55,1.42,-0.5,2.5);
+  addCollider(5.18,6.08,1.65,2.42,-0.5,2.5);
+  addCollider(3.82,4.68,0.3,1.0,-0.5,2.5);
+  const bathLight = new THREE.PointLight(0xfff5df,30,5,2); bathLight.position.set(4.65,2.55,1.55); g.add(bathLight);
+
+  // ---- Open laundry and pantry service wall ----
+  // Keep these fixtures on the perimeter so the kitchen remains an open room
+  // instead of becoming a narrow corridor between full-height partitions.
+  const utilityFloor = makeRug(3.45,0.82,MAT.floorTile); utilityFloor.position.set(1.2,0.012,4.54); g.add(utilityFloor);
+  for (const [x,labelColor] of [[0.38,0xaeb9c1],[1.22,0x87949d]]){
+    const appliance = box(0.72,0.9,0.68,new THREE.MeshStandardMaterial({color:labelColor,roughness:0.42,metalness:0.18}));
+    appliance.position.set(x,0.45,4.55); g.add(appliance);
+    const drumRing = new THREE.Mesh(new THREE.TorusGeometry(0.225,0.035,10,28),MAT.metalDark); drumRing.position.set(x,0.47,4.195); g.add(drumRing);
+    const drumGlass = new THREE.Mesh(new THREE.CircleGeometry(0.19,28),MAT.screenOff); drumGlass.position.set(x,0.47,4.19); g.add(drumGlass);
+    const controls = box(0.5,0.12,0.035,MAT.metalDark,false); controls.position.set(x,0.78,4.19); g.add(controls);
+    const knob = cyl(0.045,0.045,0.025,MAT.metal,false); knob.rotation.x=Math.PI/2; knob.position.set(x+0.15,0.78,4.165); g.add(knob);
+    addCollider(x-0.4,x+0.4,4.15,4.92,-0.5,2.5);
+  }
+  const laundryTop = box(1.74,0.07,0.75,MAT.counterTop); laundryTop.position.set(0.8,0.94,4.54); g.add(laundryTop);
+  for (const x of [0.38,1.22]){
+    const cabinet = box(0.78,0.62,0.34,MAT.applianceWhite,false); cabinet.position.set(x,1.82,4.79); g.add(cabinet);
+    const cabinetSeam = box(0.025,0.52,0.025,MAT.metal,false); cabinetSeam.position.set(x,1.82,4.61); g.add(cabinetSeam);
+  }
+
+  // Closed pantry cabinet: no exposed boxes or unsupported shelf contents.
+  const pantryBody=box(0.82,2.2,0.58,MAT.woodFurn); pantryBody.position.set(2.37,1.1,4.6); g.add(pantryBody);
+  const pantryMid=box(0.72,0.035,0.035,MAT.woodDark,false); pantryMid.position.set(2.37,1.1,4.29); g.add(pantryMid);
+  const pantrySeam=box(0.025,2.05,0.035,MAT.woodDark,false); pantrySeam.position.set(2.37,1.1,4.29); g.add(pantrySeam);
+  for (const [x,y] of [[2.3,0.75],[2.44,1.45]]){
+    const handle=box(0.025,0.2,0.045,MAT.metal,false); handle.position.set(x,y,4.26); g.add(handle);
+  }
+  addCollider(1.95,2.75,4.1,4.95,-0.5,2.5);
+  const utilityLight = new THREE.PointLight(0xe8f1ff,24,4,2); utilityLight.position.set(1.3,2.5,4.05); g.add(utilityLight);
+
+  // ---- Small office beneath the west window ----
+  const deskTop = box(1.75,0.08,0.62,MAT.woodFurn); deskTop.position.set(-5.22,0.76,2.05); g.add(deskTop);
+  for (const x of [-5.8,-4.65]){ const pedestal=box(0.42,0.72,0.52,MAT.woodDark); pedestal.position.set(x,0.36,2.05); g.add(pedestal); }
+  const monitor = box(0.72,0.46,0.05,MAT.screenOff,false); monitor.position.set(-5.22,1.12,2.0); g.add(monitor);
+  const officeChair = makeChair(); officeChair.rotation.y=Math.PI; officeChair.position.set(-5.0,0,2.95); markSeat(officeChair,'office chair'); g.add(officeChair);
+  addCollider(-6.12,-4.32,1.7,2.42,-0.5,2.5);
+
+  // ---- Entry coat closet beside the front door ----
+  const closet = box(1.85,2.35,0.58,MAT.woodFurn); closet.position.set(-4.85,1.175,4.62); g.add(closet);
+  for (const x of [-5.28,-4.42]){ const handle=box(0.035,0.22,0.05,MAT.metal,false); handle.position.set(x,1.15,4.31); g.add(handle); }
+  const closetSeam=box(0.025,2.2,0.035,MAT.woodDark,false); closetSeam.position.set(-4.85,1.15,4.31); g.add(closetSeam);
+  addCollider(-5.82,-3.88,4.25,4.98,-0.5,2.5);
+}
+
 function buildApartment(){
   const g = new THREE.Group(); worldGroup.add(g);
   buildFloorAndCeiling(APT.minX+WALL_T/2, APT.maxX-WALL_T/2, APT.minZ+WALL_T/2, APT.maxZ-WALL_T/2, 0, MAT.floorWood, MAT.ceiling, g);
@@ -657,7 +767,7 @@ function buildApartment(){
   // ---- Living room ----
   // Keep the route from the starting position to the front door completely clear.
   const rugLR = makeRug(5.0,2.6,MAT.rug); rugLR.position.set(-2.7,0,-2.8); g.add(rugLR);
-  const sofa = makeSofa(); sofa.rotation.y = Math.PI/2; sofa.position.set(-5.25,0,-2.8); g.add(sofa);
+  const sofa = makeSofa(); sofa.rotation.y = Math.PI/2; sofa.position.set(-5.25,0,-2.8); markSeat(sofa,'sofa',1.12); g.add(sofa);
   addCollider(-5.72,-4.78,-3.95,-1.65, -0.5, 2.5);
   const table = makeCoffeeTable(); table.rotation.y = Math.PI/2; table.position.set(-2.65,0,-2.8); g.add(table);
   addCollider(-3.0,-2.3,-3.4,-2.2, -0.5, 2.5);
@@ -688,17 +798,27 @@ function buildApartment(){
   const brLight = new THREE.PointLight(0xffd9a0, 45, 8, 2); brLight.position.set(3.5,2.6,-2.7); g.add(brLight);
 
   // ---- Kitchen / dining ----
-  const counters = makeKitchenCounters(); counters.rotation.y = Math.PI/2; counters.position.set(6-WALL_T-0.33,0,2.6); g.add(counters);
-  addCollider(5.3,5.9,1.3,3.9, -0.5, 2.5);
-  const fridge = makeFridge(); fridge.position.set(5.55,0,4.55); g.add(fridge);
-  addCollider(5.2,5.9,4.2,4.9, -0.5, 2.5);
-  const stove = makeStove(); stove.position.set(5.6,0,0.2); g.add(stove);
-  addCollider(5.3,5.9,-0.1,0.5, -0.5, 2.5);
-  const diningTable = makeDiningTable(); diningTable.position.set(2.2,0,1.6); g.add(diningTable);
-  addCollider(1.55,2.85,1.2,2.0, -0.5, 2.5);
-  const chair1 = makeChair(); chair1.position.set(1.9,0,0.9); g.add(chair1);
-  const chair2 = makeChair(); chair2.rotation.y = Math.PI; chair2.position.set(2.5,0,2.3); g.add(chair2);
-  const pendant = makePendantLight(); pendant.position.set(2.2,2.35,1.6); g.add(pendant);
+  const counters = makeKitchenCounters(); counters.position.set(4.15,0,4.55); g.add(counters);
+  addCollider(2.75,5.5,4.15,4.95,-0.5,2.5);
+  const fridge = makeFridge(); fridge.rotation.y=Math.PI; fridge.position.set(5.82,0,4.55); g.add(fridge);
+  addCollider(5.42,6.18,4.12,4.95,-0.5,2.5);
+
+  // Oven and cooktop are integrated into the back counter run, leaving the
+  // refrigerator approach and the center of the kitchen unobstructed.
+  const ovenFront=box(0.58,0.62,0.035,MAT.metalDark,false); ovenFront.position.set(3.45,0.43,4.205); g.add(ovenFront);
+  const ovenGlass=box(0.45,0.32,0.025,MAT.screenOff,false); ovenGlass.position.set(3.45,0.4,4.18); g.add(ovenGlass);
+  const ovenHandle=box(0.46,0.035,0.05,MAT.metal,false); ovenHandle.position.set(3.45,0.7,4.16); g.add(ovenHandle);
+  const cooktop=box(0.66,0.035,0.56,MAT.metalDark,false); cooktop.position.set(3.45,0.93,4.55); g.add(cooktop);
+  for (const [x,z] of [[3.28,4.4],[3.62,4.4],[3.28,4.68],[3.62,4.68]]){
+    const burner=cyl(0.085,0.085,0.012,MAT.metal,false); burner.position.set(x,0.956,z); g.add(burner);
+  }
+  const diningTable = makeDiningTable(); diningTable.position.set(0.55,0,1.55); g.add(diningTable);
+  addCollider(-0.12,1.22,1.12,1.98,-0.5,2.5);
+  const chair1 = makeChair(); chair1.position.set(0.25,0,0.82); markSeat(chair1,'dining chair'); g.add(chair1);
+  const chair2 = makeChair(); chair2.rotation.y = Math.PI; chair2.position.set(0.85,0,2.28); markSeat(chair2,'dining chair'); g.add(chair2);
+  const pendant = makePendantLight(); pendant.position.set(0.55,2.35,1.55); g.add(pendant);
+
+  buildAdditionalRooms(g);
   return g;
 }
 
@@ -725,6 +845,44 @@ function buildFrontDoor(){
 /* ============================================================
    FOYER + STAIRS
    ============================================================ */
+
+function makeAntiClownSpray(){
+  const spray = new THREE.Group();
+  const canMat = new THREE.MeshStandardMaterial({color:0x3c8d62,roughness:0.42,metalness:0.25});
+  const labelMat = new THREE.MeshStandardMaterial({color:0xf0e8d5,roughness:0.8});
+  const warningMat = new THREE.MeshStandardMaterial({color:0xb6252b,roughness:0.55});
+  const body = cyl(0.09,0.09,0.34,canMat); body.position.y=0.17; spray.add(body);
+  const label = box(0.145,0.16,0.012,labelMat,false); label.position.set(0,0.18,0.086); spray.add(label);
+  const warning = box(0.035,0.13,0.018,warningMat,false); warning.rotation.z=Math.PI/4; warning.position.set(0,0.18,0.096); spray.add(warning);
+  const cap = cyl(0.055,0.065,0.08,MAT.metalDark,false); cap.position.y=0.38; spray.add(cap);
+  const nozzle = box(0.1,0.045,0.06,MAT.metalDark,false); nozzle.position.set(0.035,0.43,0); spray.add(nozzle);
+  spray.userData.grabbable = true;
+  spray.userData.grabLabel = 'anti-clown spray';
+  spray.userData.antiClownSpray = true;
+  spray.userData.nozzle = nozzle;
+  spray.userData.throwRadius = 0.18;
+  return spray;
+}
+
+function makeFpsSprayHand(){
+  const hand = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({color:0xb98262,roughness:0.82,depthTest:true});
+  const sleeve = new THREE.MeshStandardMaterial({color:0x222a35,roughness:0.9,depthTest:true});
+  const forearm = box(0.2,0.18,0.52,sleeve,false); forearm.position.set(0,-0.08,0.25); forearm.rotation.x=-0.12; hand.add(forearm);
+  const palm = box(0.18,0.2,0.15,skin,false); palm.position.set(0,0,-0.02); palm.rotation.z=-0.12; hand.add(palm);
+  for (let i=0;i<4;i++){
+    const finger = box(0.035,0.13,0.045,skin,false);
+    finger.position.set(-0.065+i*0.043,0.035,-0.105); finger.rotation.x=-0.72; hand.add(finger);
+  }
+  const thumb = box(0.045,0.13,0.05,skin,false); thumb.position.set(-0.105,0.02,-0.04); thumb.rotation.z=-0.72; hand.add(thumb);
+  hand.position.set(0.38,-0.49,-0.68);
+  hand.rotation.set(-0.08,-0.12,-0.08);
+  hand.visible = false;
+  return hand;
+}
+
+const fpsSprayHand = makeFpsSprayHand();
+camera.add(fpsSprayHand);
 
 function buildLobby(){
   const g = new THREE.Group(); worldGroup.add(g);
@@ -763,6 +921,20 @@ function buildLobby(){
   // Foyer ceiling light
   const lobbyShade = cyl(0.28,0.28,0.1,MAT.lampShade,false); lobbyShade.position.set(0,2.75,7.5); g.add(lobbyShade);
   const lobbyLight = new THREE.PointLight(0xfff0d0, 60, 10, 2); lobbyLight.position.set(0,2.6,7.5); g.add(lobbyLight);
+
+  // Former elevator bay, repurposed as a compact armory along the east wall.
+  const armoryFloor = makeRug(2.25,2.2,new THREE.MeshStandardMaterial({color:0x28302d,roughness:0.95}));
+  armoryFloor.position.set(2.85,0.01,8.15); g.add(armoryFloor);
+  const rackBack = box(0.18,1.75,1.65,MAT.metalDark); rackBack.position.set(4.02,0.9,8.15); g.add(rackBack);
+  for (const y of [0.35,0.9,1.45]){
+    const shelf = box(0.55,0.06,1.65,MAT.metal); shelf.position.set(3.78,y,8.15); g.add(shelf);
+  }
+  for (const z of [7.62,8.68]){
+    const caseBox = box(0.36,0.22,0.42,MAT.utilityBlue); caseBox.position.set(3.7,0.5,z); g.add(caseBox);
+  }
+  const armoryMarker = box(0.06,0.62,0.62,new THREE.MeshStandardMaterial({color:0x8b2d32,roughness:0.75}),false);
+  armoryMarker.rotation.z=Math.PI/4; armoryMarker.position.set(3.9,2.05,8.15); g.add(armoryMarker);
+  const spray = makeAntiClownSpray(); spray.rotation.y=-Math.PI/2; spray.position.set(3.45,0.94,8.15); g.add(spray);
 
   // ---- Staircase ----
   const STEPS = 14, STEP_H = 3.5/STEPS, STEP_D = (STAIR.maxZ - STAIR.minZ)/STEPS;
@@ -831,6 +1003,13 @@ function makeBodyguard(){
 const outdoorGroup = new THREE.Group();
 const guards = [];
 const trafficCars = [];
+const clownState = {
+  // The first visit begins on the first rendered frame; later visits use a
+  // randomized absence interval in endClownVisit().
+  model:null, active:false, firstVisit:true, wait:0, elapsed:0, duration:0,
+  startX:0, endX:0, z:14, noteTimer:0, noteIndex:0,
+  mode:'roam', guardStareRemaining:0, chaseCooldown:0, skipFadeIn:false
+};
 
 function makeStreetTree(scale=1){
   const tree = new THREE.Group();
@@ -863,9 +1042,51 @@ function makeTrafficCar(color,dir){
   return car;
 }
 
+function makeCreepyClown(){
+  const clown = new THREE.Group();
+  const fadeMaterials = [];
+  const mat = (color,roughness=0.72) => {
+    const material = new THREE.MeshStandardMaterial({color,roughness,transparent:true,opacity:0});
+    fadeMaterials.push(material);
+    return material;
+  };
+  const white = mat(0xe9e6dc), red = mat(0x9e1524), blue = mat(0x173c68);
+  const yellow = mat(0xc89b22), skin = mat(0xe7c0a5), dark = mat(0x18131b);
+
+  for (const x of [-0.13,0.13]){
+    const leg = box(0.18,0.72,0.18,x<0?red:blue); leg.position.set(x,0.43,0); clown.add(leg);
+    const shoe = box(0.24,0.11,0.38,dark); shoe.position.set(x,0.07,0.09); clown.add(shoe);
+  }
+  const torso = box(0.58,0.7,0.3,yellow); torso.position.set(0,1.14,0); clown.add(torso);
+  for (const x of [-0.36,0.36]){
+    const arm = box(0.14,0.68,0.16,x<0?blue:red); arm.position.set(x,1.17,0); clown.add(arm);
+    arm.userData.baseX = x; arm.userData.clownArm = true;
+    const glove = sph(0.1,white); glove.position.set(x,0.79,0.02); clown.add(glove);
+  }
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.22,0.055,6,14),white);
+  collar.rotation.x=Math.PI/2; collar.position.y=1.55; clown.add(collar);
+  // Restore the original compact, readable clown head and face.
+  const head = sph(0.21,skin); head.position.set(0,1.78,0); clown.add(head);
+  for (const x of [-0.17,0.17]){
+    const hair = sph(0.11,red); hair.position.set(x,1.83,-0.02); clown.add(hair);
+    const eye = sph(0.026,dark,false); eye.position.set(x*0.38,1.83,0.195); clown.add(eye);
+  }
+  const nose = sph(0.07,red,false); nose.position.set(0,1.76,0.21); clown.add(nose);
+  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.09,0.018,5,12,Math.PI),red);
+  smile.position.set(0,1.7,0.198); smile.rotation.z=Math.PI; clown.add(smile);
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.16,0.38,12),blue);
+  hat.position.set(0,2.12,0); hat.rotation.z=0.12; clown.add(hat);
+  const pom = sph(0.06,red); pom.position.set(-0.04,2.34,0); clown.add(pom);
+  clown.userData.fadeMaterials = fadeMaterials;
+  clown.visible = false;
+  return clown;
+}
+
 function buildOutdoor(){
   worldGroup.add(outdoorGroup);
   const g = outdoorGroup;
+  clownState.model = makeCreepyClown();
+  g.add(clownState.model);
 
   const street = box(80,0.1,60,MAT.street,false);
   street.position.set(0, STREET_Y-0.05, 15);
@@ -1081,6 +1302,149 @@ function updateTraffic(dt){
   }
 }
 
+function beginClownVisit(){
+  const fromLeft = Math.random()<0.5;
+  clownState.active = true;
+  clownState.elapsed = 0;
+  clownState.duration = rand(18,30);
+  // Put the opening visit close enough to be immediately visible and audible.
+  // Later appearances traverse the full street from beyond the fog edge.
+  const edge = clownState.firstVisit ? 12 : 34;
+  clownState.startX = fromLeft ? -edge : edge;
+  clownState.endX = fromLeft ? 34 : -34;
+  clownState.firstVisit = false;
+  clownState.z = rand(12.2,15.8);
+  clownState.noteTimer = 0;
+  clownState.mode = 'roam';
+  clownState.guardStareRemaining = 0;
+  clownState.chaseCooldown = 1.5;
+  clownState.skipFadeIn = false;
+  clownState.model.visible = true;
+  clownState.model.position.set(clownState.startX,STREET_Y,clownState.z);
+}
+
+function endClownVisit(){
+  clownState.active = false;
+  clownState.model.visible = false;
+  clownState.wait = rand(24,65);
+}
+
+function playCircusNote(volume){
+  if (!audioCtx || volume<0.0005) return;
+  // Familiar calliope contours interrupted by chromatic notes keep the tune
+  // recognizable while making it feel subtly unstable.
+  const melody = [392,523.25,659.25,554.37,440,587.33,698.46,622.25];
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const overtone = audioCtx.createOscillator();
+  const overtoneGain = audioCtx.createGain();
+  const wobble = audioCtx.createOscillator();
+  const wobbleGain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  const gain = audioCtx.createGain();
+  const note = melody[clownState.noteIndex++ % melody.length];
+  osc.type = 'triangle';
+  osc.frequency.value = note;
+  overtone.type = 'square';
+  overtone.frequency.value = note*2 + (clownState.noteIndex%2 ? 9 : -11);
+  overtoneGain.gain.value = 0.085;
+  wobble.frequency.value = 5.2; wobbleGain.gain.value = 8;
+  wobble.connect(wobbleGain); wobbleGain.connect(osc.frequency);
+  filter.type='lowpass'; filter.frequency.value=1800;
+  gain.gain.setValueAtTime(0.001,now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.001,volume),now+0.025);
+  gain.gain.exponentialRampToValueAtTime(0.001,now+0.27);
+  osc.connect(filter); overtone.connect(overtoneGain); overtoneGain.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(now); overtone.start(now); wobble.start(now);
+  osc.stop(now+0.3); overtone.stop(now+0.3); wobble.stop(now+0.3);
+}
+
+function resumeClownRoam(){
+  clownState.mode = 'roam';
+  clownState.startX = clownState.model.position.x;
+  clownState.elapsed = 0;
+  clownState.duration = Math.max(6,Math.abs(clownState.endX-clownState.startX)/2.5);
+  clownState.chaseCooldown = 5;
+  clownState.skipFadeIn = true;
+}
+
+function triggerClownGameOver(){
+  if (!gameStarted) return;
+  gameStarted = false;
+  if (document.pointerLockElement) document.exitPointerLock();
+  document.getElementById('game-over').classList.add('show');
+}
+
+function updateClown(dt,outside){
+  if (!clownState.model) return;
+  if (!clownState.active){
+    clownState.wait -= dt;
+    if (clownState.wait<=0) beginClownVisit();
+    return;
+  }
+
+  clownState.chaseCooldown = Math.max(0,clownState.chaseCooldown-dt);
+  let distance = Math.hypot(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
+  const guardBoundaryZ = 11.55;
+
+  if (clownState.mode==='guardStare'){
+    clownState.guardStareRemaining -= dt;
+    clownState.model.rotation.y = Math.atan2(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
+    if (clownState.guardStareRemaining<=0) resumeClownRoam();
+  } else {
+    if (clownState.mode==='roam' && outside && distance<9 && clownState.chaseCooldown<=0){
+      clownState.mode = 'chase';
+    }
+
+    if (clownState.mode==='chase'){
+      if (!outside || player.pos.z<guardBoundaryZ){
+        clownState.model.position.z = Math.max(clownState.model.position.z,guardBoundaryZ);
+        clownState.mode = 'guardStare';
+        clownState.guardStareRemaining = 5;
+        clownState.model.rotation.y = Math.atan2(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
+      } else {
+        const dx = player.pos.x-clownState.model.position.x;
+        const dz = player.pos.z-clownState.model.position.z;
+        const chaseDistance = Math.max(0.001,Math.hypot(dx,dz));
+        const step = Math.min(chaseDistance,3.05*dt);
+        clownState.model.position.x += dx/chaseDistance*step;
+        clownState.model.position.z = Math.max(guardBoundaryZ,clownState.model.position.z+dz/chaseDistance*step);
+        clownState.model.rotation.y = Math.atan2(dx,dz);
+        distance = Math.hypot(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
+        if (outside && distance<0.72) triggerClownGameOver();
+        else if (distance>14) resumeClownRoam();
+      }
+    } else if (clownState.mode==='roam'){
+      clownState.elapsed += dt;
+      const roamT = clamp(clownState.elapsed/clownState.duration,0,1);
+      const eased = roamT*roamT*(3-2*roamT);
+      clownState.model.position.x = lerp(clownState.startX,clownState.endX,eased);
+      clownState.model.rotation.y = clownState.endX>clownState.startX ? Math.PI/2 : -Math.PI/2;
+      if (roamT>=1){ endClownVisit(); return; }
+    }
+  }
+
+  const moving = clownState.mode!=='guardStare';
+  clownState.model.position.y = STREET_Y + (moving?Math.abs(Math.sin(performance.now()*0.0045))*0.035:0);
+  clownState.model.rotation.z = 0;
+  const stride = moving?Math.sin(performance.now()*0.0052)*0.38:0;
+  for (const child of clownState.model.children){
+    if (child.userData.clownArm) child.rotation.x = child.userData.baseX<0 ? stride : -stride;
+  }
+  const t = clamp(clownState.elapsed/clownState.duration,0,1);
+  const fadeIn = clownState.skipFadeIn ? 1 : clamp(t/0.12,0,1);
+  const fade = clownState.mode==='roam' ? Math.min(fadeIn,clamp((1-t)/0.12,0,1)) : 1;
+  for (const material of clownState.model.userData.fadeMaterials) material.opacity = fade;
+
+  distance = Math.hypot(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
+  const proximity = clamp(1-distance/50,0,1);
+  clownState.noteTimer -= dt;
+  if (clownState.noteTimer<=0){
+    playCircusNote(proximity*(outside?0.16:0.008));
+    clownState.noteTimer = 0.31;
+  }
+}
+
 /* ============================================================
    LIGHTING
    ============================================================ */
@@ -1270,10 +1634,16 @@ function updateLightning(dt, outside){
    INPUT: keyboard, mouse look (pointer lock), touch
    ============================================================ */
 const keys = new Set();
+let crouchToggled = false;
 window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code==='KeyE' && !e.repeat) tryInteract();
+  if (e.code==='KeyF' && !e.repeat) throwHeldObject();
   if (e.code==='Space' && !e.repeat){ e.preventDefault(); tryJump(); }
+  if (e.code==='KeyC' && !e.repeat && !sittingSeat && !sleepingBed){
+    crouchToggled = !crouchToggled;
+    updateCrouchButton();
+  }
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
 
@@ -1281,6 +1651,10 @@ let yaw = Math.PI, pitch = -0.05;
 const MOUSE_SENS = 0.0022, TOUCH_SENS = 0.0032;
 
 function applyLook(){
+  if (sleepingBed){
+    camera.quaternion.setFromEuler(new THREE.Euler(0,sleepYaw,Math.PI/2,'YXZ'));
+    return;
+  }
   pitch = clamp(pitch, -1.2, 1.2);
   camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
 }
@@ -1291,8 +1665,13 @@ document.addEventListener('mousemove', (e) => {
   pitch -= e.movementY * MOUSE_SENS;
 });
 
-canvas.addEventListener('click', () => {
-  if (gameStarted) canvas.requestPointerLock();
+canvas.addEventListener('mousedown', (event) => {
+  if (!gameStarted || event.button!==0) return;
+  if (document.pointerLockElement===canvas && heldObject?.userData.antiClownSpray){
+    sprayAntiClown();
+  } else {
+    canvas.requestPointerLock();
+  }
 });
 
 /* ---- touch joystick (move) + drag look ---- */
@@ -1366,6 +1745,23 @@ touchLookEl.addEventListener('touchcancel', endLookTouch);
 
 document.getElementById('touch-interact-btn').addEventListener('click', tryInteract);
 document.getElementById('touch-jump-btn').addEventListener('click', tryJump);
+const touchThrowBtn = document.getElementById('touch-throw-btn');
+touchThrowBtn.addEventListener('click',useHeldAction);
+const touchCrouchBtn = document.getElementById('touch-crouch-btn');
+touchCrouchBtn.addEventListener('click', () => {
+  if (sittingSeat || sleepingBed) return;
+  crouchToggled = !crouchToggled;
+  updateCrouchButton();
+});
+
+function wantsCrouch(){
+  return !sittingSeat && !sleepingBed && (crouchToggled || keys.has('ControlLeft') || keys.has('ControlRight'));
+}
+
+function updateCrouchButton(){
+  touchCrouchBtn.classList.toggle('active',crouchToggled);
+  touchCrouchBtn.textContent = crouchToggled ? 'STAND' : 'CROUCH';
+}
 
 /* ============================================================
    INTERACT SYSTEM
@@ -1375,6 +1771,46 @@ const touchInteractBtn = document.getElementById('touch-interact-btn');
 const captionEl = document.getElementById('closed-caption');
 let currentInteractable = null;
 let captionTimer = 0;
+const interactionRaycaster = new THREE.Raycaster();
+const interactionCenter = new THREE.Vector2(0,0);
+const interactionWorldPosition = new THREE.Vector3();
+const interactionForward = new THREE.Vector3();
+const preSitPosition = new THREE.Vector3();
+const preSleepPosition = new THREE.Vector3();
+let heldObject = null;
+let sittingSeat = null;
+let sleepingBed = null;
+let preSleepYaw = 0;
+let preSleepPitch = 0;
+let sleepYaw = 0;
+const thrownObjects = new Map();
+const sprayBursts = [];
+
+function taggedAncestor(object,key){
+  let node = object;
+  while (node && node !== worldGroup){
+    if (node.userData?.[key]) return node;
+    node = node.parent;
+  }
+  return null;
+}
+
+function aimedInteraction(){
+  interactionRaycaster.setFromCamera(interactionCenter,camera);
+  const hits = interactionRaycaster.intersectObject(worldGroup,true);
+  for (const hit of hits){
+    if (hit.distance > 3.1) break;
+    const grabbable = taggedAncestor(hit.object,'grabbable');
+    if (grabbable) return { type:'grab', object:grabbable, label:grabbable.userData.grabLabel || 'object' };
+    const sleepSurface = taggedAncestor(hit.object,'sleepSurface');
+    if (sleepSurface) return { type:'sleep', bed:sleepSurface, label:sleepSurface.userData.sleepLabel || 'bed' };
+    const seat = taggedAncestor(hit.object,'seat');
+    if (seat) return { type:'seat', seat, label:seat.userData.seatLabel || 'seat' };
+    // The closest solid surface blocks interaction with anything behind it.
+    break;
+  }
+  return null;
+}
 
 function nearestGuard(px,pz){
   let nearest = null, nearestDist = Infinity;
@@ -1386,14 +1822,233 @@ function nearestGuard(px,pz){
 }
 
 function updateInteractPrompt(px, pz, py){
-  const guard = py < -1.5 ? nearestGuard(px,pz) : null;
-  currentInteractable = guard ? { type:'guard', guard } : null;
-  promptEl.classList.toggle('show', Boolean(guard));
-  if (guard) promptEl.textContent = 'Press E or USE to speak with security';
-  if (touchInteractBtn){
-    touchInteractBtn.classList.toggle('active', Boolean(guard));
-    if (('ontouchstart' in window) || navigator.maxTouchPoints > 0) touchInteractBtn.style.display = guard ? 'flex' : 'none';
+  if (sleepingBed){
+    currentInteractable = { type:'wake' };
+  } else if (sittingSeat){
+    currentInteractable = { type:'stand' };
+  } else if (heldObject){
+    currentInteractable = { type:'drop', object:heldObject, label:heldObject.userData.grabLabel || 'object' };
+  } else {
+    currentInteractable = aimedInteraction();
+    if (!currentInteractable){
+      const guard = py < -1.5 ? nearestGuard(px,pz) : null;
+      if (guard) currentInteractable = { type:'guard', guard };
+    }
   }
+
+  const promptText = currentInteractable?.type === 'guard' ? 'Press E or USE to speak with security'
+    : currentInteractable?.type === 'grab' ? `Press E or USE to grab ${currentInteractable.label}`
+    : currentInteractable?.type === 'drop' && currentInteractable.object.userData.antiClownSpray ? 'E / USE drop spray · Left Click / SPRAY to repel clown'
+    : currentInteractable?.type === 'drop' ? `E / USE drop ${currentInteractable.label} · F / THROW to throw`
+    : currentInteractable?.type === 'sleep' ? `Press E or USE to sleep on ${currentInteractable.label}`
+    : currentInteractable?.type === 'wake' ? 'Press E, Space, or USE to wake up'
+    : currentInteractable?.type === 'seat' ? `Press E or USE to sit on ${currentInteractable.label}`
+    : currentInteractable?.type === 'stand' ? 'Press E, Space, or USE to stand'
+    : '';
+  promptEl.classList.toggle('show', Boolean(currentInteractable));
+  promptEl.textContent = promptText;
+  if (touchInteractBtn){
+    touchInteractBtn.classList.toggle('active', Boolean(currentInteractable));
+    if (('ontouchstart' in window) || navigator.maxTouchPoints > 0) touchInteractBtn.style.display = currentInteractable ? 'flex' : 'none';
+  }
+  if (touchThrowBtn && (('ontouchstart' in window) || navigator.maxTouchPoints > 0)){
+    touchThrowBtn.style.display = heldObject ? 'flex' : 'none';
+    touchThrowBtn.textContent = heldObject?.userData.antiClownSpray ? 'SPRAY' : 'THROW';
+  }
+}
+
+function grabObject(object){
+  thrownObjects.delete(object);
+  heldObject = object;
+  camera.attach(object);
+  if (object.userData.antiClownSpray){
+    object.position.set(0.34,-0.57,-0.82);
+    object.rotation.set(-0.12,0,-0.1);
+    fpsSprayHand.visible = true;
+  } else {
+    object.position.set(0,-0.23,-1.15);
+    object.rotation.set(0,0,0);
+    fpsSprayHand.visible = false;
+  }
+}
+
+function dropHeldObject(){
+  if (!heldObject) return;
+  const object = heldObject;
+  camera.getWorldDirection(interactionForward);
+  interactionWorldPosition.copy(player.pos).addScaledVector(interactionForward,1.25);
+  const groundY = groundHeightAt(interactionWorldPosition.x,interactionWorldPosition.z,player.pos.y-player.eyeHeight);
+  worldGroup.attach(object);
+  object.position.set(interactionWorldPosition.x,groundY+0.28,interactionWorldPosition.z);
+  object.rotation.set(0,yaw,0);
+  heldObject = null;
+  fpsSprayHand.visible = false;
+}
+
+function throwHeldObject(){
+  if (!heldObject || sleepingBed || sittingSeat) return;
+  if (heldObject.userData.antiClownSpray) return;
+  const object = heldObject;
+  camera.getWorldDirection(interactionForward);
+  camera.getWorldPosition(interactionWorldPosition);
+  worldGroup.attach(object);
+  object.position.copy(interactionWorldPosition).addScaledVector(interactionForward,0.75);
+  const velocity = interactionForward.clone().multiplyScalar(7.2);
+  velocity.y += 1.7;
+  thrownObjects.set(object,{
+    velocity,
+    angularVelocity:new THREE.Vector3(rand(-7,7),rand(-7,7),rand(-7,7)),
+    resting:false
+  });
+  heldObject = null;
+}
+
+function useHeldAction(){
+  if (heldObject?.userData.antiClownSpray) sprayAntiClown();
+  else throwHeldObject();
+}
+
+function sprayAntiClown(){
+  if (!heldObject?.userData.antiClownSpray) return;
+  camera.getWorldDirection(interactionForward);
+  heldObject.userData.nozzle.getWorldPosition(interactionWorldPosition);
+  for (let i=0;i<14;i++){
+    const mistMaterial = new THREE.MeshBasicMaterial({color:0x9ee8b0,transparent:true,opacity:0.62,depthWrite:false});
+    const mist = sph(rand(0.025,0.065),mistMaterial,false);
+    mist.position.copy(interactionWorldPosition).addScaledVector(interactionForward,0.55);
+    const velocity = interactionForward.clone().multiplyScalar(rand(3.5,5.8));
+    velocity.x += rand(-0.65,0.65); velocity.y += rand(-0.45,0.45); velocity.z += rand(-0.65,0.65);
+    worldGroup.add(mist);
+    sprayBursts.push({mesh:mist,velocity,life:rand(0.35,0.65)});
+  }
+
+  if (clownState.active){
+    const toClown = clownState.model.position.clone().sub(interactionWorldPosition);
+    const distance = toClown.length();
+    const aimed = distance>0 && interactionForward.dot(toClown.normalize())>0.72;
+    if (distance<=8 && aimed){
+      endClownVisit();
+      clownState.wait = rand(60,90);
+    }
+  }
+}
+
+function updateSprayBursts(dt){
+  for (let i=sprayBursts.length-1;i>=0;i--){
+    const particle = sprayBursts[i];
+    particle.life -= dt;
+    particle.mesh.position.addScaledVector(particle.velocity,dt);
+    particle.velocity.multiplyScalar(Math.max(0,1-dt*4));
+    particle.mesh.material.opacity = clamp(particle.life/0.45,0,0.62);
+    if (particle.life<=0){
+      worldGroup.remove(particle.mesh);
+      particle.mesh.material.dispose();
+      sprayBursts.splice(i,1);
+    }
+  }
+}
+
+function updateThrownObjects(dt){
+  for (const [object,state] of thrownObjects){
+    if (state.resting) continue;
+    state.velocity.y -= 12*dt;
+
+    const nextX = object.position.x + state.velocity.x*dt;
+    if (collidesAt(nextX,object.position.z,object.position.y)){
+      state.velocity.x *= -0.42;
+    } else {
+      object.position.x = nextX;
+    }
+    const nextZ = object.position.z + state.velocity.z*dt;
+    if (collidesAt(object.position.x,nextZ,object.position.y)){
+      state.velocity.z *= -0.42;
+    } else {
+      object.position.z = nextZ;
+    }
+    object.position.y += state.velocity.y*dt;
+    object.rotation.x += state.angularVelocity.x*dt;
+    object.rotation.y += state.angularVelocity.y*dt;
+    object.rotation.z += state.angularVelocity.z*dt;
+
+    const radius = object.userData.throwRadius || 0.15;
+    const floorY = groundHeightAt(object.position.x,object.position.z,object.position.y)+radius;
+    if (object.position.y <= floorY){
+      object.position.y = floorY;
+      if (Math.abs(state.velocity.y) > 1.1){
+        state.velocity.y = Math.abs(state.velocity.y)*0.3;
+        state.velocity.x *= 0.68;
+        state.velocity.z *= 0.68;
+        state.angularVelocity.multiplyScalar(0.72);
+      } else {
+        state.velocity.set(0,0,0);
+        state.angularVelocity.set(0,0,0);
+        state.resting = true;
+      }
+    }
+  }
+}
+
+function sitOn(seat){
+  if (!seat || heldObject) return;
+  preSitPosition.copy(player.pos);
+  sittingSeat = seat;
+  crouchToggled = false;
+  updateCrouchButton();
+  player.verticalVelocity = 0;
+  player.grounded = true;
+  updateSeatedPosition();
+}
+
+function updateSeatedPosition(){
+  if (!sittingSeat) return;
+  sittingSeat.getWorldPosition(interactionWorldPosition);
+  const groundY = groundHeightAt(interactionWorldPosition.x,interactionWorldPosition.z,0);
+  player.pos.set(interactionWorldPosition.x,groundY+(sittingSeat.userData.sitEyeHeight || 1.16),interactionWorldPosition.z);
+}
+
+function standUp(){
+  if (!sittingSeat) return;
+  sittingSeat = null;
+  crouchToggled = false;
+  updateCrouchButton();
+  player.pos.copy(preSitPosition);
+  player.eyeHeight = EYE_HEIGHT;
+  player.verticalVelocity = 0;
+  player.grounded = true;
+}
+
+function sleepOn(bed){
+  if (!bed || heldObject || sittingSeat) return;
+  preSleepPosition.copy(player.pos);
+  preSleepYaw = yaw;
+  preSleepPitch = pitch;
+  sleepingBed = bed;
+  crouchToggled = false;
+  updateCrouchButton();
+  player.verticalVelocity = 0;
+  player.grounded = true;
+  bed.getWorldQuaternion(camera.quaternion);
+  sleepYaw = new THREE.Euler().setFromQuaternion(camera.quaternion,'YXZ').y;
+  updateSleepingPosition();
+}
+
+function updateSleepingPosition(){
+  if (!sleepingBed) return;
+  interactionWorldPosition.set(0,0.82,0.12);
+  sleepingBed.localToWorld(interactionWorldPosition);
+  player.pos.copy(interactionWorldPosition);
+  player.eyeHeight = 0.82;
+}
+
+function wakeUp(){
+  if (!sleepingBed) return;
+  sleepingBed = null;
+  player.pos.copy(preSleepPosition);
+  player.eyeHeight = EYE_HEIGHT;
+  player.verticalVelocity = 0;
+  player.grounded = true;
+  yaw = preSleepYaw;
+  pitch = preSleepPitch;
 }
 
 function selectGuardVoice(){
@@ -1437,7 +2092,14 @@ function speakGuard(guard){
 }
 
 function tryInteract(){
-  if (currentInteractable?.type === 'guard') speakGuard(currentInteractable.guard);
+  if (!currentInteractable) return;
+  if (currentInteractable.type === 'guard') speakGuard(currentInteractable.guard);
+  else if (currentInteractable.type === 'grab') grabObject(currentInteractable.object);
+  else if (currentInteractable.type === 'drop') dropHeldObject();
+  else if (currentInteractable.type === 'sleep') sleepOn(currentInteractable.bed);
+  else if (currentInteractable.type === 'wake') wakeUp();
+  else if (currentInteractable.type === 'seat') sitOn(currentInteractable.seat);
+  else if (currentInteractable.type === 'stand') standUp();
 }
 
 function updateGuards(dt){
@@ -1462,11 +2124,16 @@ function zoneNameAt(x,z,y){
   if (insideRect(x,z,APT)){
     if (y !== undefined && y < -1.5) return 'street';
     if (x > 0.3 && z < -0.5) return 'bedroom';
+    if (x > 3.1 && z > 0.3 && z < 2.8) return 'bathroom';
+    if (x > -0.6 && x < 3.0 && z > 3.85) return 'laundry & pantry';
+    if (x < -3.8 && z > 0.7 && z < 3.35) return 'home office';
+    if (x < -3.8 && z > 3.35) return 'entry closet';
     if (x > 0.3 && z >= -0.5) return 'kitchen';
     return 'living room';
   }
   if (insideRect(x,z,LOBBY)){
     if (y !== undefined && y < -1.5) return 'street (canopy)';
+    if (x>1.5 && z>7.0) return 'armory';
     return 'lobby';
   }
   return 'street';
@@ -1491,6 +2158,7 @@ scene.traverse((object) => {
    ============================================================ */
 const player = {
   pos: new THREE.Vector3(-2.2, EYE_HEIGHT, -0.5),
+  eyeHeight: EYE_HEIGHT,
   verticalVelocity: 0,
   grounded: true
 };
@@ -1498,7 +2166,11 @@ camera.position.copy(player.pos);
 applyLook();
 
 function tryJump(){
-  if (!gameStarted || !player.grounded) return;
+  if (!gameStarted) return;
+  if (sleepingBed){ wakeUp(); return; }
+  if (sittingSeat){ standUp(); return; }
+  if (wantsCrouch()) return;
+  if (!player.grounded) return;
   player.verticalVelocity = 5.4;
   player.grounded = false;
 }
@@ -1507,10 +2179,12 @@ function tryJump(){
    START / FLOW (Direct Load — Scene Opened Immediately)
    ============================================================ */
 let gameStarted = true;
+document.getElementById('restart-btn').addEventListener('click',() => location.reload());
 
 const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 if (hasTouch){
   document.getElementById('touch-jump-btn').style.display = 'flex';
+  touchCrouchBtn.style.display = 'flex';
   touchMoveEl.style.pointerEvents = 'auto';
   touchLookEl.style.pointerEvents = 'auto';
 }
@@ -1538,43 +2212,56 @@ function animate(){
   if (gameStarted){
     applyLook();
 
-    let inX = 0, inZ = 0;
-    if (keys.has('KeyW')) inZ -= 1;
-    if (keys.has('KeyS')) inZ += 1;
-    if (keys.has('KeyA')) inX -= 1;
-    if (keys.has('KeyD')) inX += 1;
-    inX += moveVec.x; inZ += moveVec.y;
-    const len = Math.hypot(inX,inZ);
-    if (len > 0.001){
-      inX /= Math.max(len,1); inZ /= Math.max(len,1);
-      const speed = 3.6;
-      const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
-      const dx = (inX*cosY + inZ*sinY) * speed * dt;
-      const dz = (inZ*cosY - inX*sinY) * speed * dt;
-      resolveMove(player.pos, dx, dz);
-    }
-
-    const groundY = groundHeightAt(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
-    const standingY = groundY + EYE_HEIGHT;
-    if (player.grounded){
-      player.pos.y = lerp(player.pos.y,standingY,Math.min(1,dt*14));
-      if (Math.abs(player.pos.y-standingY)<0.015) player.pos.y = standingY;
+    if (sleepingBed){
+      updateSleepingPosition();
+    } else if (sittingSeat){
+      updateSeatedPosition();
     } else {
-      player.verticalVelocity -= 14*dt;
-      player.pos.y += player.verticalVelocity*dt;
-      if (player.pos.y<=standingY && player.verticalVelocity<=0){
-        player.pos.y = standingY;
-        player.verticalVelocity = 0;
-        player.grounded = true;
+      const crouching = wantsCrouch();
+      const targetEyeHeight = crouching ? CROUCH_HEIGHT : EYE_HEIGHT;
+      player.eyeHeight = lerp(player.eyeHeight,targetEyeHeight,Math.min(1,dt*12));
+      if (Math.abs(player.eyeHeight-targetEyeHeight)<0.01) player.eyeHeight = targetEyeHeight;
+      let inX = 0, inZ = 0;
+      if (keys.has('KeyW')) inZ -= 1;
+      if (keys.has('KeyS')) inZ += 1;
+      if (keys.has('KeyA')) inX -= 1;
+      if (keys.has('KeyD')) inX += 1;
+      inX += moveVec.x; inZ += moveVec.y;
+      const len = Math.hypot(inX,inZ);
+      if (len > 0.001){
+        inX /= Math.max(len,1); inZ /= Math.max(len,1);
+        const speed = crouching ? 2.0 : 3.6;
+        const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
+        const dx = (inX*cosY + inZ*sinY) * speed * dt;
+        const dz = (inZ*cosY - inX*sinY) * speed * dt;
+        resolveMove(player.pos, dx, dz);
+      }
+
+      const groundY = groundHeightAt(player.pos.x, player.pos.z, player.pos.y - player.eyeHeight);
+      const standingY = groundY + player.eyeHeight;
+      if (player.grounded){
+        player.pos.y = lerp(player.pos.y,standingY,Math.min(1,dt*14));
+        if (Math.abs(player.pos.y-standingY)<0.015) player.pos.y = standingY;
+      } else {
+        player.verticalVelocity -= 14*dt;
+        player.pos.y += player.verticalVelocity*dt;
+        if (player.pos.y<=standingY && player.verticalVelocity<=0){
+          player.pos.y = standingY;
+          player.verticalVelocity = 0;
+          player.grounded = true;
+        }
       }
     }
     camera.position.copy(player.pos);
 
-    updateInteractPrompt(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
+    updateInteractPrompt(player.pos.x, player.pos.z, player.pos.y - player.eyeHeight);
     updateGuards(dt);
     updateTraffic(dt);
+    updateThrownObjects(dt);
+    updateSprayBursts(dt);
 
-    const outside = !isIndoors(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
+    const outside = !isIndoors(player.pos.x, player.pos.z, player.pos.y - player.eyeHeight);
+    updateClown(dt,outside);
     rainPoints.visible = outside;
     windowRainLines.visible = !outside;
     updateRain(dt, player.pos.x, player.pos.z);
@@ -1588,7 +2275,7 @@ function animate(){
     }
 
     const angleDeg = ((yaw * 180 / Math.PI) % 360 + 360) % 360;
-    const isInsideApt = insideRect(player.pos.x, player.pos.z, APT) && (player.pos.y - EYE_HEIGHT >= -1.0);
+    const isInsideApt = insideRect(player.pos.x, player.pos.z, APT) && (player.pos.y - player.eyeHeight >= -1.0);
     const hintEl = document.getElementById('hint-line');
     if (hintEl){
       if (isInsideApt){
@@ -1601,7 +2288,7 @@ function animate(){
         } else {
           hintEl.textContent = '🧭 Facing South (TV) · [Turn around 180° for Front Doorway ➔]';
         }
-      } else if (insideRect(player.pos.x, player.pos.z, LOBBY) && (player.pos.y - EYE_HEIGHT >= -1.0)){
+      } else if (insideRect(player.pos.x, player.pos.z, LOBBY) && (player.pos.y - player.eyeHeight >= -1.0)){
         hintEl.textContent = '🏠 In Foyer · [Main stairs on the left]';
       } else {
         hintEl.textContent = '🌧️ Street Level · [Guarded main entrance and stairs ahead]';
@@ -1616,8 +2303,9 @@ function animate(){
       camera.getWorldDirection(debugLookDirection);
       debugLookPoint.copy(camera.position).addScaledVector(debugLookDirection, 30);
     }
-    const zone = zoneNameAt(player.pos.x, player.pos.z, player.pos.y - EYE_HEIGHT);
-    debugEl.textContent = `YOU x=${player.pos.x.toFixed(2)} y=${player.pos.y.toFixed(2)} z=${player.pos.z.toFixed(2)} · LOOK x=${debugLookPoint.x.toFixed(2)} y=${debugLookPoint.y.toFixed(2)} z=${debugLookPoint.z.toFixed(2)} · ${zone} · yaw=${(yaw*180/Math.PI).toFixed(0)}° pitch=${(pitch*180/Math.PI).toFixed(0)}°`;
+    const zone = zoneNameAt(player.pos.x, player.pos.z, player.pos.y - player.eyeHeight);
+    const stance = sleepingBed ? 'sleeping' : wantsCrouch() ? 'crouched' : sittingSeat ? 'seated' : 'standing';
+    debugEl.textContent = `YOU x=${player.pos.x.toFixed(2)} y=${player.pos.y.toFixed(2)} z=${player.pos.z.toFixed(2)} · LOOK x=${debugLookPoint.x.toFixed(2)} y=${debugLookPoint.y.toFixed(2)} z=${debugLookPoint.z.toFixed(2)} · ${zone} · ${stance} · yaw=${(yaw*180/Math.PI).toFixed(0)}° pitch=${(pitch*180/Math.PI).toFixed(0)}°`;
   }
 
   renderer.render(scene, camera);
