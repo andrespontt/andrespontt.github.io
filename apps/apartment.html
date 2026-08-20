@@ -21,8 +21,9 @@
   :root{ color-scheme: dark; }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent;
      -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-  html,body{ height:100%; margin:0; overflow:hidden; background:#000; color:#eef2f8;
+  html,body{ height:100%; margin:0; overflow:hidden; background:#000; color:#eef2f8; touch-action:none; overscroll-behavior:none;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button,a{ touch-action:manipulation; }
   button{ font:inherit; color:inherit; cursor:pointer; }
 
   #game-canvas{ position:fixed; inset:0; display:block; touch-action:none; }
@@ -134,6 +135,62 @@
   #game-over p{ margin:0 0 24px; color:#c9bfc0; }
   #restart-btn{ padding:11px 20px; border:1px solid #9a5559; border-radius:7px; background:#231316; color:#fff; cursor:pointer; }
 
+  /* Cinematic story prologue */
+  #intro-cinematic{
+    --intro-red:#a61f2b; --intro-cream:#e6dcc7;
+    position:fixed; inset:0; z-index:100; overflow:hidden; background:#020204; color:var(--intro-cream);
+    font-family:Georgia,'Times New Roman',serif; transition:opacity .9s ease; pointer-events:auto;
+  }
+  #intro-cinematic.ending{ opacity:0; pointer-events:none; }
+  #intro-cinematic::after{
+    content:''; position:absolute; inset:-40%; z-index:8; pointer-events:none; opacity:.09;
+    background-image:repeating-radial-gradient(circle at 30% 40%,#fff 0 1px,transparent 1px 4px);
+    animation:introGrain .22s steps(2) infinite;
+  }
+  @keyframes introGrain{ 0%{transform:translate(0,0)} 25%{transform:translate(2%,-1%)} 50%{transform:translate(-1%,2%)} 75%{transform:translate(1%,1%)} }
+  .cinema-bar{ position:absolute; left:0; right:0; height:10vh; z-index:12; background:#000; }
+  .cinema-bar.top{ top:0; } .cinema-bar.bottom{ bottom:0; }
+  #intro-visual{ position:absolute; inset:0; overflow:hidden; background:radial-gradient(circle at 50% 45%,#25242b,#050507 70%); }
+  .intro-art{ position:absolute; inset:10vh 0; opacity:0; transform:scale(1.06); transition:opacity 1.1s ease,transform 5s ease; }
+  #intro-visual.scene-0 .art-party,#intro-visual.scene-1 .art-call,#intro-visual.scene-2 .art-cancel,
+  #intro-visual.scene-3 .art-late,#intro-visual.scene-4 .art-night{ opacity:1; transform:scale(1); }
+  .art-party{ background:linear-gradient(180deg,#3f3545,#17141a); }
+  .balloon{ position:absolute; width:70px; height:86px; border-radius:50%; filter:saturate(.55); box-shadow:inset -12px -8px 18px #0005; }
+  .balloon::after{ content:''; position:absolute; top:82px; left:34px; width:1px; height:34vh; background:#aaa8; }
+  .balloon.b1{left:19%;top:18%;background:#8e3340}.balloon.b2{left:28%;top:30%;background:#b08b38}.balloon.b3{right:22%;top:23%;background:#315a72}
+  .cake{ position:absolute; left:50%; bottom:18%; width:210px; height:90px; transform:translateX(-50%); background:#c9b68e; border-radius:10px 10px 3px 3px; box-shadow:0 25px 55px #000; }
+  .cake::before{ content:''; position:absolute; left:25px; right:25px; top:-24px; height:25px; background:#7d2933; border-radius:8px 8px 0 0; }
+  .art-call{ background:radial-gradient(circle at 35% 48%,#3a3438,#09090b 58%); }
+  .phone{ position:absolute; left:29%; top:29%; width:170px; height:310px; border:12px solid #151519; border-radius:28px; background:#b9b7ad; transform:rotate(-8deg); box-shadow:0 30px 80px #000; }
+  .phone::after{ content:'CLOWN SERVICES'; position:absolute; inset:70px 12px auto; color:#741c25; font:700 14px/1.4 ui-monospace,monospace; text-align:center; }
+  .clown-shadow{ position:absolute; right:21%; bottom:7%; width:155px; height:430px; background:#020203; border-radius:48% 48% 18% 18%; filter:drop-shadow(0 0 18px #8b1c2538); }
+  .clown-shadow::before{ content:''; position:absolute; width:170px; height:170px; left:-8px; top:-105px; border-radius:50%; background:#020203; }
+  .clown-shadow::after{ content:''; position:absolute; left:48px; top:-62px; border-left:35px solid transparent; border-right:35px solid transparent; border-bottom:0; border-top:125px solid #020203; }
+  .art-cancel{ background:radial-gradient(circle,#29272a,#070709 65%); }
+  .contract{ position:absolute; left:50%; top:48%; width:min(430px,66vw); height:260px; transform:translate(-50%,-50%) rotate(2deg); background:#d4cbb8; box-shadow:0 25px 80px #000; }
+  .contract::before,.contract::after{ content:''; position:absolute; left:50%; top:50%; width:76%; height:15px; background:#8d1b26; }
+  .contract::before{transform:translate(-50%,-50%) rotate(34deg)}.contract::after{transform:translate(-50%,-50%) rotate(-34deg)}
+  .art-late{ background:radial-gradient(circle,#35080d,#020203 62%); }
+  .late-face{ position:absolute; left:50%; top:48%; width:270px; height:300px; transform:translate(-50%,-50%); border-radius:48%; background:#ddd4c5; box-shadow:0 0 90px #b51f2d55; }
+  .late-face::before{ content:''; position:absolute; left:48px; right:48px; top:82px; height:42px; background:linear-gradient(90deg,#111 0 34%,transparent 34% 66%,#111 66%); }
+  .late-face::after{ content:''; position:absolute; left:70px; right:70px; bottom:54px; height:45px; border-bottom:16px solid #75121c; border-radius:50%; }
+  .art-night{ background:linear-gradient(180deg,#050811 0 58%,#101014 58%); }
+  .night-house{ position:absolute; left:50%; bottom:16%; width:min(640px,76vw); height:280px; transform:translateX(-50%); background:#17171b; box-shadow:0 -5px 40px #7381a31a; }
+  .night-house::before{ content:''; position:absolute; left:-9%; top:-150px; border-left:380px solid transparent; border-right:380px solid transparent; border-bottom:170px solid #111116; }
+  .night-window{ position:absolute; width:80px; height:105px; background:#c4a86b; box-shadow:0 0 28px #d9ae5666; }
+  .night-window.w1{left:17%;top:70px}.night-window.w2{right:17%;top:70px}
+  #intro-caption{ position:absolute; z-index:15; left:50%; bottom:13vh; width:min(820px,84vw); transform:translateX(-50%); text-align:center; text-shadow:0 2px 8px #000; }
+  #intro-caption .speaker{ display:block; margin-bottom:9px; color:#a9a09a; font:700 .68rem/1 ui-monospace,monospace; letter-spacing:.3em; text-transform:uppercase; }
+  #intro-caption .line{ font-size:clamp(1.05rem,2.5vw,1.8rem); line-height:1.45; }
+  #intro-caption.too-late .line{ color:#ef4653; font-size:clamp(2rem,7vw,5.5rem); font-weight:800; letter-spacing:.16em; }
+  #intro-start{ position:absolute; inset:0; z-index:20; display:grid; place-items:center; text-align:center; background:radial-gradient(circle,#18141a,#020203 65%); }
+  #intro-start h1{ margin:0; font-size:clamp(2.6rem,8vw,7rem); font-weight:400; letter-spacing:.14em; text-transform:uppercase; }
+  #intro-start p{ max-width:560px; margin:18px auto 28px; padding:0 24px; color:#aaa1a0; font:400 .86rem/1.7 ui-monospace,monospace; }
+  #intro-play,#intro-skip{ border:1px solid #786c69; background:#0b0a0cdd; color:#eee5d8; font:700 .72rem ui-monospace,monospace; letter-spacing:.14em; cursor:pointer; }
+  #intro-play{ padding:13px 25px; border-color:#a72b35; }
+  #intro-skip{ position:absolute; z-index:25; right:24px; top:calc(10vh + 18px); padding:9px 13px; display:none; }
+  @media (prefers-reduced-motion:reduce){ #intro-cinematic::after{animation:none}.intro-art{transition:opacity .2s} }
+
   .hidden{ display:none !important; }
 </style>
 </head>
@@ -146,7 +203,7 @@
   <div id="interact-prompt"></div>
   <div id="closed-caption" role="status" aria-live="polite"></div>
   <a href="index.html" id="back-link" title="Back to Apps">←</a>
-  <div id="version-badge"><span class="dot"></span><span id="version-text">v5.0 · Updated just now</span></div>
+  <div id="version-badge"><span class="dot"></span><span id="version-text">v7.0 · Updated just now</span></div>
   <div id="hint-line">WASD / drag move · E interact · Space jump · C toggle crouch · Ctrl hold crouch</div>
   <div id="debug-readout"></div>
   <div id="touch-move">
@@ -163,6 +220,19 @@
 <div id="game-over" role="dialog" aria-modal="true">
   <div><h1>GAME OVER</h1><p>The clown caught you outside.</p><button id="restart-btn">TRY AGAIN</button></div>
 </div>
+<div id="intro-cinematic" role="dialog" aria-modal="true" aria-label="Story introduction">
+  <div class="cinema-bar top"></div><div class="cinema-bar bottom"></div>
+  <div id="intro-visual">
+    <div class="intro-art art-party"><i class="balloon b1"></i><i class="balloon b2"></i><i class="balloon b3"></i><i class="cake"></i></div>
+    <div class="intro-art art-call"><i class="phone"></i><i class="clown-shadow"></i></div>
+    <div class="intro-art art-cancel"><i class="contract"></i></div>
+    <div class="intro-art art-late"><i class="late-face"></i></div>
+    <div class="intro-art art-night"><i class="night-house"><b class="night-window w1"></b><b class="night-window w2"></b></i><i class="clown-shadow"></i></div>
+  </div>
+  <div id="intro-caption" aria-live="polite"><span class="speaker"></span><span class="line"></span></div>
+  <div id="intro-start"><div><h1>Too Late</h1><p>A short cinematic prologue. Narration and captions are enabled.</p><button id="intro-play">BEGIN STORY</button></div></div>
+  <button id="intro-skip">SKIP INTRO</button>
+</div>
 
 <script type="module">
 import * as THREE from "three";
@@ -174,7 +244,7 @@ if ('serviceWorker' in navigator) {
 /* ============================================================
    APP VERSION & UPDATED TIME
    ============================================================ */
-const APP_VERSION = 'v5.0';
+const APP_VERSION = 'v7.0';
 const BUILD_TIME = new Date('2026-08-16T12:00:00-04:00').getTime();
 
 function formatRelativeTime(fromTime){
@@ -207,6 +277,16 @@ const lerp = (a,b,t) => a + (b-a)*t;
 const clamp = (v,min,max) => Math.max(min, Math.min(max, v));
 const rand = (min,max) => min + Math.random()*(max-min);
 const pickArr = (arr) => arr[Math.floor(Math.random()*arr.length)];
+
+// iOS Safari can still treat rapid taps as a zoom gesture even with a locked
+// viewport. Suppress native pinch/gesture zoom and only cancel the second tap.
+document.addEventListener('gesturestart',event=>event.preventDefault(),{passive:false});
+let lastDocumentTouchEnd = 0;
+document.addEventListener('touchend',event=>{
+  const now = performance.now();
+  if (now-lastDocumentTouchEnd<320) event.preventDefault();
+  lastDocumentTouchEnd = now;
+},{passive:false});
 
 /* ============================================================
    RENDERER / SCENE / CAMERA
@@ -351,7 +431,9 @@ function isIndoors(x,z,currentY){
 
 const colliders = []; // {minX,maxX,minZ,maxZ,minY,maxY}
 function addCollider(minX,maxX,minZ,maxZ,minY=-10,maxY=10){
-  colliders.push({minX,maxX,minZ,maxZ,minY,maxY});
+  const collider = {minX,maxX,minZ,maxZ,minY,maxY};
+  colliders.push(collider);
+  return collider;
 }
 
 function collidesAt(x,z,y=0){
@@ -469,6 +551,19 @@ function makeCoffeeTable(){
     const leg = box(0.06,0.4,0.06,MAT.woodDark); leg.position.set(sx,0.2,sz); g.add(leg);
   }
   return g;
+}
+
+function makeEmergencyPhone(){
+  const phone=new THREE.Group();
+  const red=new THREE.MeshStandardMaterial({color:0x7f111c,roughness:0.62});
+  const base=box(0.34,0.08,0.24,red,false); base.position.y=0.04; phone.add(base);
+  const dial=box(0.2,0.025,0.13,MAT.screenOff,false); dial.position.set(0,0.09,0); phone.add(dial);
+  const handset=box(0.4,0.075,0.09,red,false); handset.position.set(0,0.15,0); phone.add(handset);
+  for (const x of [-0.17,0.17]){
+    const end=sph(0.075,red,false); end.scale.z*=0.7; end.position.set(x,0.15,0); phone.add(end);
+  }
+  phone.userData.summonPhone=true;
+  return phone;
 }
 function makeTVUnit(){
   const g = new THREE.Group();
@@ -771,6 +866,7 @@ function buildApartment(){
   addCollider(-5.72,-4.78,-3.95,-1.65, -0.5, 2.5);
   const table = makeCoffeeTable(); table.rotation.y = Math.PI/2; table.position.set(-2.65,0,-2.8); g.add(table);
   addCollider(-3.0,-2.3,-3.4,-2.2, -0.5, 2.5);
+  const emergencyPhone=makeEmergencyPhone(); emergencyPhone.rotation.y=Math.PI/2; emergencyPhone.position.set(-2.65,0.58,-2.8); g.add(emergencyPhone);
   // Place the TV against the solid bedroom partition instead of freestanding
   // in front of the west window.
   const tvUnit = makeTVUnit(); tvUnit.rotation.y = -Math.PI/2; tvUnit.position.set(0.12,0,-2.8); g.add(tvUnit);
@@ -967,6 +1063,7 @@ function buildLobby(){
 
 function makeBodyguard(){
   const g = new THREE.Group();
+  const punchArms = [];
 
   // Polished shoes and straight-cut suit trousers.
   for (const x of [-0.14,0.14]){
@@ -978,8 +1075,10 @@ function makeBodyguard(){
   const shirt = box(0.18,0.48,0.025,MAT.guardShirt,false); shirt.position.set(0,1.23,0.165); g.add(shirt);
   const tie = box(0.045,0.38,0.035,MAT.guardTie,false); tie.position.set(0,1.2,0.19); g.add(tie);
   for (const x of [-0.37,0.37]){
-    const arm = box(0.15,0.72,0.2,MAT.guardSuit); arm.position.set(x,1.17,0); g.add(arm);
-    const hand = sph(0.09,MAT.guardSkin); hand.position.set(x,0.78,0.02); g.add(hand);
+    const armRig = new THREE.Group(); armRig.position.set(x,1.49,0); g.add(armRig);
+    const arm = box(0.15,0.72,0.2,MAT.guardSuit); arm.position.y=-0.34; armRig.add(arm);
+    const hand = sph(0.09,MAT.guardSkin); hand.position.set(0,-0.72,0.02); armRig.add(hand);
+    punchArms.push(armRig);
   }
 
   const neck = cyl(0.09,0.09,0.14,MAT.guardSkin); neck.position.y = 1.61; g.add(neck);
@@ -994,6 +1093,11 @@ function makeBodyguard(){
   const earWire = cyl(0.012,0.012,0.34,MAT.metalDark,false); earWire.position.set(0.2,1.62,0.015); g.add(earWire);
   const collarWire = cyl(0.01,0.01,0.22,MAT.metalDark,false); collarWire.position.set(0.13,1.47,0.13); collarWire.rotation.z = -0.55; g.add(collarWire);
 
+  g.userData.punchArms = punchArms;
+  g.userData.punchTime = 0;
+  g.userData.punchCooldown = 0;
+  g.userData.punchConnected = false;
+
   return g;
 }
 
@@ -1002,7 +1106,9 @@ function makeBodyguard(){
    ============================================================ */
 const outdoorGroup = new THREE.Group();
 const guards = [];
+let guardEscortActive = false;
 const trafficCars = [];
+const reinforcementState={ active:false, phase:'idle', elapsed:0, struck:false, group:null, units:[], explosion:null, shockwave:null, blastLight:null };
 const clownState = {
   // The first visit begins on the first rendered frame; later visits use a
   // randomized absence interval in endClownVisit().
@@ -1042,6 +1148,64 @@ function makeTrafficCar(color,dir){
   return car;
 }
 
+function makeArmedHumvee(){
+  const vehicle=new THREE.Group();
+  const armor=new THREE.MeshStandardMaterial({color:0x26342d,roughness:0.82,metalness:0.25});
+  const tire=new THREE.MeshStandardMaterial({color:0x0b0d0f,roughness:0.95});
+  const glass=new THREE.MeshStandardMaterial({color:0x172536,roughness:0.16,metalness:0.35});
+  const chassis=box(3.15,0.68,4.9,armor); chassis.position.y=0.78; vehicle.add(chassis);
+  const cabin=box(2.72,0.95,2.55,armor); cabin.position.set(0,1.45,-0.35); vehicle.add(cabin);
+  const windshield=box(2.3,0.52,0.04,glass,false); windshield.position.set(0,1.56,0.95); vehicle.add(windshield);
+  for (const [x,z] of [[-1.6,-1.55],[1.6,-1.55],[-1.6,1.55],[1.6,1.55]]){
+    const wheel=cyl(0.48,0.48,0.32,tire); wheel.rotation.z=Math.PI/2; wheel.position.set(x,0.48,z); vehicle.add(wheel);
+  }
+  const turretRing=cyl(0.55,0.62,0.2,armor); turretRing.position.set(0,2.02,-0.35); vehicle.add(turretRing);
+  const turret=box(0.75,0.42,0.75,armor); turret.position.set(0,2.28,-0.35); vehicle.add(turret);
+  const gun=cyl(0.075,0.1,2.15,MAT.metalDark); gun.rotation.x=Math.PI/2; gun.position.set(0,2.32,0.88); vehicle.add(gun);
+  vehicle.scale.setScalar(0.76);
+  return vehicle;
+}
+
+function makeArmySoldier(){
+  const soldier=new THREE.Group();
+  const uniform=new THREE.MeshStandardMaterial({color:0x354632,roughness:0.9});
+  const vest=new THREE.MeshStandardMaterial({color:0x222d25,roughness:0.88});
+  const skin=new THREE.MeshStandardMaterial({color:0x9b6b4f,roughness:0.9});
+  for (const x of [-0.12,0.12]){
+    const leg=box(0.17,0.72,0.18,uniform); leg.position.set(x,0.4,0); soldier.add(leg);
+  }
+  const torso=box(0.54,0.68,0.28,uniform); torso.position.set(0,1.08,0); soldier.add(torso);
+  const armor=box(0.46,0.5,0.1,vest); armor.position.set(0,1.12,0.19); soldier.add(armor);
+  const head=sph(0.17,skin); head.position.set(0,1.67,0); soldier.add(head);
+  const helmet=new THREE.Mesh(new THREE.SphereGeometry(0.19,10,6,0,Math.PI*2,0,Math.PI/2),vest); helmet.position.set(0,1.72,0); soldier.add(helmet);
+  const rifle=box(0.08,0.08,0.9,MAT.metalDark); rifle.position.set(0.2,1.1,0.38); rifle.rotation.x=-0.18; soldier.add(rifle);
+  return soldier;
+}
+
+function buildReinforcementArmy(){
+  const group=new THREE.Group(); group.visible=false; outdoorGroup.add(group);
+  reinforcementState.group=group;
+  // Fixed curb-lane parking posts. These never depend on where the clown is.
+  const vehicleStations=[[-10,20.7],[10,26.0]];
+  for (let i=0;i<2;i++){
+    const model=makeArmedHumvee(); group.add(model);
+    reinforcementState.units.push({model,kind:'humvee',station:vehicleStations[i],roadYaw:i===0?Math.PI/2:-Math.PI/2});
+  }
+  // Permanent, repeatable perimeter posts between the house and roadway.
+  const soldierStations=[[-8,15.2],[-6.4,15.5],[-4.7,15.8],[-2.8,16.0],[-0.9,15.8],[1.0,15.5],[-6.8,17.4],[-0.1,17.4]];
+  for (const station of soldierStations){
+    const model=makeArmySoldier(); group.add(model);
+    reinforcementState.units.push({model,kind:'soldier',station});
+  }
+  const blastMaterial=new THREE.MeshBasicMaterial({color:0xfff2b0,transparent:true,opacity:0,depthWrite:false});
+  reinforcementState.explosion=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),blastMaterial);
+  reinforcementState.explosion.visible=false; group.add(reinforcementState.explosion);
+  const shockMaterial=new THREE.MeshBasicMaterial({color:0xff5f28,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false});
+  reinforcementState.shockwave=new THREE.Mesh(new THREE.TorusGeometry(1,0.08,8,40),shockMaterial);
+  reinforcementState.shockwave.rotation.x=Math.PI/2; reinforcementState.shockwave.visible=false; group.add(reinforcementState.shockwave);
+  reinforcementState.blastLight=new THREE.PointLight(0xffd27a,0,32,2); group.add(reinforcementState.blastLight);
+}
+
 function makeCreepyClown(){
   const clown = new THREE.Group();
   const fadeMaterials = [];
@@ -1059,27 +1223,60 @@ function makeCreepyClown(){
   }
   const torso = box(0.58,0.7,0.3,yellow); torso.position.set(0,1.14,0); clown.add(torso);
   for (const x of [-0.36,0.36]){
-    const arm = box(0.14,0.68,0.16,x<0?blue:red); arm.position.set(x,1.17,0); clown.add(arm);
-    arm.userData.baseX = x; arm.userData.clownArm = true;
-    const glove = sph(0.1,white); glove.position.set(x,0.79,0.02); clown.add(glove);
+    // Shoulder-pivoted arm group lets the entire limb, including its glove,
+    // rotate forward as one unit during pursuit.
+    const armRig = new THREE.Group(); armRig.position.set(x,1.49,0); clown.add(armRig);
+    armRig.userData.baseX = x; armRig.userData.clownArm = true;
+    const arm = box(0.14,0.68,0.16,x<0?blue:red); arm.position.y=-0.34; armRig.add(arm);
+    const glove = sph(0.1,white); glove.position.set(0,-0.72,0.02); armRig.add(glove);
   }
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.22,0.055,6,14),white);
   collar.rotation.x=Math.PI/2; collar.position.y=1.55; clown.add(collar);
   // Restore the original compact, readable clown head and face.
   const head = sph(0.21,skin); head.position.set(0,1.78,0); clown.add(head);
+  const eyes = [];
   for (const x of [-0.17,0.17]){
     const hair = sph(0.11,red); hair.position.set(x,1.83,-0.02); clown.add(hair);
     const eye = sph(0.026,dark,false); eye.position.set(x*0.38,1.83,0.195); clown.add(eye);
+    eyes.push(eye);
   }
   const nose = sph(0.07,red,false); nose.position.set(0,1.76,0.21); clown.add(nose);
   const smile = new THREE.Mesh(new THREE.TorusGeometry(0.09,0.018,5,12,Math.PI),red);
+  // Original friendly resting smile. Chase mode temporarily repositions and
+  // flips this same mesh, then restores these exact values afterward.
   smile.position.set(0,1.7,0.198); smile.rotation.z=Math.PI; clown.add(smile);
+  const angryBrows = [];
+  for (const x of [-0.07,0.07]){
+    const brow = box(0.105,0.018,0.018,dark,false);
+    brow.position.set(x,1.885,0.203);
+    brow.rotation.z = x<0 ? -0.42 : 0.42;
+    brow.visible = false;
+    clown.add(brow); angryBrows.push(brow);
+  }
   const hat = new THREE.Mesh(new THREE.ConeGeometry(0.16,0.38,12),blue);
   hat.position.set(0,2.12,0); hat.rotation.z=0.12; clown.add(hat);
   const pom = sph(0.06,red); pom.position.set(-0.04,2.34,0); clown.add(pom);
   clown.userData.fadeMaterials = fadeMaterials;
+  clown.userData.face = { eyes, smile, angryBrows, angry:false };
   clown.visible = false;
   return clown;
+}
+
+function setClownAngry(angry){
+  const face = clownState.model?.userData.face;
+  if (!face || face.angry===angry) return;
+  face.angry = angry;
+  for (const brow of face.angryBrows) brow.visible = angry;
+  // Eyes are instances of the shared unit sphere, so preserve their original
+  // 0.026 world scale. Setting this to 1 would create a head-sized black orb.
+  for (const eye of face.eyes){
+    if (angry) eye.scale.set(0.03,0.0125,0.026);
+    else eye.scale.setScalar(0.026);
+  }
+  // Flip the friendly painted smile into a deep frown during pursuit.
+  face.smile.rotation.z = angry ? 0 : Math.PI;
+  face.smile.position.y = angry ? 1.625 : 1.7;
+  face.smile.scale.set(angry?1.18:1,angry?1.12:1,1);
 }
 
 function buildOutdoor(){
@@ -1087,6 +1284,7 @@ function buildOutdoor(){
   const g = outdoorGroup;
   clownState.model = makeCreepyClown();
   g.add(clownState.model);
+  buildReinforcementArmy();
 
   const street = box(80,0.1,60,MAT.street,false);
   street.position.set(0, STREET_Y-0.05, 15);
@@ -1163,13 +1361,16 @@ function buildOutdoor(){
   // Two formal guards flank the main doorway while leaving its center clear.
   const guardLeft = makeBodyguard(); guardLeft.position.set(-4.55,STREET_Y+0.16,10.78); guardLeft.rotation.y = 0.08; g.add(guardLeft);
   const guardRight = makeBodyguard(); guardRight.position.set(-1.45,STREET_Y+0.16,10.78); guardRight.rotation.y = -0.08; g.add(guardRight);
-  for (const guard of [guardLeft,guardRight]){
+  for (const [index,guard] of [guardLeft,guardRight].entries()){
     guard.userData.restYaw = guard.rotation.y;
     guard.userData.lookUntil = 0;
+    guard.userData.formationSide = index===0 ? -1 : 1;
+    guard.userData.collider = addCollider(
+      guard.position.x-0.38,guard.position.x+0.38,
+      guard.position.z-0.35,guard.position.z+0.35,-4.0,-1.25
+    );
     guards.push(guard);
   }
-  addCollider(-4.93,-4.17,10.42,11.12,-4.0,-1.25);
-  addCollider(-1.83,-1.07,10.42,11.12,-4.0,-1.25);
 
   // Stone approach and layered planting frame the guarded entrance.
   const approach = box(4.15,0.035,5.1,MAT.houseTrim,false); approach.position.set(-3,STREET_Y+0.03,14.0); g.add(approach);
@@ -1331,32 +1532,75 @@ function endClownVisit(){
 
 function playCircusNote(volume){
   if (!audioCtx || volume<0.0005) return;
-  // Familiar calliope contours interrupted by chromatic notes keep the tune
-  // recognizable while making it feel subtly unstable.
+  // A tiny, deliberately damaged calliope ensemble: melody, oom-pah bass and
+  // two close/tritone harmony voices. The summed gain is kept below the old
+  // single-note level so polyphony adds unease rather than raw loudness.
   const melody = [392,523.25,659.25,554.37,440,587.33,698.46,622.25];
+  const harmonyIntervals = [6,1,6,11,1,6,2,11];
   const now = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const overtone = audioCtx.createOscillator();
-  const overtoneGain = audioCtx.createGain();
-  const wobble = audioCtx.createOscillator();
-  const wobbleGain = audioCtx.createGain();
   const filter = audioCtx.createBiquadFilter();
-  const gain = audioCtx.createGain();
-  const note = melody[clownState.noteIndex++ % melody.length];
-  osc.type = 'triangle';
-  osc.frequency.value = note;
-  overtone.type = 'square';
-  overtone.frequency.value = note*2 + (clownState.noteIndex%2 ? 9 : -11);
-  overtoneGain.gain.value = 0.085;
-  wobble.frequency.value = 5.2; wobbleGain.gain.value = 8;
-  wobble.connect(wobbleGain); wobbleGain.connect(osc.frequency);
-  filter.type='lowpass'; filter.frequency.value=1800;
-  gain.gain.setValueAtTime(0.001,now);
-  gain.gain.exponentialRampToValueAtTime(Math.max(0.001,volume),now+0.025);
-  gain.gain.exponentialRampToValueAtTime(0.001,now+0.27);
-  osc.connect(filter); overtone.connect(overtoneGain); overtoneGain.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-  osc.start(now); overtone.start(now); wobble.start(now);
-  osc.stop(now+0.3); overtone.stop(now+0.3); wobble.stop(now+0.3);
+  const master = audioCtx.createGain();
+  const step = clownState.noteIndex++ % melody.length;
+  const note = melody[step];
+  const semitone = 2**(1/12);
+  filter.type='lowpass'; filter.frequency.value=1650; filter.Q.value=1.6;
+  master.gain.setValueAtTime(0.001,now);
+  master.gain.exponentialRampToValueAtTime(Math.max(0.001,volume*0.82),now+0.025);
+  master.gain.setValueAtTime(Math.max(0.001,volume*0.68),now+0.38);
+  master.gain.exponentialRampToValueAtTime(0.001,now+0.64);
+  filter.connect(master); master.connect(audioCtx.destination);
+
+  const addVoice = (frequency,type,level,detune=0,delay=0,duration=0.66)=>{
+    const osc = audioCtx.createOscillator();
+    const voiceGain = audioCtx.createGain();
+    osc.type=type; osc.frequency.value=frequency; osc.detune.value=detune;
+    voiceGain.gain.value=level;
+    osc.connect(voiceGain); voiceGain.connect(filter);
+    osc.start(now+delay); osc.stop(now+duration);
+  };
+  addVoice(note,'triangle',0.48,step%2?7:-8);
+  // These two chord tones are intentionally prominent and a semitone apart.
+  addVoice(note*(semitone**harmonyIntervals[step]),'square',0.31,step%2?-14:12,0.008);
+  addVoice(note*(semitone**(harmonyIntervals[step]+1)),'triangle',0.25,step%3?11:-13,0.014);
+  // A delayed counter-melody makes the texture audibly polyphonic rather than
+  // merely sounding like a thicker single oscillator.
+  const counter = melody[(step+3)%melody.length]/2;
+  addVoice(counter,'square',0.24,step%2?18:-16,0.105,0.66);
+  // Alternating low tonic/fifth supplies the lopsided circus "oom-pah".
+  addVoice((step%2 ? note/2 : note/2*semitone**7),'sawtooth',0.28,step%2?-17:15,0.035,0.5);
+}
+
+function playClownPursuitBeat(volume){
+  if (!audioCtx || volume<0.0005) return;
+  // A separate chase cue: rapid chromatic ascent, pounding low pulse and a
+  // tritone alarm. Short overlapping envelopes make it feel urgent rather
+  // than like the roaming calliope played faster.
+  const roots = [110,116.54,123.47,130.81,138.59,146.83,155.56,164.81];
+  const step = clownState.noteIndex++ % roots.length;
+  const root = roots[step];
+  const now = audioCtx.currentTime;
+  const master = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  filter.type='lowpass'; filter.frequency.value=2200; filter.Q.value=2.4;
+  master.gain.setValueAtTime(0.001,now);
+  master.gain.exponentialRampToValueAtTime(Math.max(0.001,volume*0.9),now+0.012);
+  master.gain.setValueAtTime(Math.max(0.001,volume*0.72),now+0.12);
+  master.gain.exponentialRampToValueAtTime(0.001,now+0.28);
+  filter.connect(master); master.connect(audioCtx.destination);
+
+  const voice = (frequency,type,level,detune=0,delay=0)=>{
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.type=type; osc.frequency.value=frequency; osc.detune.value=detune;
+    gain.gain.value=level;
+    osc.connect(gain); gain.connect(filter);
+    osc.start(now+delay); osc.stop(now+0.3);
+  };
+  voice(root,'sawtooth',0.58,step%2?9:-11);
+  voice(root*2,'square',0.3,step%2?-18:16,0.008);
+  voice(root*Math.SQRT2,'square',0.24,step%2?22:-20,0.014);
+  // High alternating siren note cuts through the low running pulse.
+  voice((step%2?659.25:739.99),'triangle',0.26,step%2?-13:15,0.025);
 }
 
 function resumeClownRoam(){
@@ -1375,6 +1619,24 @@ function triggerClownGameOver(){
   document.getElementById('game-over').classList.add('show');
 }
 
+function startClownFlee(fromGuard){
+  let awayX=clownState.model.position.x-fromGuard.position.x;
+  let awayZ=clownState.model.position.z-fromGuard.position.z;
+  const length=Math.max(0.001,Math.hypot(awayX,awayZ));
+  awayX/=length; awayZ/=length;
+  // Near the entrance, always bias the escape toward the street rather than
+  // allowing the clown to flee through the protected doorway.
+  awayZ=Math.max(0.35,awayZ);
+  const normalized=Math.hypot(awayX,awayZ);
+  clownState.fleeX=awayX/normalized;
+  clownState.fleeZ=awayZ/normalized;
+  clownState.mode='flee';
+  clownState.elapsed=0;
+  clownState.duration=3.2;
+  clownState.noteTimer=Infinity;
+  clownState.model.rotation.y=Math.atan2(clownState.fleeX,clownState.fleeZ);
+}
+
 function updateClown(dt,outside){
   if (!clownState.model) return;
   if (!clownState.active){
@@ -1387,13 +1649,25 @@ function updateClown(dt,outside){
   let distance = Math.hypot(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
   const guardBoundaryZ = 11.55;
 
-  if (clownState.mode==='guardStare'){
+  if (clownState.mode==='flee'){
+    clownState.elapsed+=dt;
+    clownState.model.position.x+=clownState.fleeX*7.2*dt;
+    clownState.model.position.z+=clownState.fleeZ*7.2*dt;
+    clownState.model.rotation.y=Math.atan2(clownState.fleeX,clownState.fleeZ);
+    if (clownState.elapsed>=clownState.duration){
+      endClownVisit();
+      clownState.wait=rand(45,75);
+      return;
+    }
+  } else if (clownState.mode==='guardStare'){
     clownState.guardStareRemaining -= dt;
     clownState.model.rotation.y = Math.atan2(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
     if (clownState.guardStareRemaining<=0) resumeClownRoam();
   } else {
     if (clownState.mode==='roam' && outside && distance<9 && clownState.chaseCooldown<=0){
       clownState.mode = 'chase';
+      clownState.noteTimer = 0;
+      clownState.noteIndex = 0;
     }
 
     if (clownState.mode==='chase'){
@@ -1411,8 +1685,18 @@ function updateClown(dt,outside){
         clownState.model.position.z = Math.max(guardBoundaryZ,clownState.model.position.z+dz/chaseDistance*step);
         clownState.model.rotation.y = Math.atan2(dx,dz);
         distance = Math.hypot(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
-        if (outside && distance<0.72) triggerClownGameOver();
-        else if (distance>14) resumeClownRoam();
+        if (outside && distance<0.9){
+          // The security detail makes the player immune to clown attacks.
+          // Preserve the threat of the chase, but intercept contact before it
+          // can trigger the game-over state.
+          clownState.mode = 'guardStare';
+          clownState.guardStareRemaining = 3.5;
+          clownState.chaseCooldown = 8;
+          clownState.model.rotation.y = Math.atan2(
+            player.pos.x-clownState.model.position.x,
+            player.pos.z-clownState.model.position.z
+          );
+        } else if (distance>14) resumeClownRoam();
       }
     } else if (clownState.mode==='roam'){
       clownState.elapsed += dt;
@@ -1425,23 +1709,176 @@ function updateClown(dt,outside){
   }
 
   const moving = clownState.mode!=='guardStare';
+  setClownAngry(clownState.mode==='chase');
   clownState.model.position.y = STREET_Y + (moving?Math.abs(Math.sin(performance.now()*0.0045))*0.035:0);
   clownState.model.rotation.z = 0;
   const stride = moving?Math.sin(performance.now()*0.0052)*0.38:0;
   for (const child of clownState.model.children){
-    if (child.userData.clownArm) child.rotation.x = child.userData.baseX<0 ? stride : -stride;
+    if (child.userData.clownArm){
+      child.rotation.x = clownState.mode==='chase'
+        ? -Math.PI/2
+        : child.userData.baseX<0 ? stride : -stride;
+    }
   }
   const t = clamp(clownState.elapsed/clownState.duration,0,1);
   const fadeIn = clownState.skipFadeIn ? 1 : clamp(t/0.12,0,1);
-  const fade = clownState.mode==='roam' ? Math.min(fadeIn,clamp((1-t)/0.12,0,1)) : 1;
+  const fade = clownState.mode==='roam'
+    ? Math.min(fadeIn,clamp((1-t)/0.12,0,1))
+    : clownState.mode==='flee' ? clamp((1-t)/0.24,0,1) : 1;
   for (const material of clownState.model.userData.fadeMaterials) material.opacity = fade;
 
   distance = Math.hypot(player.pos.x-clownState.model.position.x,player.pos.z-clownState.model.position.z);
   const proximity = clamp(1-distance/50,0,1);
   clownState.noteTimer -= dt;
   if (clownState.noteTimer<=0){
-    playCircusNote(proximity*(outside?0.16:0.008));
-    clownState.noteTimer = 0.31;
+    if (clownState.mode==='chase'){
+      playClownPursuitBeat(proximity*0.2);
+      clownState.noteTimer = 0.14;
+    } else {
+      playCircusNote(proximity*(outside?0.16:0.008));
+      // Notes overlap so the harmony and counter-line remain independently
+      // audible instead of collapsing into a sequence of short beeps.
+      clownState.noteTimer = 0.27;
+    }
+  }
+}
+
+function callTacticalSecurity(){
+  const state=reinforcementState;
+  if (state.active){
+    if (state.phase!=='deployed') return;
+    state.phase='dismiss'; state.elapsed=0;
+    for (const unit of state.units){
+      unit.dismissX=unit.model.position.x; unit.dismissZ=unit.model.position.z;
+    }
+    const line='Army unit dismissed. Soldiers boarding. Convoy departing.';
+    captionEl.innerHTML=`<span class="speaker">MILITARY COMMAND</span>${line}`;
+    captionEl.classList.add('show'); clearTimeout(captionTimer);
+    captionTimer=setTimeout(()=>captionEl.classList.remove('show'),4200);
+    if ('speechSynthesis' in window){
+      window.speechSynthesis.cancel();
+      const utterance=new SpeechSynthesisUtterance(line); const voice=selectGuardVoice();
+      if (voice) utterance.voice=voice; utterance.rate=0.9; utterance.pitch=0.76;
+      window.speechSynthesis.speak(utterance);
+    }
+    return;
+  }
+  if (!clownState.active) beginClownVisit();
+  clownState.mode='guardStare';
+  clownState.guardStareRemaining=16;
+  clownState.noteTimer=Infinity;
+
+  state.active=true; state.phase='inbound'; state.elapsed=0; state.struck=false;
+  state.targetX=clownState.model.position.x;
+  state.targetZ=clownState.model.position.z;
+  state.group.visible=true;
+  state.explosion.visible=false; state.shockwave.visible=false;
+  state.blastLight.intensity=0;
+  for (let i=0;i<state.units.length;i++){
+    const unit=state.units[i];
+    const side=unit.station[0]<0 ? -1 : 1;
+    unit.startX=side*(unit.kind==='humvee'?42:34);
+    unit.startZ=unit.station[1];
+    unit.targetX=unit.station[0];
+    unit.targetZ=unit.station[1];
+    unit.model.position.set(unit.startX,STREET_Y,unit.startZ);
+    unit.model.visible=unit.kind==='humvee';
+  }
+  const line='Army convoy dispatched. Armed Humvees are inbound.';
+  captionEl.innerHTML=`<span class="speaker">MILITARY COMMAND</span>${line}`;
+  captionEl.classList.add('show'); clearTimeout(captionTimer);
+  captionTimer=setTimeout(()=>captionEl.classList.remove('show'),4200);
+  if ('speechSynthesis' in window){
+    window.speechSynthesis.cancel();
+    const utterance=new SpeechSynthesisUtterance(line);
+    const voice=selectGuardVoice(); if (voice) utterance.voice=voice;
+    utterance.rate=0.9; utterance.pitch=0.78; window.speechSynthesis.speak(utterance);
+  }
+}
+
+function updateReinforcements(dt){
+  const state=reinforcementState;
+  if (!state.active) return;
+  state.elapsed+=dt;
+
+  const humvees=state.units.filter(unit=>unit.kind==='humvee');
+  const soldiers=state.units.filter(unit=>unit.kind==='soldier');
+  if (state.phase==='inbound'){
+    const arrival=clamp(state.elapsed/3.5,0,1);
+    const eased=arrival*arrival*(3-2*arrival);
+    for (const unit of humvees){
+      unit.model.position.x=lerp(unit.startX,unit.targetX,eased);
+      unit.model.position.z=lerp(unit.startZ,unit.targetZ,eased);
+      unit.model.position.y=STREET_Y;
+      // Humvees enter and park parallel to the ordinary road traffic.
+      unit.model.rotation.y=unit.roadYaw;
+    }
+    const dismount=clamp((state.elapsed-3.2)/2.1,0,1);
+    const dismountEase=dismount*dismount*(3-2*dismount);
+    for (let i=0;i<soldiers.length;i++){
+      const unit=soldiers[i], carrier=humvees[i<4?0:1];
+      const doorSide=i%2===0?-1:1;
+      const exitX=carrier.targetX+doorSide*0.85;
+      const exitZ=carrier.targetZ+(i%4<2?0.45:-0.45);
+      unit.model.visible=dismount>0;
+      unit.model.position.x=lerp(exitX,unit.targetX,dismountEase);
+      unit.model.position.z=lerp(exitZ,unit.targetZ,dismountEase);
+      unit.model.position.y=STREET_Y;
+      unit.model.rotation.y=Math.atan2(state.targetX-unit.model.position.x,state.targetZ-unit.model.position.z);
+    }
+  }
+
+  if (state.phase==='inbound' && !state.struck && state.elapsed>=6.0){
+    state.struck=true;
+    state.explosion.position.set(state.targetX,STREET_Y+1.0,state.targetZ);
+    state.explosion.scale.setScalar(0.15); state.explosion.material.opacity=1; state.explosion.visible=true;
+    state.shockwave.position.set(state.targetX,STREET_Y+0.16,state.targetZ);
+    state.shockwave.scale.setScalar(0.2); state.shockwave.material.opacity=0.9; state.shockwave.visible=true;
+    state.blastLight.position.set(state.targetX,STREET_Y+2,state.targetZ); state.blastLight.intensity=260;
+    if (clownState.active){ endClownVisit(); clownState.wait=Infinity; }
+    ensureAudio(); playThunder(1);
+    captionEl.innerHTML='<span class="speaker">TACTICAL SECURITY</span>Target neutralized.';
+    captionEl.classList.add('show'); clearTimeout(captionTimer);
+    captionTimer=setTimeout(()=>captionEl.classList.remove('show'),3000);
+  }
+
+  if (state.struck && state.phase==='inbound'){
+    const blastAge=state.elapsed-6.0;
+    state.explosion.scale.setScalar(0.15+blastAge*5.2);
+    state.explosion.material.opacity=clamp(1-blastAge/1.35,0,1);
+    state.shockwave.scale.setScalar(0.2+blastAge*8.5);
+    state.shockwave.material.opacity=clamp(0.9-blastAge/1.8,0,0.9);
+    state.blastLight.intensity=260*clamp(1-blastAge/0.7,0,1);
+  }
+  if (state.phase==='inbound' && state.elapsed>=8.1){
+    state.phase='deployed'; state.elapsed=0;
+    state.explosion.visible=false; state.shockwave.visible=false; state.blastLight.intensity=0;
+  }
+
+  if (state.phase==='dismiss'){
+    const board=clamp(state.elapsed/2.0,0,1);
+    const boardEase=board*board*(3-2*board);
+    for (let i=0;i<soldiers.length;i++){
+      const unit=soldiers[i], carrier=humvees[i<4?0:1];
+      const doorSide=i%2===0?-1:1;
+      const boardX=carrier.targetX+doorSide*0.85;
+      const boardZ=carrier.targetZ+(i%4<2?0.45:-0.45);
+      unit.model.position.x=lerp(unit.dismissX,boardX,boardEase);
+      unit.model.position.z=lerp(unit.dismissZ,boardZ,boardEase);
+      unit.model.rotation.y=Math.atan2(boardX-unit.model.position.x,boardZ-unit.model.position.z);
+      if (board>=0.96) unit.model.visible=false;
+    }
+    const departure=clamp((state.elapsed-2.0)/3.2,0,1);
+    const departureEase=departure*departure*(3-2*departure);
+    for (const unit of humvees){
+      const exitX=Math.sign(unit.startX||1)*42;
+      unit.model.position.x=lerp(unit.targetX,exitX,departureEase);
+      unit.model.rotation.y=Math.atan2(exitX-unit.model.position.x,0.01);
+    }
+    if (departure>=1){
+      state.active=false; state.phase='idle'; state.group.visible=false;
+      clownState.wait=rand(24,65);
+    }
   }
 }
 
@@ -1558,6 +1995,7 @@ function ensureAudio(){
 
 let rainAmbGain = null;
 function startRainAmbience(){
+  if (rainAmbGain) return;
   ensureAudio();
   const bufferSize = audioCtx.sampleRate * 2;
   const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -1574,6 +2012,13 @@ function startRainAmbience(){
   rainAmbGain = audioCtx.createGain(); rainAmbGain.gain.value = 0;
   src.connect(filter); filter.connect(rainAmbGain); rainAmbGain.connect(audioCtx.destination);
   src.start();
+}
+
+function prewarmGameAudio(){
+  ensureAudio();
+  startRainAmbience();
+  // The circus cue is synthesized on demand; having a running AudioContext
+  // removes its browser-resume delay without playing it during the prologue.
 }
 
 function playThunder(vol = 0.5){
@@ -1800,6 +2245,8 @@ function aimedInteraction(){
   const hits = interactionRaycaster.intersectObject(worldGroup,true);
   for (const hit of hits){
     if (hit.distance > 3.1) break;
+    const summonPhone = taggedAncestor(hit.object,'summonPhone');
+    if (summonPhone) return { type:'summonPhone', phone:summonPhone };
     const grabbable = taggedAncestor(hit.object,'grabbable');
     if (grabbable) return { type:'grab', object:grabbable, label:grabbable.userData.grabLabel || 'object' };
     const sleepSurface = taggedAncestor(hit.object,'sleepSurface');
@@ -1836,7 +2283,12 @@ function updateInteractPrompt(px, pz, py){
     }
   }
 
-  const promptText = currentInteractable?.type === 'guard' ? 'Press E or USE to speak with security'
+  const promptText = currentInteractable?.type === 'guard'
+    ? `Press E or USE to order security to ${guardEscortActive?'hold position':'follow outside'}`
+    : currentInteractable?.type === 'summonPhone'
+      ? (reinforcementState.phase==='deployed' ? 'Press E or USE to dismiss army unit'
+        : reinforcementState.active ? 'Army convoy operation in progress'
+        : 'Press E or USE to call army convoy')
     : currentInteractable?.type === 'grab' ? `Press E or USE to grab ${currentInteractable.label}`
     : currentInteractable?.type === 'drop' && currentInteractable.object.userData.antiClownSpray ? 'E / USE drop spray · Left Click / SPRAY to repel clown'
     : currentInteractable?.type === 'drop' ? `E / USE drop ${currentInteractable.label} · F / THROW to throw`
@@ -2068,7 +2520,10 @@ function selectGuardVoice(){
 }
 
 function speakGuard(guard){
-  const line = 'Perimeter secured. Enjoy your day.';
+  guardEscortActive = !guardEscortActive;
+  const line = guardEscortActive
+    ? "Understood. We'll follow you outside. That clown won't get past us."
+    : "Holding position. The perimeter remains secure.";
   guard.userData.lookUntil = performance.now() + 4800;
   captionEl.innerHTML = `<span class="speaker">SECURITY</span>${line}`;
   captionEl.classList.add('show');
@@ -2094,6 +2549,7 @@ function speakGuard(guard){
 function tryInteract(){
   if (!currentInteractable) return;
   if (currentInteractable.type === 'guard') speakGuard(currentInteractable.guard);
+  else if (currentInteractable.type === 'summonPhone') callTacticalSecurity();
   else if (currentInteractable.type === 'grab') grabObject(currentInteractable.object);
   else if (currentInteractable.type === 'drop') dropHeldObject();
   else if (currentInteractable.type === 'sleep') sleepOn(currentInteractable.bed);
@@ -2102,14 +2558,110 @@ function tryInteract(){
   else if (currentInteractable.type === 'stand') standUp();
 }
 
-function updateGuards(dt){
+function updateGuardCollider(guard){
+  const collider = guard.userData.collider;
+  if (!collider) return;
+  collider.minX=guard.position.x-0.38; collider.maxX=guard.position.x+0.38;
+  collider.minZ=guard.position.z-0.35; collider.maxZ=guard.position.z+0.35;
+}
+
+function updateGuards(dt,outside){
   const now = performance.now();
   for (const guard of guards){
-    const target = now < guard.userData.lookUntil
-      ? Math.atan2(player.pos.x-guard.position.x,player.pos.z-guard.position.z)
-      : guard.userData.restYaw;
+    guard.userData.punchCooldown=Math.max(0,guard.userData.punchCooldown-dt);
+    let target = guard.userData.restYaw;
+    let desiredX=guard.position.x, desiredZ=guard.position.z;
+    let shouldMove=false, moveSpeed=3.0;
+    if (guardEscortActive && outside){
+      // Two-abreast formation, trailing the player. Keep both guards on the
+      // exterior side of the protected entrance even when the player stands
+      // directly in the doorway.
+      const side = guard.userData.formationSide;
+      desiredX = player.pos.x + Math.sin(yaw)*2.15 + Math.cos(yaw)*side*1.0;
+      desiredZ = Math.max(10.65,player.pos.z + Math.cos(yaw)*2.15 - Math.sin(yaw)*side*1.0);
+      shouldMove=true;
+    }
+
+    if (outside){
+      // Personal space overrides both escort formation and a hold order. If
+      // the player crowds a guard, he calmly steps away instead of allowing
+      // the camera to clip into his body.
+      const fromPlayerX=guard.position.x-player.pos.x;
+      const fromPlayerZ=guard.position.z-player.pos.z;
+      const playerDistance=Math.hypot(fromPlayerX,fromPlayerZ);
+      if (playerDistance<1.55){
+        const safeDistance=Math.max(playerDistance,0.001);
+        const fallbackSide=guard.userData.formationSide;
+        const awayX=playerDistance>0.001 ? fromPlayerX/safeDistance : fallbackSide;
+        const awayZ=playerDistance>0.001 ? fromPlayerZ/safeDistance : 0.25;
+        desiredX=guard.position.x+awayX*(1.8-playerDistance);
+        desiredZ=Math.max(10.65,guard.position.z+awayZ*(1.8-playerDistance));
+        shouldMove=true; moveSpeed=3.5;
+      }
+
+      const other=guards.find(candidate=>candidate!==guard);
+      if (other){
+        const apartX=guard.position.x-other.position.x;
+        const apartZ=guard.position.z-other.position.z;
+        const apart=Math.hypot(apartX,apartZ);
+        if (apart<1.25){
+          const safeApart=Math.max(apart,0.001);
+          desiredX+=apartX/safeApart*(1.25-apart);
+          desiredZ=Math.max(10.65,desiredZ+apartZ/safeApart*(1.25-apart));
+          shouldMove=true;
+        }
+      }
+    }
+
+    if (shouldMove){
+      const dx=desiredX-guard.position.x, dz=desiredZ-guard.position.z;
+      const distance=Math.hypot(dx,dz);
+      if (distance>0.12){
+        const step=Math.min(distance,moveSpeed*dt);
+        guard.position.x += dx/distance*step;
+        guard.position.z += dz/distance*step;
+        target=Math.atan2(dx,dz);
+      } else {
+        target=Math.atan2(player.pos.x-guard.position.x,player.pos.z-guard.position.z);
+      }
+    } else if (now < guard.userData.lookUntil){
+      target=Math.atan2(player.pos.x-guard.position.x,player.pos.z-guard.position.z);
+    }
+    const clownDistance=clownState.active
+      ? Math.hypot(clownState.model.position.x-guard.position.x,clownState.model.position.z-guard.position.z)
+      : Infinity;
+    if (!reinforcementState.active && clownState.mode!=='flee' && clownDistance<1.85 && guard.userData.punchCooldown<=0 && guard.userData.punchTime<=0){
+      guard.userData.punchTime=0.58;
+      guard.userData.punchCooldown=3.2;
+      guard.userData.punchConnected=false;
+    }
+    if (guard.userData.punchTime>0){
+      guard.userData.punchTime=Math.max(0,guard.userData.punchTime-dt);
+      target=Math.atan2(
+        clownState.model.position.x-guard.position.x,
+        clownState.model.position.z-guard.position.z
+      );
+      const punchProgress=1-guard.userData.punchTime/0.58;
+      const extension=Math.sin(Math.PI*clamp(punchProgress,0,1));
+      const strikingArm=guard.userData.formationSide<0 ? 1 : 0;
+      for (let i=0;i<guard.userData.punchArms.length;i++){
+        guard.userData.punchArms[i].rotation.x=i===strikingArm ? -Math.PI/2*extension : 0;
+      }
+      if (!guard.userData.punchConnected && punchProgress>=0.42){
+        guard.userData.punchConnected=true;
+        const hitDistance=Math.hypot(
+          clownState.model.position.x-guard.position.x,
+          clownState.model.position.z-guard.position.z
+        );
+        if (clownState.active && hitDistance<2.15) startClownFlee(guard);
+      }
+    } else {
+      for (const arm of guard.userData.punchArms) arm.rotation.x=0;
+    }
+
     const delta = Math.atan2(Math.sin(target-guard.rotation.y),Math.cos(target-guard.rotation.y));
     guard.rotation.y += delta * Math.min(1,dt*6);
+    updateGuardCollider(guard);
   }
 }
 
@@ -2178,8 +2730,78 @@ function tryJump(){
 /* ============================================================
    START / FLOW (Direct Load — Scene Opened Immediately)
    ============================================================ */
-let gameStarted = true;
+let gameStarted = false;
 document.getElementById('restart-btn').addEventListener('click',() => location.reload());
+
+const introEl = document.getElementById('intro-cinematic');
+const introStartEl = document.getElementById('intro-start');
+const introVisualEl = document.getElementById('intro-visual');
+const introCaptionEl = document.getElementById('intro-caption');
+const introSpeakerEl = introCaptionEl.querySelector('.speaker');
+const introLineEl = introCaptionEl.querySelector('.line');
+const introSkipEl = document.getElementById('intro-skip');
+const introTimers = [];
+let introFinished = false;
+
+const introBeats = [
+  { scene:0, speaker:'Narrator', line:"For your son's birthday, you called a local clown service.", voice:'narrator', duration:4300 },
+  { scene:1, speaker:'Narrator', line:'The clown was pushy. Strange. He knew your address before you gave it to him.', voice:'narrator', duration:5200 },
+  { scene:2, speaker:'You', line:"Something felt wrong. You told him the booking was canceled.", voice:'player', duration:4400 },
+  { scene:3, speaker:'The Clown', line:'Too late.', voice:'clown', duration:3700 },
+  { scene:4, speaker:'Narrator', line:'You hired two bodyguards and stationed them at the entrance. The clown would not be allowed inside.', voice:'narrator', duration:5600 },
+  { scene:4, speaker:'Narrator', line:'That night, the circus music started outside your house.', voice:'narrator', duration:5200 }
+];
+
+function selectIntroVoice(role){
+  const voices = window.speechSynthesis?.getVoices?.() || [];
+  const english = voices.filter(voice => /^en/i.test(voice.lang));
+  if (role==='clown') return english.find(voice=>/(David|Guy|Ryan|Male)/i.test(voice.name)) || english[0] || null;
+  return english.find(voice=>/(Aria|Jenny|Samantha|Natural)/i.test(voice.name)) || english[0] || null;
+}
+
+function narrateIntroBeat(beat){
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(beat.line);
+  const voice = selectIntroVoice(beat.voice);
+  if (voice) utterance.voice = voice;
+  utterance.lang = voice?.lang || 'en-US';
+  utterance.rate = beat.voice==='clown' ? 0.58 : 0.88;
+  utterance.pitch = beat.voice==='clown' ? 0.58 : beat.voice==='player' ? 0.82 : 0.94;
+  utterance.volume = 0.92;
+  window.speechSynthesis.speak(utterance);
+}
+
+function showIntroBeat(index){
+  if (introFinished || index>=introBeats.length){ finishIntro(); return; }
+  const beat = introBeats[index];
+  introVisualEl.className = `scene-${beat.scene}`;
+  introSpeakerEl.textContent = beat.speaker;
+  introLineEl.textContent = beat.line;
+  introCaptionEl.classList.toggle('too-late',beat.voice==='clown');
+  narrateIntroBeat(beat);
+  introTimers.push(setTimeout(()=>showIntroBeat(index+1),beat.duration));
+}
+
+function startIntro(){
+  prewarmGameAudio();
+  introStartEl.style.display = 'none';
+  introSkipEl.style.display = 'block';
+  showIntroBeat(0);
+}
+
+function finishIntro(){
+  if (introFinished) return;
+  introFinished = true;
+  for (const timer of introTimers) clearTimeout(timer);
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  introEl.classList.add('ending');
+  gameStarted = true;
+  setTimeout(()=>{ introEl.style.display='none'; },950);
+}
+
+document.getElementById('intro-play').addEventListener('click',startIntro);
+introSkipEl.addEventListener('click',finishIntro);
 
 const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 if (hasTouch){
@@ -2190,8 +2812,7 @@ if (hasTouch){
 }
 
 function initAudioOnFirstInteraction(){
-  ensureAudio();
-  startRainAmbience();
+  prewarmGameAudio();
   window.removeEventListener('pointerdown', initAudioOnFirstInteraction);
   window.removeEventListener('keydown', initAudioOnFirstInteraction);
   window.removeEventListener('touchstart', initAudioOnFirstInteraction);
@@ -2254,14 +2875,15 @@ function animate(){
     }
     camera.position.copy(player.pos);
 
+    const outside = !isIndoors(player.pos.x, player.pos.z, player.pos.y - player.eyeHeight);
     updateInteractPrompt(player.pos.x, player.pos.z, player.pos.y - player.eyeHeight);
-    updateGuards(dt);
+    updateGuards(dt,outside);
     updateTraffic(dt);
     updateThrownObjects(dt);
     updateSprayBursts(dt);
 
-    const outside = !isIndoors(player.pos.x, player.pos.z, player.pos.y - player.eyeHeight);
     updateClown(dt,outside);
+    updateReinforcements(dt);
     rainPoints.visible = outside;
     windowRainLines.visible = !outside;
     updateRain(dt, player.pos.x, player.pos.z);
