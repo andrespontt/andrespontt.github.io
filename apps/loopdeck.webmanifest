@@ -1,0 +1,15 @@
+{
+  "name": "Loopdeck · A–B Video Looper",
+  "short_name": "Loopdeck",
+  "description": "Save and repeat precise sections of YouTube videos.",
+  "id": "/apps/loopdeck.html",
+  "start_url": "/apps/loopdeck.html",
+  "scope": "/apps/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    {"src":"assets/loopdeck-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
