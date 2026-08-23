@@ -1,4 +1,4 @@
-const CACHE = 'loopdeck-v5';
+const CACHE = 'loopdeck-v7';
 const APP = [
   '/apps/loopdeck.html',
   '/apps/loopdeck.webmanifest',
