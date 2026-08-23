@@ -12,6 +12,7 @@
     var threshold = 82;
     var maxPull = 120;
     var startY = 0;
+    var startScrollTop = 0;
     var pull = 0;
     var pulling = false;
     var indicator = document.createElement('div');
@@ -21,8 +22,14 @@
     indicator.textContent = 'Pull to refresh';
     document.body.appendChild(indicator);
 
+    function getScrollTop(){
+      var scroller = document.scrollingElement || document.documentElement || document.body;
+      return Math.max(window.pageYOffset || 0, window.scrollY || 0, scroller.scrollTop || 0, document.body.scrollTop || 0);
+    }
+
     function canStart(target){
-      return window.scrollY <= 0 &&
+      return getScrollTop() <= 1 &&
+        target.closest &&
         !target.closest('input, textarea, select, button, a, [data-no-pull-refresh]');
     }
 
@@ -37,12 +44,20 @@
     window.addEventListener('touchstart', function(event){
       if (event.touches.length !== 1 || !canStart(event.target)) return;
       startY = event.touches[0].clientY;
+      startScrollTop = getScrollTop();
       pulling = true;
       setPull(0);
     }, { passive: true });
 
     window.addEventListener('touchmove', function(event){
       if (!pulling || event.touches.length !== 1) return;
+      if (startScrollTop > 1 || getScrollTop() > 1) {
+        pulling = false;
+        setPull(0);
+        document.body.classList.remove('is-pulling-refresh');
+        document.body.style.removeProperty('--pull-distance');
+        return;
+      }
       var distance = event.touches[0].clientY - startY;
       if (distance <= 0) {
         setPull(0);
@@ -86,11 +101,6 @@
     var scope = (dir === 'pages') ? 'pages' : (dir === 'apps' ? 'apps' : 'root');
 
     function toHome(){ return scope === 'root' ? 'index.html' : '../index.html'; }
-    function toPage(file){
-      if (scope === 'root') return 'pages/' + file;
-      if (scope === 'pages') return file;
-      return '../pages/' + file; // from apps
-    }
     function toApp(file){
       if (scope === 'root') return 'apps/' + file;
       if (scope === 'pages') return '../apps/' + file;
@@ -104,7 +114,6 @@
 
     var links = [
       { href: toHome(), label: 'Home', key: 'home' },
-      { href: toPage('experiments.html'), label: 'Experiments', key: 'experiments' },
       { href: toAppsIndex(), label: 'Apps', key: 'apps' }
     ];
 

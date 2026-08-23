@@ -8,7 +8,6 @@ Personal website and playground for Andres Pontt, hosted on GitHub Pages. The si
 
 ### Pages
 - **Home**: `index.html` - Main landing page with app showcase
-- **Experiments**: `pages/experiments.html` - Three.js demos and experiments
 - **404**: `404.html` - Custom error page
 - **Offline**: `offline.html` - Offline fallback page for the root service worker
 
@@ -49,8 +48,6 @@ Push changes to the default branch. GitHub Pages serves files directly from the 
 ```
 ├── index.html              # Home page
 ├── 404.html               # Custom 404 page
-├── pages/                 # Additional pages
-│   └── experiments.html
 ├── apps/                  # Interactive apps and games
 │   ├── abc.html
 │   ├── bridge-math.html

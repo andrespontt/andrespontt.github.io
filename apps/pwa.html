@@ -1,577 +1,663 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>PWA Capabilities Demo — Dark Purple</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PWA Test - Andres Pontt</title>
+  <meta name="description" content="Mobile-friendly PWA capability tester for install, offline, storage, notifications, sharing, media, location, and device APIs.">
+  <meta name="theme-color" content="#101820">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/assets/manifest.webmanifest">
+  <link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #0d1117;
+      --panel: #141a22;
+      --line: rgba(255,255,255,.1);
+      --text: #edf2f7;
+      --muted: #9aa7b2;
+      --mint: #31d0aa;
+      --blue: #58a6ff;
+    }
 
-<!-- Basic PWA meta for iOS -->
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 20% -10%, rgba(49,208,170,.18), transparent 30rem),
+        radial-gradient(circle at 90% 8%, rgba(88,166,255,.16), transparent 28rem),
+        var(--page);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      -webkit-font-smoothing: antialiased;
+      padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    }
 
-<!-- Link to manifest (downloadable by the page) -->
-<link rel="manifest" href="manifest.json">
+    .app-shell { width: min(1120px, 100%); margin: 0 auto; }
 
-<!-- Prism.js for syntax highlighting (CDN) -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    .topbar {
+      position: sticky;
+      top: max(10px, env(safe-area-inset-top));
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      padding: .65rem;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(16,24,32,.86);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 16px 44px rgba(0,0,0,.34);
+    }
 
+    .back-link,
+    .icon-button {
+      width: 42px;
+      height: 42px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      text-decoration: none;
+      flex: 0 0 auto;
+    }
 
-<style>
-  :root{
-    --bg:#0b0310;
-    --panel:#12061a;
-    --muted:#bfb8cf;
-    --accent:#a06bff; /* purple tint */
-    --accent-2:#7b3cff;
-    --glass: rgba(255,255,255,0.03);
-    --success:#7ee787;
-  }
-  *{box-sizing:border-box;}
-  html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;}
-  body{background:linear-gradient(180deg,#050007 0%, #0b0310 100%); color:var(--muted); padding:28px max(28px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(28px, env(safe-area-inset-left)); -webkit-font-smoothing:antialiased; overflow-x:hidden;}
-  .container{max-width:1100px;margin:0 auto; display:grid; grid-template-columns: 1fr 360px; gap:20px;}
-  header{grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:12px;}
-  input{max-width:100%;}
-  video{max-width:100%;}
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--mint), var(--blue));
+      color: #061018;
+      font-size: 1.25rem;
+      box-shadow: 0 10px 28px rgba(49,208,170,.2);
+      flex: 0 0 auto;
+    }
 
-  @media (max-width: 860px){
-    .container{ grid-template-columns: 1fr; }
-    .right-col{ position:static; }
-  }
+    .title-block { min-width: 0; flex: 1 1 auto; }
+    .title-block h1 {
+      margin: 0;
+      font-size: clamp(1.1rem, 4.5vw, 1.65rem);
+      line-height: 1.05;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .title-block p {
+      margin: .18rem 0 0;
+      color: var(--muted);
+      font-size: .87rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-  @media (max-width: 560px){
-    body{ padding: 16px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
-    header{ flex-direction:column; align-items:flex-start; }
-    header .row{ width:100%; }
-    header .row .btn{ flex:1; }
-    .row input{ flex:1; min-width:0; }
-    pre{ max-height:220px; font-size:13px; }
-  }
-  h1{margin:0;color:white; font-size:20px;}
-  p.lead{margin:0;color: #d9d0ff;}
-  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:16px; box-shadow: 0 6px 24px rgba(10,6,14,0.6); border:1px solid rgba(255,255,255,0.03);}
-  .panel{padding:12px; border-radius:10px; background:var(--panel); }
-  .btn{background:linear-gradient(90deg,var(--accent),var(--accent-2)); border:none; color:white; padding:10px 12px; border-radius:8px; cursor:pointer; font-weight:600; box-shadow:0 6px 20px rgba(123,60,255,0.18); }
-  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06); color:var(--muted);}
-  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
-  .feature{margin-bottom:14px;}
-  .status{display:inline-block;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,0.2); color:#e6dfff; font-weight:600;}
-  pre {max-height:320px; overflow:auto; border-radius:8px; }
-  code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;}
-  footer{color:#9b89c7; font-size:13px; margin-top:10px; grid-column:1/-1;}
-  .right-col{position:sticky; top:28px; align-self:start;}
-  .hint{font-size:13px; color:#d0c6ff;}
-  .green{color:var(--success); font-weight:700;}
-  .grid-feat{display:grid; grid-template-columns: 1fr 1fr; gap:12px;}
-  .big-output{background:var(--glass); padding:10px; border-radius:8px; min-height:90px; color:#fff; font-family:monospace; font-size:13px;}
-  .code-title{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:6px;}
-  a.link{color:var(--accent); text-decoration:none;}
-  small.meta{color:#bba9ff;}
-  .header-title{display:flex; align-items:center; gap:12px;}
-  .back-link{
-    width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    color:var(--muted); text-decoration:none; font-weight:700; font-size:1.1rem;
-    border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); flex-shrink:0;
-  }
-</style>
-<!-- Cloudflare Web Analytics -->
-<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "5d5f9cafacb64867a0d0b21c7e747d44"}'></script>
-<!-- End Cloudflare Web Analytics -->
+    .hero-panel {
+      margin: 1rem 0;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
+      box-shadow: 0 20px 60px rgba(0,0,0,.28);
+    }
+
+    .score-grid,
+    .capability-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .85rem;
+    }
+
+    .score-tile,
+    .cap-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(20,26,34,.86);
+      box-shadow: 0 12px 34px rgba(0,0,0,.22);
+    }
+
+    .score-tile {
+      min-height: 86px;
+      padding: .8rem;
+    }
+
+    .score-tile .label {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      margin-bottom: .45rem;
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .score-tile .value {
+      font-size: 1rem;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .cap-card { overflow: hidden; }
+    .cap-card .card-body { padding: 1rem; }
+
+    .cap-head {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      margin-bottom: .9rem;
+    }
+
+    .cap-icon {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: rgba(49,208,170,.12);
+      color: var(--mint);
+      font-size: 1.18rem;
+      flex: 0 0 auto;
+    }
+
+    .cap-head h2 { margin: 0; font-size: 1rem; font-weight: 800; }
+    .cap-head p {
+      margin: .15rem 0 0;
+      color: var(--muted);
+      font-size: .86rem;
+      line-height: 1.35;
+    }
+
+    .btn {
+      border-radius: 14px;
+      font-weight: 750;
+      letter-spacing: 0;
+      min-height: 42px;
+    }
+
+    .btn-primary {
+      border: 0;
+      background: linear-gradient(135deg, var(--mint), var(--blue));
+      color: #061018;
+      box-shadow: 0 10px 26px rgba(49,208,170,.16);
+    }
+
+    .btn-outline-light {
+      border-color: var(--line);
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+    }
+
+    .form-control {
+      min-height: 42px;
+      border-color: var(--line);
+      border-radius: 14px;
+      background-color: rgba(255,255,255,.04);
+      color: var(--text);
+    }
+
+    .form-control:focus {
+      border-color: rgba(49,208,170,.7);
+      background-color: rgba(255,255,255,.06);
+      color: var(--text);
+      box-shadow: 0 0 0 .2rem rgba(49,208,170,.14);
+    }
+
+    .form-control::placeholder { color: rgba(154,167,178,.78); }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      max-width: 100%;
+      padding: .42rem .62rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: .8rem;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .status-pill.good { color: #86efac; background: rgba(34,197,94,.12); }
+    .status-pill.warn { color: #facc15; background: rgba(250,204,21,.12); }
+
+    .output {
+      min-height: 48px;
+      max-height: 164px;
+      overflow: auto;
+      padding: .75rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,.18);
+      color: #dce7ef;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    video {
+      width: 100%;
+      max-height: 280px;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #000;
+    }
+
+    .footer-note {
+      margin: 1rem 0 0;
+      color: var(--muted);
+      font-size: .82rem;
+      text-align: center;
+    }
+
+    @media (max-width: 760px) {
+      body { padding-inline: 12px; }
+      .topbar { border-radius: 16px; }
+      .brand-mark { display: none; }
+      .title-block p { white-space: normal; }
+      .hero-panel { padding: .8rem; }
+      .score-grid,
+      .capability-grid { grid-template-columns: 1fr; }
+      .cap-card .card-body { padding: .9rem; }
+      .btn-row,
+      .input-row { display: grid !important; grid-template-columns: 1fr; }
+    }
+  </style>
+  <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "5d5f9cafacb64867a0d0b21c7e747d44"}'></script>
 </head>
 <body>
-<div class="container">
+  <div class="app-shell">
+    <header class="topbar">
+      <a href="index.html" class="back-link" aria-label="Back to Apps"><i class="bi bi-chevron-left"></i></a>
+      <div class="brand-mark" aria-hidden="true"><i class="bi bi-phone"></i></div>
+      <div class="title-block">
+        <h1>PWA Test</h1>
+        <p>Install, offline, device, and browser API checks.</p>
+      </div>
+      <button class="icon-button" id="refreshStatus" type="button" aria-label="Refresh capability status"><i class="bi bi-arrow-clockwise"></i></button>
+    </header>
 
-<header>
-  <div>
-    <div class="header-title">
-      <a href="index.html" class="back-link" title="Back to Apps">←</a>
-      <h1>PWA Capabilities — Interactive Demo</h1>
-    </div>
-    <p class="lead">Dark mode with purple tints — test many features here. Best experience on <strong>localhost</strong> or HTTPS.</p>
-  </div>
-  <div class="row">
-    <button id="downloadFiles" class="btn">Download manifest & service worker</button>
-    <button id="regSW" class="btn ghost">Attempt register SW (auto)</button>
-  </div>
-</header>
+    <section class="hero-panel">
+      <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+        <div>
+          <div class="status-pill mb-2" id="secureStatus"><i class="bi bi-shield-lock"></i><span>Checking context</span></div>
+          <h2 class="h5 fw-bold mb-1">Device Readiness</h2>
+          <p class="text-secondary mb-0">Run each test from HTTPS or localhost for accurate results.</p>
+        </div>
+        <button id="btnInstall" class="btn btn-primary flex-shrink-0" type="button"><i class="bi bi-download me-1"></i>Install</button>
+      </div>
 
-<!-- Left column: feature demos and explanation -->
-<main class="card">
-  <section class="feature">
-    <div class="code-title"><strong>Install / beforeinstallprompt</strong><span class="hint">PWA install prompt</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="btnPrompt" class="btn">Trigger install prompt</button>
-      <span id="installStatus" class="status">unknown</span>
-    </div>
-    <p class="hint">The browser fires a `beforeinstallprompt` event when the PWA is eligible. iOS controls "Add to Home Screen" via share sheet (manual).</p>
-    <pre><code class="language-javascript">
-// Example: listen for beforeinstallprompt
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  // show your install UI
-});
-document.getElementById('btnPrompt').addEventListener('click', async () => {
-  if(deferredPrompt){ await deferredPrompt.prompt(); let res = await deferredPrompt.userChoice; console.log(res); }
-});
-    </code></pre>
-  </section>
+      <div class="score-grid">
+        <div class="score-tile">
+          <div class="label"><i class="bi bi-hdd-network"></i>Service Worker</div>
+          <div class="value" id="swSummary">Checking</div>
+        </div>
+        <div class="score-tile">
+          <div class="label"><i class="bi bi-bell"></i>Notifications</div>
+          <div class="value" id="notifSummary">Checking</div>
+        </div>
+        <div class="score-tile">
+          <div class="label"><i class="bi bi-share"></i>Share</div>
+          <div class="value" id="shareSummary">Checking</div>
+        </div>
+        <div class="score-tile">
+          <div class="label"><i class="bi bi-camera-video"></i>Media</div>
+          <div class="value" id="mediaSummary">Checking</div>
+        </div>
+      </div>
+    </section>
 
-  <section class="feature">
-    <div class="code-title"><strong>Service Worker / Offline Caching</strong><span class="hint">Requires service-worker.js + HTTPS or localhost</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="btnCacheTest" class="btn ghost">Test fetch (online → offline)</button>
-      <span id="swStatus" class="status">sw: unknown</span>
-    </div>
-    <p class="hint">This demo can attempt to register a temporary worker. For full offline caching, download the provided service-worker.js and serve it from the same folder.</p>
-    <pre><code class="language-javascript">
-// Simplified service worker caching flow (service-worker.js)
-self.addEventListener('install', event => {
-  event.waitUntil(caches.open('demo-v1').then(c => c.addAll(['/','/pwa-demo.html'])));
-});
-self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
-});
-    </code></pre>
-  </section>
+    <main class="capability-grid">
+      <section class="cap-card">
+        <div class="card-body">
+          <div class="cap-head">
+            <div class="cap-icon"><i class="bi bi-cloud-check"></i></div>
+            <div><h2>Offline Cache</h2><p>Registers the site service worker and checks cached navigation support.</p></div>
+          </div>
+          <div class="d-flex gap-2 btn-row">
+            <button id="btnRegisterSw" class="btn btn-primary flex-fill" type="button">Register</button>
+            <button id="btnCacheCheck" class="btn btn-outline-light flex-fill" type="button">Check</button>
+          </div>
+          <div id="swOut" class="output mt-3">Waiting for test.</div>
+        </div>
+      </section>
 
-  <section class="feature">
-    <div class="code-title"><strong>Storage: localStorage & IndexedDB</strong><span class="hint">Persistent storage</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <input id="lsKey" placeholder="key" style="padding:8px;border-radius:6px;background:#0a0710;border:1px solid rgba(255,255,255,0.03);color:var(--muted)"/>
-      <input id="lsVal" placeholder="value" style="padding:8px;border-radius:6px;background:#0a0710;border:1px solid rgba(255,255,255,0.03);color:var(--muted)"/>
-      <button id="saveLS" class="btn ghost">Save localStorage</button>
-      <button id="readLS" class="btn">Read</button>
-    </div>
-    <div class="big-output" id="lsOut">localStorage output</div>
+      <section class="cap-card">
+        <div class="card-body">
+          <div class="cap-head">
+            <div class="cap-icon"><i class="bi bi-database"></i></div>
+            <div><h2>Storage</h2><p>Saves and reads data from localStorage on this device.</p></div>
+          </div>
+          <div class="d-flex gap-2 input-row">
+            <input id="storageKey" class="form-control" autocomplete="off" placeholder="Key" value="demo">
+            <input id="storageValue" class="form-control" autocomplete="off" placeholder="Value" value="PWA ready">
+          </div>
+          <div class="d-flex gap-2 mt-2 btn-row">
+            <button id="btnSaveStorage" class="btn btn-primary flex-fill" type="button">Save</button>
+            <button id="btnReadStorage" class="btn btn-outline-light flex-fill" type="button">Read</button>
+          </div>
+          <div id="storageOut" class="output mt-3">No storage test run.</div>
+        </div>
+      </section>
 
-    <p class="hint">IndexedDB demo also included (small wrapper). Use it for larger structured storage.</p>
-    <pre><code class="language-javascript">
-// localStorage usage
-localStorage.setItem('demoKey','demoValue');
-let v = localStorage.getItem('demoKey');
-    </code></pre>
-  </section>
+      <section class="cap-card">
+        <div class="card-body">
+          <div class="cap-head">
+            <div class="cap-icon"><i class="bi bi-camera"></i></div>
+            <div><h2>Camera & Mic</h2><p>Requests media permissions and previews the camera stream.</p></div>
+          </div>
+          <div class="d-flex gap-2 btn-row">
+            <button id="btnCamera" class="btn btn-primary flex-fill" type="button">Camera</button>
+            <button id="btnMic" class="btn btn-outline-light flex-fill" type="button">Mic</button>
+            <button id="btnStopMedia" class="btn btn-outline-light flex-fill" type="button">Stop</button>
+          </div>
+          <video id="cameraPreview" class="mt-3" autoplay muted playsinline></video>
+          <div id="mediaOut" class="output mt-3">Media inactive.</div>
+        </div>
+      </section>
 
-  <section class="feature">
-    <div class="code-title"><strong>Camera & Microphone</strong><span class="hint">getUserMedia</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="camBtn" class="btn">Open Camera (video)</button>
-      <button id="micBtn" class="btn ghost">Open Microphone (audio)</button>
-      <button id="stopMedia" class="btn ghost">Stop</button>
-    </div>
-    <video id="video" style="width:100%;max-height:320px;border-radius:8px;background:#000" autoplay muted playsinline></video>
-    <div class="big-output" id="mediaOut">Camera / mic state</div>
-    <pre><code class="language-javascript">
-// getUserMedia
-const stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-video.srcObject = stream;
-    </code></pre>
-  </section>
+      <section class="cap-card">
+        <div class="card-body">
+          <div class="cap-head">
+            <div class="cap-icon"><i class="bi bi-geo-alt"></i></div>
+            <div><h2>Location</h2><p>Requests one-time geolocation from the browser.</p></div>
+          </div>
+          <button id="btnLocation" class="btn btn-primary w-100" type="button">Get Location</button>
+          <div id="locationOut" class="output mt-3">Location not requested.</div>
+        </div>
+      </section>
 
-  <section class="feature">
-    <div class="code-title"><strong>Geolocation</strong><span class="hint">One-time location fetch</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="geoBtn" class="btn">Get Location</button>
-      <span id="geoOut" class="status">—</span>
-    </div>
-    <p class="hint">iOS shows a permission dialog. Background tracking while closed is not available in PWAs on iOS.</p>
-    <pre><code class="language-javascript">
-// Geolocation
-navigator.geolocation.getCurrentPosition(pos => console.log(pos.coords));
-    </code></pre>
-  </section>
+      <section class="cap-card">
+        <div class="card-body">
+          <div class="cap-head">
+            <div class="cap-icon"><i class="bi bi-bell"></i></div>
+            <div><h2>Notifications</h2><p>Requests notification permission and sends a local test notification.</p></div>
+          </div>
+          <div class="d-flex gap-2 btn-row">
+            <button id="btnNotifPermission" class="btn btn-primary flex-fill" type="button">Allow</button>
+            <button id="btnShowNotification" class="btn btn-outline-light flex-fill" type="button">Send Test</button>
+          </div>
+          <div id="notificationOut" class="output mt-3">Permission not requested.</div>
+        </div>
+      </section>
 
-  <section class="feature">
-    <div class="code-title"><strong>Notifications & Push (explain)</strong><span class="hint">Permission + subscription</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="notifyPerm" class="btn">Request Notification Permission</button>
-      <button id="showNotif" class="btn ghost">Show Local Notification</button>
-      <button id="subscribePush" class="btn">Show Push Snippet</button>
-      <span id="notifStatus" class="status">perm: ?</span>
-    </div>
-    <p class="hint">Server required for real push. On iOS Safari it uses APNs behind the scenes. Use the provided snippet to subscribe and send a test push from a server.</p>
-    <pre><code class="language-javascript">
-// client: subscribe (example)
-const reg = await navigator.serviceWorker.ready;
-const sub = await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey: '...VAPID key...'});
-// send `sub` to your server and call push via web-push / APNs.
-    </code></pre>
-  </section>
+      <section class="cap-card">
+        <div class="card-body">
+          <div class="cap-head">
+            <div class="cap-icon"><i class="bi bi-send"></i></div>
+            <div><h2>Share & Clipboard</h2><p>Tests native share sheet, file picker, and clipboard write.</p></div>
+          </div>
+          <div class="d-flex gap-2 btn-row">
+            <button id="btnShare" class="btn btn-primary flex-fill" type="button">Share</button>
+            <button id="btnPickFile" class="btn btn-outline-light flex-fill" type="button">Pick File</button>
+            <button id="btnClipboard" class="btn btn-outline-light flex-fill" type="button">Copy</button>
+          </div>
+          <div id="shareOut" class="output mt-3">No share test run.</div>
+        </div>
+      </section>
 
-  <section class="feature">
-    <div class="code-title"><strong>Web Share / File Picker / Clipboard</strong><span class="hint">share text/files</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="shareBtn" class="btn">Share Text (Web Share)</button>
-      <button id="pickFile" class="btn ghost">Pick File</button>
-      <button id="clipWrite" class="btn">Copy ↗ Clipboard</button>
-    </div>
-    <div class="big-output" id="shareOut">Share output</div>
-    <pre><code class="language-javascript">
-// Web Share
-if(navigator.canShare) await navigator.share({title:'Hello',text:'Share from demo'});
-    </code></pre>
-  </section>
+      <section class="cap-card">
+        <div class="card-body">
+          <div class="cap-head">
+            <div class="cap-icon"><i class="bi bi-phone-vibrate"></i></div>
+            <div><h2>Haptics</h2><p>Runs the browser vibration API where supported.</p></div>
+          </div>
+          <button id="btnVibrate" class="btn btn-primary w-100" type="button">Vibrate</button>
+          <div id="hapticOut" class="output mt-3">Haptics not tested.</div>
+        </div>
+      </section>
 
-  <section class="feature">
-    <div class="code-title"><strong>Vibration / Haptics & Media</strong><span class="hint">vibrate, media playback</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="vibe" class="btn">Vibrate pattern</button>
-      <button id="playAudio" class="btn ghost">Play sample audio</button>
-    </div>
-    <audio id="sampleAudio" src="data:audio/mp3;base64,//uQZAA..."></audio>
-    <pre><code class="language-javascript">
-// Vibration
-navigator.vibrate([200,100,200]);
-    </code></pre>
-  </section>
+      <section class="cap-card">
+        <div class="card-body">
+          <div class="cap-head">
+            <div class="cap-icon"><i class="bi bi-plug"></i></div>
+            <div><h2>WebSocket</h2><p>Connects to an echo endpoint and sends a small message.</p></div>
+          </div>
+          <div class="d-flex gap-2 btn-row">
+            <button id="btnSocketConnect" class="btn btn-primary flex-fill" type="button">Connect</button>
+            <button id="btnSocketSend" class="btn btn-outline-light flex-fill" type="button">Send</button>
+          </div>
+          <div id="socketOut" class="output mt-3">Disconnected.</div>
+        </div>
+      </section>
+    </main>
 
-  <section class="feature">
-    <div class="code-title"><strong>Bluetooth & WebUSB (notes)</strong><span class="hint">very limited on iOS</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="btBtn" class="btn ghost">Try Web Bluetooth</button>
-      <span class="hint">Most iOS builds restrict Web Bluetooth; Desktop Chrome gives best experience.</span>
-    </div>
-    <pre><code class="language-javascript">
-// Web Bluetooth (desktop Chromium)
-// const dev = await navigator.bluetooth.requestDevice({filters:[{services:['battery_service']}]});
-    </code></pre>
-  </section>
-
-  <section class="feature">
-    <div class="code-title"><strong>WebSocket test (echo)</strong><span class="hint">connect to public echo (if allowed)</span></div>
-    <div class="row" style="margin-bottom:8px;">
-      <button id="wsConnect" class="btn">Connect Echo</button>
-      <button id="wsSend" class="btn ghost">Send "hello"</button>
-      <div id="wsState" class="status">disconnected</div>
-    </div>
-    <div class="big-output" id="wsOut">ws messages</div>
-    <pre><code class="language-javascript">
-// WebSocket simple
-// const ws = new WebSocket('wss://echo.websocket.org/');
-// ws.onmessage = e => console.log(e.data);
-    </code></pre>
-  </section>
-
-</main>
-
-<!-- Right column: status, tips, and code downloads -->
-<aside class="right-col">
-  <div class="card panel">
-    <h3 style="margin:0 0 8px 0;">Status</h3>
-    <div style="display:grid; gap:6px;">
-      <div><small class="meta">Service worker</small> <div id="statusSW" class="hint">unknown</div></div>
-      <div><small class="meta">Push support</small> <div id="statusPush" class="hint">unknown</div></div>
-      <div><small class="meta">Web Share</small> <div id="statusShare" class="hint">unknown</div></div>
-      <div><small class="meta">Media Devices</small> <div id="statusMedia" class="hint">unknown</div></div>
-    </div>
-    <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:12px 0;">
-    <div>
-      <strong>Quick tips</strong>
-      <ul style="padding-left:18px;margin:8px 0;color:var(--muted);">
-        <li>Serve on <code>localhost</code> or HTTPS for install & SW.</li>
-        <li>iOS: "Add to Home Screen" is via share sheet (manual) — no beforeinstallprompt.</li>
-        <li>Push notifications need a backend (VAPID/APNs bridge).</li>
-      </ul>
-    </div>
-    <div style="margin-top:12px">
-      <button id="showManifest" class="btn ghost">Show manifest</button>
-      <button id="showSWCode" class="btn">Show SW code</button>
-    </div>
+    <p class="footer-note">Some APIs vary by browser, OS, install state, and permission settings.</p>
   </div>
 
-  <div class="card" style="margin-top:12px;">
-    <h4 style="margin:0 0 8px 0">Saved snippets</h4>
-    <p class="hint">Download the manifest & service worker files for a complete test. Then reload from <code>localhost</code>.</p>
-    <div class="row">
-      <button id="downloadBoth" class="btn">Download both</button>
-      <a id="manualLink" class="link" href="#" style="margin-left:8px">Manual instructions</a>
-    </div>
-  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const setText = (id, text) => { $(id).textContent = text; };
+    const setStatus = (id, text, state = '') => {
+      const el = $(id);
+      el.className = 'status-pill' + (state ? ' ' + state : '');
+      el.querySelector('span').textContent = text;
+    };
 
-  <footer>
-    <small>© PWA demo • Built for testing many browser APIs. Some features require server & HTTPS.</small>
-  </footer>
-</aside>
+    let deferredPrompt = null;
+    let mediaStream = null;
+    let socket = null;
 
-</div>
-
-<!-- Hidden containers for generated content -->
-<textarea id="manifestContent" style="display:none">
-{
-  "name":"PWA Capabilities Demo",
-  "short_name":"PWA Demo",
-  "start_url":".",
-  "display":"standalone",
-  "background_color":"#0b0310",
-  "theme_color":"#a06bff",
-  "icons":[
-    {"src":"icon-192.png","sizes":"192x192","type":"image/png"},
-    {"src":"icon-512.png","sizes":"512x512","type":"image/png"}
-  ]
-}
-</textarea>
-
-<textarea id="swContent" style="display:none">
-/* Simple service-worker.js generated by demo */
-const CACHE = 'pwa-demo-v1';
-const ASSETS = [
-  '/',
-  '/pwa-demo.html'
-];
-
-self.addEventListener('install', event => {
-  self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
-});
-
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then(cacheRes => {
-      if (cacheRes) return cacheRes;
-      return fetch(event.request).then(fetchRes => {
-        // optionally cache dynamic responses
-        return fetchRes;
-      }).catch(()=> caches.match('/pwa-demo.html'));
-    })
-  );
-});
-
-self.addEventListener('push', event => {
-  const data = event.data?.text() || 'Push message';
-  event.waitUntil(self.registration.showNotification('PWA Demo', { body: data }));
-});
-
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  event.waitUntil(self.clients.openWindow('/'));
-});
-</textarea>
-
-<script>
-/* ---------- Utilities ---------- */
-const out = id => (document.getElementById(id).textContent = '');
-const setText = (id, txt) => document.getElementById(id).textContent = txt;
-
-/* ---------- Download manifest & service worker ---------- */
-document.getElementById('downloadFiles').addEventListener('click', () => {
-  download('manifest.webmanifest', document.getElementById('manifestContent').value);
-  download('service-worker.js', document.getElementById('swContent').value);
-  alert('Downloaded manifest.webmanifest and service-worker.js. Place them next to this HTML and serve via localhost or HTTPS, then reload.');
-});
-document.getElementById('downloadBoth').addEventListener('click', () => {
-  download('manifest.webmanifest', document.getElementById('manifestContent').value);
-  download('service-worker.js', document.getElementById('swContent').value);
-  alert('Files downloaded.');
-});
-function download(filename, text){
-  const blob = new Blob([text], {type:'application/javascript'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
-/* ---------- Try to register a blob-based service worker (may be blocked by some browsers) ---------- */
-document.getElementById('regSW').addEventListener('click', async () => {
-  if(!('serviceWorker' in navigator)){ setText('swStatus','not supported'); return; }
-  const code = document.getElementById('swContent').value;
-  try {
-    const blob = new Blob([code], {type:'application/javascript'});
-    const url = URL.createObjectURL(blob);
-    const reg = await navigator.serviceWorker.register(url);
-    setText('swStatus', 'registered (blob)');
-    setText('statusSW','registered (blob)');
-  } catch (e) {
-    console.error(e);
-    setText('swStatus','register failed: ' + (e.message||e));
-  }
-});
-
-/* ---------- Listen for beforeinstallprompt ---------- */
-let deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  setText('installStatus','prompt-available');
-});
-document.getElementById('btnPrompt').addEventListener('click', async () => {
-  if (!deferredPrompt) { alert('No install prompt available (iOS uses "Add to Home Screen" in share sheet).'); return; }
-  deferredPrompt.prompt();
-  const choice = await deferredPrompt.userChoice;
-  setText('installStatus','choice: ' + choice.outcome);
-  deferredPrompt = null;
-});
-
-/* ---------- LocalStorage ---------- */
-document.getElementById('saveLS').addEventListener('click', () => {
-  const k = document.getElementById('lsKey').value || 'demoKey';
-  const v = document.getElementById('lsVal').value || 'demoValue';
-  localStorage.setItem(k, v);
-  document.getElementById('lsOut').textContent = `Saved ${k} = ${v}`;
-});
-document.getElementById('readLS').addEventListener('click', () => {
-  const k = document.getElementById('lsKey').value || 'demoKey';
-  const v = localStorage.getItem(k);
-  document.getElementById('lsOut').textContent = (v===null) ? 'No value' : `${k} = ${v}`;
-});
-
-/* ---------- Media devices ---------- */
-let currentStream = null;
-document.getElementById('camBtn').addEventListener('click', async () => {
-  try {
-    currentStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
-    document.getElementById('video').srcObject = currentStream;
-    setText('mediaOut','camera active');
-    setText('statusMedia','camera available');
-  } catch (e) {
-    setText('mediaOut','camera error: '+e.message);
-    setText('statusMedia','camera denied/error');
-  }
-});
-document.getElementById('micBtn').addEventListener('click', async () => {
-  try {
-    currentStream = await navigator.mediaDevices.getUserMedia({audio:true});
-    setText('mediaOut','microphone active');
-    setText('statusMedia','mic available');
-  } catch(e){
-    setText('mediaOut','mic error: '+e.message);
-  }
-});
-document.getElementById('stopMedia').addEventListener('click', () => {
-  if(currentStream){ currentStream.getTracks().forEach(t => t.stop()); document.getElementById('video').srcObject = null; setText('mediaOut','stopped'); }
-});
-
-/* ---------- Geolocation ---------- */
-document.getElementById('geoBtn').addEventListener('click', () => {
-  if(!navigator.geolocation){ setText('geoOut','not supported'); return; }
-  navigator.geolocation.getCurrentPosition(p => {
-    setText('geoOut', `lat:${p.coords.latitude.toFixed(5)} lon:${p.coords.longitude.toFixed(5)}`);
-  }, err => setText('geoOut','err:'+err.message));
-});
-
-/* ---------- Notifications & Push (client side) ---------- */
-document.getElementById('notifyPerm').addEventListener('click', async () => {
-  if(!('Notification' in window)){ setText('notifStatus','not supported'); return; }
-  const perm = await Notification.requestPermission();
-  setText('notifStatus','perm: '+perm);
-});
-document.getElementById('showNotif').addEventListener('click', async () => {
-  if(Notification.permission !== 'granted'){ alert('Grant permission first.'); return; }
-  if(navigator.serviceWorker && navigator.serviceWorker.controller){
-    navigator.serviceWorker.getRegistration().then(reg => reg.showNotification('Hello from demo', {body:'Local notification'}));
-  } else {
-    new Notification('Hello from demo', {body:'Local notification (no SW)'});
-  }
-});
-document.getElementById('subscribePush').addEventListener('click', () => {
-  alert('Push requires a server (VAPID keys) and service-worker registration. The snippet is in the page. You must implement server-side send.');
-});
-
-/* ---------- Web Share / File picker / Clipboard ---------- */
-document.getElementById('shareBtn').addEventListener('click', async () => {
-  if(navigator.share){
-    try{
-      await navigator.share({title:'PWA Demo', text:'Testing Web Share from demo', url: location.href});
-      setText('shareOut','shared successfully');
-    } catch(e){
-      setText('shareOut','share canceled');
+    function yesNo(value) {
+      return value ? 'Available' : 'Unavailable';
     }
-  } else setText('shareOut','Web Share not supported');
-});
-document.getElementById('pickFile').addEventListener('click', async () => {
-  if(window.showOpenFilePicker){
-    try{
-      const [fileHandle] = await window.showOpenFilePicker();
-      const file = await fileHandle.getFile();
-      setText('shareOut','Picked: ' + file.name);
-    }catch(e){ setText('shareOut','picker canceled'); }
-  } else {
-    // fallback input
-    const inp = document.createElement('input'); inp.type='file';
-    inp.onchange = ()=> setText('shareOut','Picked: '+ inp.files[0].name);
-    inp.click();
-  }
-});
-document.getElementById('clipWrite').addEventListener('click', async () => {
-  try{
-    await navigator.clipboard.writeText('Copied from PWA demo ✨');
-    setText('shareOut','copied to clipboard');
-  }catch(e){ setText('shareOut','clipboard failed: '+e.message); }
-});
 
-/* ---------- Vibration & audio ---------- */
-document.getElementById('vibe').addEventListener('click', () => {
-  if(navigator.vibrate){ navigator.vibrate([100,60,200]); setText('mediaOut','vibrated'); } else setText('mediaOut','vibration not supported');
-});
-document.getElementById('playAudio').addEventListener('click', () => {
-  const a = document.getElementById('sampleAudio');
-  // audio data is omitted for brevity; some browsers block autoplay without user gesture
-  try{ a.play(); setText('mediaOut','playing audio'); }catch(e){ setText('mediaOut','audio play failed: '+e.message); }
-});
+    function refreshStatus() {
+      const secure = window.isSecureContext || location.hostname === 'localhost';
+      setStatus('secureStatus', secure ? 'Secure context' : 'HTTPS required', secure ? 'good' : 'warn');
+      setText('swSummary', yesNo('serviceWorker' in navigator));
+      setText('notifSummary', 'Notification' in window ? Notification.permission : 'Unavailable');
+      setText('shareSummary', yesNo('share' in navigator));
+      setText('mediaSummary', yesNo(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+    }
 
-/* ---------- WebSocket (simple) ---------- */
-let _ws = null;
-document.getElementById('wsConnect').addEventListener('click', () => {
-  if(_ws && _ws.readyState === WebSocket.OPEN){ setText('wsState','open'); return; }
-  try {
-    // Many public echo servers are deprecated. For demo, try wss.ifelse or test server.
-    _ws = new WebSocket('wss://ws.postman-echo.com/raw');
-    _ws.onopen = () => { setText('wsState','open'); appendWS('connected'); };
-    _ws.onmessage = (e) => appendWS('recv: '+e.data);
-    _ws.onclose = () => setText('wsState','closed');
-    _ws.onerror = (e) => appendWS('error');
-  } catch(e){ appendWS('ws error: '+e.message); }
-});
-document.getElementById('wsSend').addEventListener('click', () => {
-  if(!_ws || _ws.readyState !== WebSocket.OPEN){ appendWS('not open'); return; }
-  _ws.send('hello from demo');
-  appendWS('sent: hello');
-});
-function appendWS(t){ const el = document.getElementById('wsOut'); el.textContent = (el.textContent ? el.textContent + '\n' : '') + t; }
+    async function registerServiceWorker() {
+      if (!('serviceWorker' in navigator)) {
+        setText('swOut', 'Service workers are not supported in this browser.');
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        await reg.update();
+        setText('swOut', `Registered: ${reg.scope}`);
+        setText('swSummary', 'Registered');
+      } catch (error) {
+        setText('swOut', `Registration failed: ${error.message}`);
+      }
+    }
 
-/* ---------- Web Bluetooth (note) ---------- */
-document.getElementById('btBtn').addEventListener('click', async () => {
-  if(!navigator.bluetooth){ alert('Web Bluetooth not supported here'); return; }
-  try{
-    const dev = await navigator.bluetooth.requestDevice({acceptAllDevices:true});
-    setText('statusSW','BT device: '+dev.name||dev.id);
-  }catch(e){ setText('statusSW','bt canceled/err'); }
-});
+    async function checkCache() {
+      if (!('caches' in window)) {
+        setText('swOut', 'Cache API is unavailable.');
+        return;
+      }
+      const keys = await caches.keys();
+      setText('swOut', keys.length ? `Cache storage:\n${keys.join('\n')}` : 'No caches found yet.');
+    }
 
-/* ---------- Show code actions ---------- */
-document.getElementById('showManifest').addEventListener('click', () => {
-  alert(document.getElementById('manifestContent').value);
-});
-document.getElementById('showSWCode').addEventListener('click', () => {
-  const w = window.open('','_blank');
-  w.document.write('<pre><code>'+escapeHtml(document.getElementById('swContent').value)+'</code></pre>');
-});
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      deferredPrompt = event;
+      $('btnInstall').disabled = false;
+      $('btnInstall').innerHTML = '<i class="bi bi-download me-1"></i>Install';
+    });
 
-/* ---------- Small feature detection ---------- */
-setText('statusPush', (('PushManager' in window) ? 'available' : 'not available'));
-setText('statusShare', (('share' in navigator) ? 'available' : 'not available'));
-setText('statusMedia', (navigator.mediaDevices ? 'available' : 'no media'));
+    $('btnInstall').addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        setText('swOut', 'Install prompt is not available. On iPhone/iPad, use Share > Add to Home Screen.');
+        return;
+      }
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      setText('swOut', `Install choice: ${choice.outcome}`);
+      deferredPrompt = null;
+    });
 
-/* ---------- Helpers ---------- */
-function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    $('btnRegisterSw').addEventListener('click', registerServiceWorker);
+    $('btnCacheCheck').addEventListener('click', checkCache);
+    $('refreshStatus').addEventListener('click', refreshStatus);
 
-/* ---------- Manual instructions link ---------- */
-document.getElementById('manualLink').addEventListener('click', (e) => {
-  e.preventDefault();
-  alert('Manual: 1) Save manifest.webmanifest and service-worker.js next to this HTML. 2) Serve folder via `python -m http.server` and open http://localhost:8000/pwa-demo.html 3) Reload and test install & offline. Push requires a server with VAPID keys.');
-});
+    $('btnSaveStorage').addEventListener('click', () => {
+      const key = $('storageKey').value || 'demo';
+      const value = $('storageValue').value || 'PWA ready';
+      localStorage.setItem(key, value);
+      setText('storageOut', `Saved\n${key}: ${value}`);
+    });
 
-</script>
+    $('btnReadStorage').addEventListener('click', () => {
+      const key = $('storageKey').value || 'demo';
+      const value = localStorage.getItem(key);
+      setText('storageOut', value === null ? `No value for "${key}".` : `${key}: ${value}`);
+    });
+
+    $('btnCamera').addEventListener('click', async () => {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        $('cameraPreview').srcObject = mediaStream;
+        setText('mediaOut', 'Camera active.');
+        setText('mediaSummary', 'Camera active');
+      } catch (error) {
+        setText('mediaOut', `Camera failed: ${error.message}`);
+      }
+    });
+
+    $('btnMic').addEventListener('click', async () => {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        setText('mediaOut', 'Microphone active.');
+        setText('mediaSummary', 'Mic active');
+      } catch (error) {
+        setText('mediaOut', `Microphone failed: ${error.message}`);
+      }
+    });
+
+    $('btnStopMedia').addEventListener('click', () => {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+        mediaStream = null;
+      }
+      $('cameraPreview').srcObject = null;
+      setText('mediaOut', 'Media stopped.');
+      refreshStatus();
+    });
+
+    $('btnLocation').addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        setText('locationOut', 'Geolocation is unavailable.');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => setText('locationOut', `Latitude: ${position.coords.latitude.toFixed(5)}\nLongitude: ${position.coords.longitude.toFixed(5)}\nAccuracy: ${Math.round(position.coords.accuracy)}m`),
+        (error) => setText('locationOut', `Location failed: ${error.message}`),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+
+    $('btnNotifPermission').addEventListener('click', async () => {
+      if (!('Notification' in window)) {
+        setText('notificationOut', 'Notifications are unavailable.');
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      setText('notificationOut', `Permission: ${permission}`);
+      refreshStatus();
+    });
+
+    $('btnShowNotification').addEventListener('click', async () => {
+      if (!('Notification' in window)) {
+        setText('notificationOut', 'Notifications are unavailable.');
+        return;
+      }
+      if (Notification.permission !== 'granted') {
+        setText('notificationOut', 'Permission must be granted first.');
+        return;
+      }
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+      if (reg) {
+        reg.showNotification('PWA Test', { body: 'Local notification delivered.' });
+      } else {
+        new Notification('PWA Test', { body: 'Local notification delivered.' });
+      }
+      setText('notificationOut', 'Notification sent.');
+    });
+
+    $('btnShare').addEventListener('click', async () => {
+      if (!navigator.share) {
+        setText('shareOut', 'Native share is unavailable.');
+        return;
+      }
+      try {
+        await navigator.share({ title: 'PWA Test', text: 'Testing browser share support.', url: location.href });
+        setText('shareOut', 'Shared successfully.');
+      } catch (error) {
+        setText('shareOut', `Share ended: ${error.message}`);
+      }
+    });
+
+    $('btnPickFile').addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.onchange = () => {
+        const file = input.files && input.files[0];
+        setText('shareOut', file ? `Selected: ${file.name}\nType: ${file.type || 'unknown'}\nSize: ${file.size} bytes` : 'No file selected.');
+      };
+      input.click();
+    });
+
+    $('btnClipboard').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText('Copied from PWA Test');
+        setText('shareOut', 'Copied text to clipboard.');
+      } catch (error) {
+        setText('shareOut', `Clipboard failed: ${error.message}`);
+      }
+    });
+
+    $('btnVibrate').addEventListener('click', () => {
+      if (!navigator.vibrate) {
+        setText('hapticOut', 'Vibration API is unavailable.');
+        return;
+      }
+      navigator.vibrate([80, 50, 120]);
+      setText('hapticOut', 'Vibration pattern sent.');
+    });
+
+    $('btnSocketConnect').addEventListener('click', () => {
+      try {
+        socket = new WebSocket('wss://ws.postman-echo.com/raw');
+        socket.onopen = () => setText('socketOut', 'Connected.');
+        socket.onmessage = (event) => setText('socketOut', `Received:\n${event.data}`);
+        socket.onerror = () => setText('socketOut', 'Socket error.');
+        socket.onclose = () => setText('socketOut', 'Socket closed.');
+      } catch (error) {
+        setText('socketOut', `Connection failed: ${error.message}`);
+      }
+    });
+
+    $('btnSocketSend').addEventListener('click', () => {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        setText('socketOut', 'Socket is not connected.');
+        return;
+      }
+      socket.send('hello from PWA Test');
+      setText('socketOut', 'Sent: hello from PWA Test');
+    });
+
+    refreshStatus();
+    registerServiceWorker();
+  </script>
 </body>
 </html>

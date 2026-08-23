@@ -1,15 +1,16 @@
-const CACHE_VERSION = 'ap-site-v6';
+const CACHE_VERSION = 'ap-site-v11';
 const ASSET_CACHE = `assets-${CACHE_VERSION}`;
 const PAGE_CACHE = `pages-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
   '/',
   '/index.html',
-  '/pages/experiments.html',
-  '/assets/pages.css?v=pull-refresh-2',
-  '/assets/nav.js?v=pull-refresh-2',
+  '/assets/pages.css?v=ptr-top-only-1',
+  '/assets/nav.js?v=ptr-top-only-1',
   '/assets/manifest.webmanifest',
   '/assets/icons/icon.svg',
+  '/assets/icons/icon-192.png',
+  '/assets/icons/icon-512.png',
   '/assets/icons/maskable.svg',
   '/offline.html',
   '/apps/',

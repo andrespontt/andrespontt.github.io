@@ -1,15 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Andres Pontt maskable app icon</title>
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#10a37f"/>
-      <stop offset="100%" stop-color="#2dd4bf"/>
+    <linearGradient id="bg" x1="48" y1="40" x2="464" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#31d0aa"/>
+      <stop offset=".5" stop-color="#168f7a"/>
+      <stop offset="1" stop-color="#101820"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="122" y1="122" x2="390" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#c8f7ec"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="64" ry="64" fill="url(#g)"/>
-  <g fill="#081a14" opacity=".14">
-    <circle cx="256" cy="256" r="200"/>
-    <circle cx="256" cy="256" r="150"/>
-  </g>
-  <text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="220" font-weight="900" fill="#081a14">A</text>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect x="72" y="72" width="368" height="368" rx="92" fill="#0d1117" opacity=".22"/>
+  <rect x="112" y="112" width="124" height="124" rx="34" fill="url(#tile)"/>
+  <rect x="276" y="112" width="124" height="124" rx="34" fill="#10252a"/>
+  <rect x="112" y="276" width="124" height="124" rx="34" fill="#10252a"/>
+  <rect x="276" y="276" width="124" height="124" rx="34" fill="url(#tile)"/>
+  <path d="M167 192l29 76h-21l-5-15h-27l-5 15h-21l29-76h21zm-10 19l-9 27h18l-9-27z" fill="#07130f"/>
+  <path d="M302 187h43c19 0 32 13 32 31s-13 31-32 31h-21v27h-22v-89zm22 19v24h18c8 0 13-5 13-12s-5-12-13-12h-18z" fill="#dffdf5"/>
+  <path d="M142 342h55v18h-55v-18zm0-31h73v18h-73v-18z" fill="#dffdf5"/>
+  <path d="M326 315v70l60-35-60-35z" fill="#07130f"/>
 </svg>
-

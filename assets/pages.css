@@ -24,28 +24,23 @@ body{
 .pull-refresh-indicator{
   position: fixed;
   left: 50%;
-  top: max(8px, env(safe-area-inset-top));
+  top: max(16px, calc(env(safe-area-inset-top) + 8px));
   z-index: 1000;
-  min-width: 132px;
-  padding: 9px 13px;
-  border: 1px solid rgba(45, 212, 191, .45);
-  border-radius: 999px;
-  background: rgba(17, 20, 24, .92);
-  color: var(--fg);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, .36);
-  font-size: 13px;
-  font-weight: 700;
+  padding: 0;
+  color: rgba(161, 161, 170, .72);
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1;
   opacity: var(--pull-progress, 0);
   pointer-events: none;
   text-align: center;
-  transform: translate(-50%, calc(-48px + (var(--pull-distance, 0px) * .5)));
-  transition: opacity .16s ease, transform .16s ease;
+  transform: translateX(-50%);
+  transition: opacity .16s ease;
 }
 
 .pull-refresh-indicator.is-refreshing{
   opacity: 1;
-  transform: translate(-50%, 0);
+  color: rgba(161, 161, 170, .82);
 }
 
 .container{
@@ -152,9 +147,6 @@ footer{ text-align:center; color: var(--muted); padding: 22px 0; border-top: 1px
 .update-badge{ color: var(--accent); font-weight: 600; margin-left: 8px; }
 .badges img{ border-radius: 4px; opacity: 0.9; transition: opacity 0.2s ease; }
 .badges img:hover{ opacity: 1; }
-
-/* Experiments */
-canvas{ border-radius: 8px; background: #0b0b0c; }
 
 /* Social Icons */
 .social-icon{
