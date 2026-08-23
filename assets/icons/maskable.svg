@@ -1,24 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
   <title id="title">Andres Pontt maskable app icon</title>
   <defs>
-    <linearGradient id="bg" x1="48" y1="40" x2="464" y2="472" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#31d0aa"/>
-      <stop offset=".5" stop-color="#168f7a"/>
-      <stop offset="1" stop-color="#101820"/>
-    </linearGradient>
-    <linearGradient id="tile" x1="122" y1="122" x2="390" y2="390" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f8fafc"/>
-      <stop offset="1" stop-color="#c8f7ec"/>
+    <linearGradient id="bg" x1="40" y1="32" x2="472" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34e6b8"/>
+      <stop offset=".48" stop-color="#14a58b"/>
+      <stop offset="1" stop-color="#0d1117"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
-  <rect x="72" y="72" width="368" height="368" rx="92" fill="#0d1117" opacity=".22"/>
-  <rect x="112" y="112" width="124" height="124" rx="34" fill="url(#tile)"/>
-  <rect x="276" y="112" width="124" height="124" rx="34" fill="#10252a"/>
-  <rect x="112" y="276" width="124" height="124" rx="34" fill="#10252a"/>
-  <rect x="276" y="276" width="124" height="124" rx="34" fill="url(#tile)"/>
-  <path d="M167 192l29 76h-21l-5-15h-27l-5 15h-21l29-76h21zm-10 19l-9 27h18l-9-27z" fill="#07130f"/>
-  <path d="M302 187h43c19 0 32 13 32 31s-13 31-32 31h-21v27h-22v-89zm22 19v24h18c8 0 13-5 13-12s-5-12-13-12h-18z" fill="#dffdf5"/>
-  <path d="M142 342h55v18h-55v-18zm0-31h73v18h-73v-18z" fill="#dffdf5"/>
-  <path d="M326 315v70l60-35-60-35z" fill="#07130f"/>
+  <path d="M84 428L206 84h86l136 344h-88l-23-68H187l-22 68H84zm124-136h86l-44-132-42 132z" fill="#f7fffb"/>
+  <path d="M281 84h80c46 0 81 14 105 40s36 59 36 99c0 41-13 75-38 100-25 24-60 37-105 37h-78V84zm80 207c20 0 35-6 46-19 11-12 17-29 17-48 0-20-6-36-17-49-11-12-26-19-46-19h-1v135h1z" fill="#0b1820"/>
 </svg>
