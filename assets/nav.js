@@ -29,7 +29,7 @@
     function setPull(distance){
       pull = Math.min(maxPull, Math.max(0, distance));
       indicator.style.setProperty('--pull-progress', String(Math.min(1, pull / threshold)));
-      indicator.style.transform = 'translate(-50%, ' + Math.round(pull - 72) + 'px)';
+      document.body.style.setProperty('--pull-distance', Math.round(pull) + 'px');
       indicator.textContent = pull >= threshold ? 'Release to refresh' : 'Pull to refresh';
       document.body.classList.toggle('is-pulling-refresh', pull > 0);
     }
@@ -58,17 +58,20 @@
       if (pull >= threshold) {
         indicator.textContent = 'Refreshing...';
         indicator.classList.add('is-refreshing');
+        document.body.style.setProperty('--pull-distance', '82px');
         window.location.reload();
         return;
       }
       setPull(0);
       document.body.classList.remove('is-pulling-refresh');
+      document.body.style.removeProperty('--pull-distance');
     }, { passive: true });
 
     window.addEventListener('touchcancel', function(){
       pulling = false;
       setPull(0);
       document.body.classList.remove('is-pulling-refresh');
+      document.body.style.removeProperty('--pull-distance');
     }, { passive: true });
   }
 

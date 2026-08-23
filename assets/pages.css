@@ -24,7 +24,7 @@ body{
 .pull-refresh-indicator{
   position: fixed;
   left: 50%;
-  top: max(10px, env(safe-area-inset-top));
+  top: max(8px, env(safe-area-inset-top));
   z-index: 1000;
   min-width: 132px;
   padding: 9px 13px;
@@ -39,7 +39,7 @@ body{
   opacity: var(--pull-progress, 0);
   pointer-events: none;
   text-align: center;
-  transform: translate(-50%, -72px);
+  transform: translate(-50%, calc(-48px + (var(--pull-distance, 0px) * .5)));
   transition: opacity .16s ease, transform .16s ease;
 }
 
@@ -52,6 +52,13 @@ body{
   width:min(980px, 94vw);
   margin:0 auto; min-height:100vh;
   display:flex; flex-direction:column;
+  transform: translateY(var(--pull-distance, 0));
+  transition: transform .18s ease;
+  will-change: transform;
+}
+
+body.is-pulling-refresh .container{
+  transition: none;
 }
 
 /* Ensure media never causes horizontal overflow */
