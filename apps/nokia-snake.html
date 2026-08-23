@@ -66,6 +66,32 @@
       outline-offset: 3px;
     }
 
+    .pull-refresh-indicator {
+      position: fixed;
+      left: 50%;
+      top: max(12px, env(safe-area-inset-top));
+      z-index: 20;
+      min-width: 136px;
+      padding: 9px 12px;
+      border: 2px solid rgba(189, 206, 103, .52);
+      background: rgba(17, 20, 17, .9);
+      color: var(--text);
+      box-shadow: 3px 3px 0 rgba(0, 0, 0, .35);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1;
+      opacity: var(--pull-progress, 0);
+      pointer-events: none;
+      text-align: center;
+      transform: translate(-50%, -72px);
+      transition: opacity .16s ease, transform .16s ease;
+    }
+
+    .pull-refresh-indicator.is-refreshing {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
     .phone {
       width: min(94vw, 470px);
       height: min(96vh, 840px);
@@ -426,7 +452,75 @@
       let accumulator = 0;
       let lastFrameTime = performance.now();
       let swipeStart = null;
+      let edgePullActive = false;
       let renderMetrics = null;
+
+      function setupPullToRefresh() {
+        const threshold = 82;
+        const maxPull = 120;
+        const edgeZone = 36;
+        let startY = 0;
+        let pull = 0;
+        let pulling = false;
+        const indicator = document.createElement("div");
+
+        indicator.className = "pull-refresh-indicator";
+        indicator.setAttribute("aria-hidden", "true");
+        indicator.textContent = "Pull to refresh";
+        document.body.appendChild(indicator);
+
+        function releaseEdgePull() {
+          setTimeout(() => {
+            edgePullActive = false;
+            swipeStart = null;
+          }, 120);
+        }
+
+        function setPull(distance) {
+          pull = Math.min(maxPull, Math.max(0, distance));
+          indicator.style.setProperty("--pull-progress", String(Math.min(1, pull / threshold)));
+          indicator.style.transform = `translate(-50%, ${Math.round(pull - 72)}px)`;
+          indicator.textContent = pull >= threshold ? "Release to refresh" : "Pull to refresh";
+        }
+
+        window.addEventListener("touchstart", event => {
+          if (event.touches.length !== 1 || event.touches[0].clientY > edgeZone) return;
+          startY = event.touches[0].clientY;
+          pulling = true;
+          edgePullActive = true;
+          setPull(0);
+        }, { passive: true });
+
+        window.addEventListener("touchmove", event => {
+          if (!pulling || event.touches.length !== 1) return;
+          const distance = event.touches[0].clientY - startY;
+          if (distance <= 0) {
+            setPull(0);
+            return;
+          }
+          event.preventDefault();
+          setPull(distance * 0.72);
+        }, { passive: false });
+
+        window.addEventListener("touchend", () => {
+          if (!pulling) return;
+          pulling = false;
+          if (pull >= threshold) {
+            indicator.textContent = "Refreshing...";
+            indicator.classList.add("is-refreshing");
+            window.location.reload();
+            return;
+          }
+          setPull(0);
+          releaseEdgePull();
+        }, { passive: true });
+
+        window.addEventListener("touchcancel", () => {
+          pulling = false;
+          setPull(0);
+          releaseEdgePull();
+        }, { passive: true });
+      }
 
       highScoreElement.textContent = formatScore(highScore);
 
@@ -885,10 +979,15 @@
       });
 
       canvas.addEventListener("pointerdown", event => {
+        if (edgePullActive) return;
         swipeStart = { x: event.clientX, y: event.clientY };
       });
 
       canvas.addEventListener("pointerup", event => {
+        if (edgePullActive) {
+          swipeStart = null;
+          return;
+        }
         if (!swipeStart) return;
 
         const dx = event.clientX - swipeStart.x;
@@ -917,6 +1016,7 @@
       window.addEventListener("resize", draw);
 
       resetGame(false);
+      setupPullToRefresh();
       requestAnimationFrame(gameLoop);
     })();
   </script>

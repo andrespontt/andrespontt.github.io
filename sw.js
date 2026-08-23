@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ap-site-v4';
+const CACHE_VERSION = 'ap-site-v5';
 const ASSET_CACHE = `assets-${CACHE_VERSION}`;
 const PAGE_CACHE = `pages-${CACHE_VERSION}`;
 
@@ -6,8 +6,8 @@ const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/pages/experiments.html',
-  '/assets/pages.css?v=f635e20',
-  '/assets/nav.js?v=f635e20',
+  '/assets/pages.css?v=pull-refresh-1',
+  '/assets/nav.js?v=pull-refresh-1',
   '/assets/manifest.webmanifest',
   '/assets/icons/icon.svg',
   '/assets/icons/maskable.svg',

@@ -5,6 +5,73 @@
  *   <script src="assets/nav.js" defer></script>
  */
 (function(){
+  function setupPullToRefresh(){
+    if (!('ontouchstart' in window) || window.__apPullToRefreshReady) return;
+    window.__apPullToRefreshReady = true;
+
+    var threshold = 82;
+    var maxPull = 120;
+    var startY = 0;
+    var pull = 0;
+    var pulling = false;
+    var indicator = document.createElement('div');
+
+    indicator.className = 'pull-refresh-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    indicator.textContent = 'Pull to refresh';
+    document.body.appendChild(indicator);
+
+    function canStart(target){
+      return window.scrollY <= 0 &&
+        !target.closest('input, textarea, select, button, a, [data-no-pull-refresh]');
+    }
+
+    function setPull(distance){
+      pull = Math.min(maxPull, Math.max(0, distance));
+      indicator.style.setProperty('--pull-progress', String(Math.min(1, pull / threshold)));
+      indicator.style.transform = 'translate(-50%, ' + Math.round(pull - 72) + 'px)';
+      indicator.textContent = pull >= threshold ? 'Release to refresh' : 'Pull to refresh';
+      document.body.classList.toggle('is-pulling-refresh', pull > 0);
+    }
+
+    window.addEventListener('touchstart', function(event){
+      if (event.touches.length !== 1 || !canStart(event.target)) return;
+      startY = event.touches[0].clientY;
+      pulling = true;
+      setPull(0);
+    }, { passive: true });
+
+    window.addEventListener('touchmove', function(event){
+      if (!pulling || event.touches.length !== 1) return;
+      var distance = event.touches[0].clientY - startY;
+      if (distance <= 0) {
+        setPull(0);
+        return;
+      }
+      event.preventDefault();
+      setPull(distance * 0.72);
+    }, { passive: false });
+
+    window.addEventListener('touchend', function(){
+      if (!pulling) return;
+      pulling = false;
+      if (pull >= threshold) {
+        indicator.textContent = 'Refreshing...';
+        indicator.classList.add('is-refreshing');
+        window.location.reload();
+        return;
+      }
+      setPull(0);
+      document.body.classList.remove('is-pulling-refresh');
+    }, { passive: true });
+
+    window.addEventListener('touchcancel', function(){
+      pulling = false;
+      setPull(0);
+      document.body.classList.remove('is-pulling-refresh');
+    }, { passive: true });
+  }
+
   function buildNav(){
     var nav = document.getElementById('site-nav');
     if (!nav) return;
@@ -71,6 +138,7 @@
 
   function init(){
     buildNav();
+    setupPullToRefresh();
     try {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js');
