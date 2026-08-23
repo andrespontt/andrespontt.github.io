@@ -5,6 +5,23 @@
  *   <script src="assets/nav.js" defer></script>
  */
 (function(){
+  function isStandaloneDisplay(){
+    return window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+  }
+
+  function setupPwaLaunchVeil(){
+    if (!isStandaloneDisplay() || !document.documentElement.classList.contains('pwa-launching')) return;
+
+    window.setTimeout(function(){
+      document.documentElement.classList.remove('pwa-launching');
+      document.documentElement.classList.add('pwa-launch-ending');
+      window.setTimeout(function(){
+        document.documentElement.classList.remove('pwa-launch-ending');
+      }, 260);
+    }, 220);
+  }
+
   function setupPullToRefresh(){
     if (!('ontouchstart' in window) || window.__apPullToRefreshReady) return;
     window.__apPullToRefreshReady = true;
@@ -131,7 +148,11 @@
       a.textContent = item.label;
       // For current page highlighting
       var target = item.href.split('/').pop();
-      if (item.key === 'apps') {
+      if (item.key === 'home') {
+        if (scope === 'root' && here === 'index.html') {
+          a.setAttribute('aria-current', 'page');
+        }
+      } else if (item.key === 'apps') {
         // Apps link is current if we're in apps directory and on index.html
         if (isInApps && here === 'index.html') {
           a.setAttribute('aria-current', 'page');
@@ -151,6 +172,7 @@
   function init(){
     buildNav();
     setupPullToRefresh();
+    setupPwaLaunchVeil();
     try {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js');

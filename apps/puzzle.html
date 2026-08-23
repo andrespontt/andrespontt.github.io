@@ -210,6 +210,7 @@
         .success-overlay.show {
             opacity: 1;
             pointer-events: auto;
+            cursor: pointer;
         }
 
         .success-overlay h2 {
@@ -495,6 +496,8 @@
 
         let nextCatUrl = '';
         let failureCounts = {}; // Track mistakes per shape type
+        let overlayTapStarts = new Map();
+        let overlayResetQueued = false;
         const ENABLE_HINTS = false;
 
         function preloadNextCat() {
@@ -508,6 +511,8 @@
         document.addEventListener('contextmenu', (e) => e.preventDefault());
 
         function initGame() {
+            overlayResetQueued = false;
+            overlayTapStarts.clear();
             slotsArea.innerHTML = '';
             startZone.innerHTML = '';
             successOverlay.classList.remove('show');
@@ -777,6 +782,52 @@
         }
 
         resetBtn.addEventListener('click', initGame);
+
+        function resetFromOverlayTap() {
+            if (!successOverlay.classList.contains('show') || overlayResetQueued) return;
+            overlayResetQueued = true;
+            initGame();
+        }
+
+        successOverlay.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetFromOverlayTap();
+        });
+
+        successOverlay.addEventListener('touchstart', (e) => {
+            if (!successOverlay.classList.contains('show')) return;
+            for (const touch of e.changedTouches) {
+                overlayTapStarts.set(touch.identifier, {
+                    x: touch.clientX,
+                    y: touch.clientY
+                });
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        successOverlay.addEventListener('touchend', (e) => {
+            if (!successOverlay.classList.contains('show')) return;
+
+            for (const touch of e.changedTouches) {
+                const start = overlayTapStarts.get(touch.identifier);
+                overlayTapStarts.delete(touch.identifier);
+                if (!start) continue;
+
+                const dx = touch.clientX - start.x;
+                const dy = touch.clientY - start.y;
+                if (Math.hypot(dx, dy) <= 16) {
+                    e.preventDefault();
+                    resetFromOverlayTap();
+                    return;
+                }
+            }
+        }, { passive: false });
+
+        successOverlay.addEventListener('touchcancel', (e) => {
+            for (const touch of e.changedTouches) {
+                overlayTapStarts.delete(touch.identifier);
+            }
+        });
 
         initGame();
     </script>
