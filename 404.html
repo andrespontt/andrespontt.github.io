@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>404 - Page Not Found - Andres Pontt</title>
   <meta name="description" content="The page you're looking for doesn't exist.">
-  <link rel="stylesheet" href="assets/pages.css?v=pwa-launch-1">
+  <link rel="stylesheet" href="assets/pages.css?v=pwa-launch-2">
   <link rel="manifest" href="/assets/manifest.webmanifest">
   <meta name="theme-color" content="#10a37f">
   <link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/assets/icons/site-icon-v2-192.png">
   <script>
-    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+    const isReload = performance.getEntriesByType?.('navigation')[0]?.type === 'reload';
+    if (!isReload && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true)) {
       document.documentElement.classList.add('pwa-launching');
     }
   </script>
@@ -45,7 +46,7 @@
       <p>&copy; <span id="copyright-year">2025</span> Andres Pontt.</p>
     </footer>
   </div>
-  <script src="assets/nav.js?v=pwa-launch-1" defer></script>
+  <script src="assets/nav.js?v=pwa-launch-2" defer></script>
   <script>
     document.getElementById('copyright-year').textContent = new Date().getFullYear();
   </script>
