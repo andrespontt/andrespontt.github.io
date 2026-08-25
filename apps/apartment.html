@@ -13,7 +13,7 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+    "three": "./vendor/three.module.min.js"
   }
 }
 </script>
@@ -134,6 +134,12 @@
   #game-over h1{ margin:0 0 10px; font-size:clamp(2rem,7vw,5rem); letter-spacing:.12em; color:#d54a52; }
   #game-over p{ margin:0 0 24px; color:#c9bfc0; }
   #restart-btn{ padding:11px 20px; border:1px solid #9a5559; border-radius:7px; background:#231316; color:#fff; cursor:pointer; }
+  #webgl-recovery{
+    position:fixed; inset:0; z-index:120; display:none; place-items:center; padding:24px; text-align:center;
+    background:rgba(2,3,6,.96); color:#eef2f8; font-family:ui-monospace,monospace;
+  }
+  #webgl-recovery.show{ display:grid; }
+  #webgl-recovery button{ margin-top:16px; padding:10px 18px; border:1px solid #7b8fae; border-radius:7px; background:#151c29; }
 
   /* Cinematic story prologue */
   #intro-cinematic{
@@ -220,6 +226,9 @@
 <div id="game-over" role="dialog" aria-modal="true">
   <div><h1>GAME OVER</h1><p>The clown caught you outside.</p><button id="restart-btn">TRY AGAIN</button></div>
 </div>
+<div id="webgl-recovery" role="alertdialog" aria-modal="true">
+  <div><h2>Graphics paused</h2><p>The browser lost the WebGL context. Recovery will be attempted automatically.</p><button id="webgl-reload">RELOAD GAME</button></div>
+</div>
 <div id="intro-cinematic" role="dialog" aria-modal="true" aria-label="Story introduction">
   <div class="cinema-bar top"></div><div class="cinema-bar bottom"></div>
   <div id="intro-visual">
@@ -259,6 +268,7 @@ function formatRelativeTime(fromTime){
   return `${diffDays}d ago`;
 }
 
+let versionUpdateTimer = 0;
 function updateVersionDisplay(){
   const rel = formatRelativeTime(BUILD_TIME);
   const text = `${APP_VERSION} · Updated ${rel}`;
@@ -266,8 +276,11 @@ function updateVersionDisplay(){
   if (badgeEl) badgeEl.textContent = text;
   const startEl = document.getElementById('start-version-text');
   if (startEl) startEl.textContent = text;
+  const ageSeconds = Math.max(0,(Date.now()-BUILD_TIME)/1000);
+  const nextDelay = ageSeconds < 60 ? 1000 : ageSeconds < 3600 ? 60000 : ageSeconds < 86400 ? 300000 : 21600000;
+  clearTimeout(versionUpdateTimer);
+  versionUpdateTimer = setTimeout(updateVersionDisplay,nextDelay);
 }
-setInterval(updateVersionDisplay, 1000);
 updateVersionDisplay();
 
 /* ============================================================
@@ -277,6 +290,8 @@ const lerp = (a,b,t) => a + (b-a)*t;
 const clamp = (v,min,max) => Math.max(min, Math.min(max, v));
 const rand = (min,max) => min + Math.random()*(max-min);
 const pickArr = (arr) => arr[Math.floor(Math.random()*arr.length)];
+const DEBUG = new URLSearchParams(location.search).has('debug');
+const TOUCH_CAPABLE = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
 // iOS Safari can still treat rapid taps as a zoom gesture even with a locked
 // viewport. Suppress native pinch/gesture zoom and only cancel the second tap.
@@ -292,14 +307,28 @@ document.addEventListener('touchend',event=>{
    RENDERER / SCENE / CAMERA
    ============================================================ */
 const canvas = document.getElementById('game-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:!TOUCH_CAPABLE, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TOUCH_CAPABLE ? 1 : 1.15));
 // Hundreds of low-poly pieces previously triggered a full soft-shadow pass.
 // Baked-looking ambient/local lighting is substantially faster for this scene.
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.82;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+const webglRecoveryEl=document.getElementById('webgl-recovery');
+let graphicsContextLost=false;
+canvas.addEventListener('webglcontextlost',event=>{
+  event.preventDefault();
+  graphicsContextLost=true;
+  clearTransientInput?.();
+  webglRecoveryEl.classList.add('show');
+});
+canvas.addEventListener('webglcontextrestored',()=>{
+  renderer.resetState();
+  graphicsContextLost=false;
+  webglRecoveryEl.classList.remove('show');
+});
+document.getElementById('webgl-reload').addEventListener('click',()=>location.reload());
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.05, 200);
@@ -321,6 +350,21 @@ onResize();
 const UNIT_BOX = new THREE.BoxGeometry(1,1,1);
 const UNIT_CYL = new THREE.CylinderGeometry(1,1,1,12);
 const UNIT_SPHERE = new THREE.SphereGeometry(1,10,8);
+const UNIT_ICOSAHEDRON = new THREE.IcosahedronGeometry(1,1);
+const instancePosition = new THREE.Vector3();
+const instanceQuaternion = new THREE.Quaternion();
+const instanceScale = new THREE.Vector3();
+const instanceEuler = new THREE.Euler();
+const instanceMatrix = new THREE.Matrix4();
+
+function setInstanceTransform(mesh,index,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0){
+  instancePosition.set(x,y,z);
+  instanceEuler.set(rx,ry,rz);
+  instanceQuaternion.setFromEuler(instanceEuler);
+  instanceScale.set(sx,sy,sz);
+  instanceMatrix.compose(instancePosition,instanceQuaternion,instanceScale);
+  mesh.setMatrixAt(index,instanceMatrix);
+}
 
 function box(w,h,d,mat,castShadow=true){
   const m = new THREE.Mesh(UNIT_BOX, mat);
@@ -354,7 +398,9 @@ const MAT = {
   floorTile: new THREE.MeshStandardMaterial({ color:0x8a8f98, roughness:0.55 }),
   ceiling: new THREE.MeshStandardMaterial({ color:0x22252c, roughness:1 }),
   trim: new THREE.MeshStandardMaterial({ color:0xe8e4da, roughness:0.6 }),
-  glass: new THREE.MeshPhysicalMaterial({ color:0x9fd4ff, roughness:0.08, transmission:0.35, transparent:true, opacity:0.2, depthWrite:false }),
+  glass: TOUCH_CAPABLE
+    ? new THREE.MeshStandardMaterial({ color:0x6f9fbd, roughness:0.2, transparent:true, opacity:0.24, depthWrite:false })
+    : new THREE.MeshPhysicalMaterial({ color:0x9fd4ff, roughness:0.08, transmission:0.35, transparent:true, opacity:0.2, depthWrite:false }),
   curtain: new THREE.MeshStandardMaterial({ color:0x6d3f4a, roughness:0.9, side:THREE.DoubleSide }),
   blackout: new THREE.MeshStandardMaterial({ color:0x11151d, roughness:0.98, side:THREE.DoubleSide }),
   sofa: new THREE.MeshStandardMaterial({ color:0x556b8a, roughness:0.85 }),
@@ -435,6 +481,8 @@ function isIndoors(x,z,currentY){
 }
 
 const colliders = []; // {minX,maxX,minZ,maxZ,minY,maxY}
+const interactionBlockers = [];
+const interactionTargets = [];
 function addCollider(minX,maxX,minZ,maxZ,minY=-10,maxY=10){
   const collider = {minX,maxX,minZ,maxZ,minY,maxY};
   colliders.push(collider);
@@ -480,6 +528,7 @@ function wallSegment(runAxis, fixed, from, to, yFrom, yTo, mat, group, thickness
   }
   mesh.castShadow = true; mesh.receiveShadow = true;
   group.add(mesh);
+  interactionBlockers.push(mesh);
 }
 
 function wallWithOpenings(runAxis, fixed, start, end, wallH, openings, mat, group, thickness=WALL_T, floorY=0){
@@ -502,6 +551,7 @@ function buildWindow(runAxis, fixed, center, width, sillY, topY, group,floorY=0)
   if (runAxis === 'z') glass.position.set(fixed, floorY+(sillY+topY)/2, center);
   else glass.position.set(center, floorY+(sillY+topY)/2, fixed);
   w.add(glass);
+  interactionBlockers.push(glass);
 
   const mullionMat = MAT.trim;
   const mullionOffset = fixed < 0 ? 0.05 : -0.05;
@@ -1159,12 +1209,15 @@ function buildMansion(){
 
   // Straight central staircase with broad steps and continuous rails.
   const stepCount=16, stepDepth=(STAIR.maxZ-STAIR.minZ)/stepCount;
+  const stairSteps = new THREE.InstancedMesh(UNIT_BOX,MAT.floorTile,stepCount);
   for (let i=0;i<stepCount;i++){
     const height=SECOND_FLOOR_Y*(i+1)/stepCount;
     const z=STAIR.maxZ-stepDepth*(i+0.5);
-    const step=box(2.5,height+0.03,stepDepth+0.015,MAT.floorTile);
-    step.position.set(0,height/2,z); g.add(step);
+    setInstanceTransform(stairSteps,i,0,height/2,z,2.5,height+0.03,stepDepth+0.015);
   }
+  stairSteps.instanceMatrix.needsUpdate=true;
+  stairSteps.receiveShadow=true;
+  g.add(stairSteps);
   for (const railX of [-1.24,1.24]){
     for (let i=0;i<=stepCount;i+=2){
       const t=i/stepCount;
@@ -1317,7 +1370,8 @@ function makeStreetTree(scale=1){
   const trunk = cyl(0.13*scale,0.18*scale,1.7*scale,MAT.trunk,false);
   trunk.position.y = 0.85*scale; tree.add(trunk);
   for (const [x,y,z,s] of [[0,1.9,0,0.72],[-0.34,1.65,0.05,0.52],[0.35,1.68,-0.04,0.56],[0.05,2.35,0,0.55]]){
-    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(s*scale,1),Math.random()>.45?MAT.foliage:MAT.foliageLight);
+    const crown = new THREE.Mesh(UNIT_ICOSAHEDRON,Math.random()>.45?MAT.foliage:MAT.foliageLight);
+    crown.scale.setScalar(s*scale);
     crown.position.set(x*scale,y*scale,z*scale); crown.castShadow = true; tree.add(crown);
   }
   return tree;
@@ -1325,21 +1379,21 @@ function makeStreetTree(scale=1){
 
 function makeTrafficCar(color,dir){
   const car = new THREE.Group();
-  const fadeMaterials = [];
-  const paint = new THREE.MeshStandardMaterial({ color, roughness:0.34, metalness:0.45, transparent:true });
-  const glass = new THREE.MeshStandardMaterial({ color:0x172536, roughness:0.18, metalness:0.3, transparent:true });
-  const tire = MAT.metalDark.clone(); tire.transparent = true;
-  const lamp = new THREE.MeshBasicMaterial({ color:dir>0?0xfff0c8:0xff4438, transparent:true });
-  fadeMaterials.push(paint,glass,tire,lamp);
+  const paint = new THREE.MeshStandardMaterial({ color, roughness:0.34, metalness:0.45 });
+  const glass = new THREE.MeshStandardMaterial({ color:0x172536, roughness:0.18, metalness:0.3 });
+  const tire = MAT.metalDark;
+  const lamp = new THREE.MeshBasicMaterial({ color:dir>0?0xfff0c8:0xff4438 });
   const body = box(4.15,0.62,1.72,paint,false); body.position.y = 0.58; car.add(body);
   const cabin = box(2.12,0.58,1.5,glass,false); cabin.position.set(-0.18*dir,1.15,0); car.add(cabin);
-  for (const [x,z] of [[-1.3,-0.82],[1.3,-0.82],[-1.3,0.82],[1.3,0.82]]){
-    const wheel = cyl(0.36,0.36,0.22,tire,false); wheel.rotation.x = Math.PI/2; wheel.position.set(x,0.35,z); car.add(wheel);
+  const wheels=new THREE.InstancedMesh(UNIT_CYL,tire,4);
+  for (const [index,[x,z]] of [[-1.3,-0.82],[1.3,-0.82],[-1.3,0.82],[1.3,0.82]].entries()){
+    setInstanceTransform(wheels,index,x,0.35,z,0.36,0.22,0.36,Math.PI/2,0,0);
   }
+  wheels.instanceMatrix.needsUpdate=true; car.add(wheels);
   for (const z of [-0.29,0.29]){
     const light = box(0.04,0.16,0.22,lamp,false); light.position.set(dir*2.09,0.65,z*2.25); car.add(light);
   }
-  car.userData = { dir, speed:rand(5.2,7.4), fadeMaterials };
+  car.userData = { dir, speed:rand(5.2,7.4) };
   return car;
 }
 
@@ -1351,9 +1405,11 @@ function makeArmedHumvee(){
   const chassis=box(3.15,0.68,4.9,armor); chassis.position.y=0.78; vehicle.add(chassis);
   const cabin=box(2.72,0.95,2.55,armor); cabin.position.set(0,1.45,-0.35); vehicle.add(cabin);
   const windshield=box(2.3,0.52,0.04,glass,false); windshield.position.set(0,1.56,0.95); vehicle.add(windshield);
-  for (const [x,z] of [[-1.6,-1.55],[1.6,-1.55],[-1.6,1.55],[1.6,1.55]]){
-    const wheel=cyl(0.48,0.48,0.32,tire); wheel.rotation.z=Math.PI/2; wheel.position.set(x,0.48,z); vehicle.add(wheel);
+  const wheels=new THREE.InstancedMesh(UNIT_CYL,tire,4);
+  for (const [index,[x,z]] of [[-1.6,-1.55],[1.6,-1.55],[-1.6,1.55],[1.6,1.55]].entries()){
+    setInstanceTransform(wheels,index,x,0.48,z,0.48,0.32,0.48,0,0,Math.PI/2);
   }
+  wheels.instanceMatrix.needsUpdate=true; vehicle.add(wheels);
   const turretRing=cyl(0.55,0.62,0.2,armor); turretRing.position.set(0,2.02,-0.35); vehicle.add(turretRing);
   const turret=box(0.75,0.42,0.75,armor); turret.position.set(0,2.28,-0.35); vehicle.add(turret);
   const gun=cyl(0.075,0.1,2.15,MAT.metalDark); gun.rotation.x=Math.PI/2; gun.position.set(0,2.32,0.88); vehicle.add(gun);
@@ -1378,6 +1434,7 @@ function makeArmySoldier(){
 }
 
 function buildReinforcementArmy(){
+  if (reinforcementState.group) return reinforcementState.group;
   const group=new THREE.Group(); group.visible=false; outdoorGroup.add(group);
   reinforcementState.group=group;
   // Fixed curb-lane parking posts. These never depend on where the clown is.
@@ -1399,6 +1456,7 @@ function buildReinforcementArmy(){
   reinforcementState.shockwave=new THREE.Mesh(new THREE.TorusGeometry(1,0.08,8,40),shockMaterial);
   reinforcementState.shockwave.rotation.x=Math.PI/2; reinforcementState.shockwave.visible=false; group.add(reinforcementState.shockwave);
   reinforcementState.blastLight=new THREE.PointLight(0xffd27a,0,32,2); group.add(reinforcementState.blastLight);
+  return group;
 }
 
 function makeCreepyClown(){
@@ -1479,7 +1537,6 @@ function buildOutdoor(){
   const g = outdoorGroup;
   clownState.model = makeCreepyClown();
   g.add(clownState.model);
-  buildReinforcementArmy();
 
   // Outdoor base layers sit below the finished house floor. Their former top
   // faces were exactly coplanar with the indoor floor (y=0), causing severe
@@ -1497,9 +1554,12 @@ function buildOutdoor(){
   const curb = box(80,0.22,0.45,MAT.houseTrim,false); curb.position.set(0,STREET_Y+0.02,16.75); g.add(curb);
   const roadway = box(80,0.06,13,MAT.street,false); roadway.position.set(0,STREET_Y-0.02,23.4); g.add(roadway);
   const laneMat = new THREE.MeshBasicMaterial({color:0xd7c98c});
-  for (let x=-38;x<=38;x+=4){
-    const dash = box(2.0,0.012,0.08,laneMat,false); dash.position.set(x,STREET_Y+0.02,23.4); g.add(dash);
+  const roadDashCount=20;
+  const roadDashes=new THREE.InstancedMesh(UNIT_BOX,laneMat,roadDashCount);
+  for (let i=0;i<roadDashCount;i++){
+    setInstanceTransform(roadDashes,i,-38+i*4,STREET_Y+0.02,23.4,2.0,0.012,0.08);
   }
+  roadDashes.instanceMatrix.needsUpdate=true; g.add(roadDashes);
 
   // The real mansion shell is built by buildMansion(); outdoors only owns the
   // guarded lower landing and landscaping around the single centered entrance.
@@ -1524,13 +1584,20 @@ function buildOutdoor(){
 
   // Stone approach and layered planting frame the guarded entrance.
   const approach = box(5.4,0.035,4.6,MAT.houseTrim,false); approach.position.set(0,STREET_Y+0.03,14.1); g.add(approach);
-  for (const x of [-7.25,-5.25,5.25,7.25]){
-    const planter = box(1.25,0.42,0.72,MAT.planter,false); planter.position.set(x,STREET_Y+0.21,11.45); g.add(planter);
-    for (const dx of [-0.35,0,0.35]){
-      const shrub = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32,1),dx===0?MAT.foliageLight:MAT.foliage);
-      shrub.scale.set(1,0.78,0.82); shrub.position.set(x+dx,STREET_Y+0.57,11.45); shrub.castShadow = true; g.add(shrub);
-    }
+  const planterXs=[-7.25,-5.25,5.25,7.25];
+  const planters=new THREE.InstancedMesh(UNIT_BOX,MAT.planter,planterXs.length);
+  const shrubsDark=new THREE.InstancedMesh(UNIT_ICOSAHEDRON,MAT.foliage,planterXs.length*2);
+  const shrubsLight=new THREE.InstancedMesh(UNIT_ICOSAHEDRON,MAT.foliageLight,planterXs.length);
+  let shrubDarkIndex=0;
+  for (let i=0;i<planterXs.length;i++){
+    const x=planterXs[i];
+    setInstanceTransform(planters,i,x,STREET_Y+0.21,11.45,1.25,0.42,0.72);
+    setInstanceTransform(shrubsDark,shrubDarkIndex++,x-0.35,STREET_Y+0.57,11.45,0.32,0.25,0.26);
+    setInstanceTransform(shrubsLight,i,x,STREET_Y+0.57,11.45,0.32,0.25,0.26);
+    setInstanceTransform(shrubsDark,shrubDarkIndex++,x+0.35,STREET_Y+0.57,11.45,0.32,0.25,0.26);
   }
+  planters.instanceMatrix.needsUpdate=true; shrubsDark.instanceMatrix.needsUpdate=true; shrubsLight.instanceMatrix.needsUpdate=true;
+  g.add(planters,shrubsDark,shrubsLight);
   for (const [x,z,s] of [[-9.2,13.6,1.05],[8.7,13.4,1.1],[-14.5,14.2,0.9],[14.8,14.0,0.95]]){
     const tree = makeStreetTree(s); tree.position.set(x,STREET_Y, z); g.add(tree);
     addCollider(x-0.35*s,x+0.35*s,z-0.35*s,z+0.35*s,-4.0,0.5);
@@ -1553,22 +1620,23 @@ function buildOutdoor(){
   buildFarWindows(farBuildings);
 
   // Staggered pools of warm light along both sides of the road.
-  for (const [x,z,side] of [[-32,15.5,1],[-20,27.5,-1],[-8,15.5,1],[5,27.5,-1],[18,15.5,1],[31,27.5,-1],[-44,27.5,-1],[44,15.5,1]]){
-    const pole = cyl(0.06,0.06,4.5, MAT.poleMat,false);
-    pole.position.set(x, STREET_Y+2.25, z);
-    g.add(pole);
-    const arm = box(1.2,0.05,0.05, MAT.poleMat,false);
-    arm.position.set(x+side*0.55, STREET_Y+4.4, z);
-    g.add(arm);
-    const lampHead = sph(0.14, MAT.windowLit,false);
-    lampHead.position.set(x+side*1.1, STREET_Y+4.3, z);
-    g.add(lampHead);
+  const streetlightSpecs=[[-32,15.5,1],[-20,27.5,-1],[-8,15.5,1],[5,27.5,-1],[18,15.5,1],[31,27.5,-1],[-44,27.5,-1],[44,15.5,1]];
+  const streetPoles=new THREE.InstancedMesh(UNIT_CYL,MAT.poleMat,streetlightSpecs.length);
+  const streetArms=new THREE.InstancedMesh(UNIT_BOX,MAT.poleMat,streetlightSpecs.length);
+  const streetHeads=new THREE.InstancedMesh(UNIT_SPHERE,MAT.windowLit,streetlightSpecs.length);
+  for (let i=0;i<streetlightSpecs.length;i++){
+    const [x,z,side]=streetlightSpecs[i];
+    setInstanceTransform(streetPoles,i,x,STREET_Y+2.25,z,0.06,4.5,0.06);
+    setInstanceTransform(streetArms,i,x+side*0.55,STREET_Y+4.4,z,1.2,0.05,0.05);
+    setInstanceTransform(streetHeads,i,x+side*1.1,STREET_Y+4.3,z,0.14,0.14,0.14);
     const sLight = new THREE.PointLight(0xffcf8a, 75, 12, 2);
     sLight.position.set(x+side*1.1, STREET_Y+4.0, z);
     g.add(sLight);
 
     addCollider(x-0.25, x+0.25, z-0.25, z+0.25, -4.5, 2.0);
   }
+  streetPoles.instanceMatrix.needsUpdate=true; streetArms.instanceMatrix.needsUpdate=true; streetHeads.instanceMatrix.needsUpdate=true;
+  g.add(streetPoles,streetArms,streetHeads);
 
   // Two-way traffic is pooled and recycled only after fading into the fog.
   const trafficSpecs = [
@@ -1584,9 +1652,11 @@ function buildOutdoor(){
     const car = new THREE.Group();
     const body = box(4.15,0.62,1.72,MAT.carBody); body.position.y = 0.58; car.add(body);
     const cabin = box(2.12,0.58,1.5,MAT.carBody); cabin.position.set(-0.18,1.15,0); car.add(cabin);
-    for (const [sx,sz] of [[-1.3,-0.82],[1.3,-0.82],[-1.3,0.82],[1.3,0.82]]){
-      const wheel = cyl(0.36,0.36,0.22, MAT.metalDark); wheel.rotation.x = Math.PI/2; wheel.position.set(sx,0.35,sz); car.add(wheel);
+    const wheels=new THREE.InstancedMesh(UNIT_CYL,MAT.metalDark,4);
+    for (const [index,[sx,sz]] of [[-1.3,-0.82],[1.3,-0.82],[-1.3,0.82],[1.3,0.82]].entries()){
+      setInstanceTransform(wheels,index,sx,0.35,sz,0.36,0.22,0.36,Math.PI/2,0,0);
     }
+    wheels.instanceMatrix.needsUpdate=true; car.add(wheels);
     car.position.set(x, STREET_Y, 7);
     car.rotation.y = Math.PI/2;
     g.add(car);
@@ -1642,8 +1712,7 @@ function buildFarWindows(buildings){
 function updateTraffic(dt){
   for (const car of trafficCars){
     car.position.x += car.userData.dir*car.userData.speed*dt;
-    const edgeFade = 1-clamp((Math.abs(car.position.x)-36)/10,0,1);
-    for (const material of car.userData.fadeMaterials) material.opacity = edgeFade;
+    car.visible = Math.abs(car.position.x)<46;
     if (car.userData.dir>0 && car.position.x>48) car.position.x=-48;
     if (car.userData.dir<0 && car.position.x<-48) car.position.x=48;
   }
@@ -1891,6 +1960,10 @@ function updateClown(dt,outside){
 
 function callTacticalSecurity(){
   const state=reinforcementState;
+  if (!state.group){
+    buildReinforcementArmy();
+    registerRuntimePointLights(state.group);
+  }
   if (state.active){
     if (state.phase!=='deployed') return;
     state.phase='dismiss'; state.elapsed=0;
@@ -2065,6 +2138,7 @@ const rainMat = new THREE.PointsMaterial({ color:0xbfdcff, size:0.07, transparen
 const rainPoints = new THREE.Points(rainGeo, rainMat);
 rainPoints.position.y = STREET_Y;
 scene.add(rainPoints);
+let activeRainCount = RAIN_COUNT;
 
 // A separate rain shell lives entirely beyond the apartment's exterior
 // walls. It remains visible through glass while the camera is indoors without
@@ -2103,12 +2177,50 @@ const windowRainMat = new THREE.LineBasicMaterial({
 const windowRainLines = new THREE.LineSegments(windowRainGeo, windowRainMat);
 windowRainLines.renderOrder = 4;
 scene.add(windowRainLines);
+let activeWindowRainCount = WINDOW_RAIN_COUNT;
+
+const QUALITY_LEVELS = {
+  high:{pixelRatio:1.15,rain:900,windowRain:1200,lights:4},
+  medium:{pixelRatio:1.0,rain:600,windowRain:800,lights:3},
+  low:{pixelRatio:0.8,rain:350,windowRain:450,lights:2}
+};
+const qualityOrder=['low','medium','high'];
+const requestedQuality=new URLSearchParams(location.search).get('quality');
+const qualityLocked=qualityOrder.includes(requestedQuality);
+let qualityName=qualityLocked?requestedQuality:(TOUCH_CAPABLE?'medium':'high');
+let qualityPressure=0;
+let qualityRecovery=0;
+function applyQuality(name){
+  const quality=QUALITY_LEVELS[name];
+  if (!quality) return;
+  qualityName=name;
+  activeRainCount=Math.min(RAIN_COUNT,quality.rain);
+  activeWindowRainCount=Math.min(WINDOW_RAIN_COUNT,quality.windowRain);
+  rainGeo.setDrawRange(0,activeRainCount);
+  windowRainGeo.setDrawRange(0,activeWindowRainCount*2);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,quality.pixelRatio));
+  onResize();
+}
+function updateAdaptiveQuality(fps){
+  if (qualityLocked || !Number.isFinite(fps) || fps<=0) return;
+  qualityPressure = fps<42 ? qualityPressure+1 : 0;
+  qualityRecovery = fps>57 ? qualityRecovery+1 : 0;
+  const index=qualityOrder.indexOf(qualityName);
+  if (qualityPressure>=3 && index>0){
+    applyQuality(qualityOrder[index-1]);
+    qualityPressure=0; qualityRecovery=0;
+  } else if (qualityRecovery>=10 && index<qualityOrder.length-1){
+    applyQuality(qualityOrder[index+1]);
+    qualityPressure=0; qualityRecovery=0;
+  }
+}
+applyQuality(qualityName);
 
 function updateRain(dt, camX, camZ){
   rainPoints.position.x = camX;
   rainPoints.position.z = camZ;
   const arr = rainGeo.attributes.position.array;
-  for (let i=0;i<RAIN_COUNT;i++){
+  for (let i=0;i<activeRainCount;i++){
     arr[i*3+1] -= dt * 19;
     if (arr[i*3+1] < 0){
       arr[i*3+1] = 22;
@@ -2121,7 +2233,7 @@ function updateRain(dt, camX, camZ){
 
 function updateWindowRain(dt){
   const arr = windowRainGeo.attributes.position.array;
-  for (let i=0;i<WINDOW_RAIN_COUNT;i++){
+  for (let i=0;i<activeWindowRainCount;i++){
     const p = i*6;
     const fall = dt * 16;
     arr[p+1] -= fall;
@@ -2143,6 +2255,20 @@ function ensureAudio(){
 }
 
 let rainAmbGain = null;
+const thunderBuffers = [];
+function prepareThunderBuffers(){
+  if (!audioCtx || thunderBuffers.length) return;
+  for (let variation=0;variation<4;variation++){
+    const bufferSize = Math.floor(audioCtx.sampleRate * 1.2);
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i=0;i<bufferSize;i++){
+      const envelope = Math.pow(1-i/bufferSize,2);
+      data[i] = (Math.random()*2-1)*envelope;
+    }
+    thunderBuffers.push(buffer);
+  }
+}
 function startRainAmbience(){
   if (rainAmbGain) return;
   ensureAudio();
@@ -2166,17 +2292,15 @@ function startRainAmbience(){
 function prewarmGameAudio(){
   ensureAudio();
   startRainAmbience();
+  prepareThunderBuffers();
   // The circus cue is synthesized on demand; having a running AudioContext
   // removes its browser-resume delay without playing it during the prologue.
 }
 
 function playThunder(vol = 0.5){
   if (!audioCtx) return;
-  const bufferSize = audioCtx.sampleRate * 1.2;
-  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * Math.pow(1 - i/bufferSize, 2);
-  const src = audioCtx.createBufferSource(); src.buffer = buffer;
+  prepareThunderBuffers();
+  const src = audioCtx.createBufferSource(); src.buffer = pickArr(thunderBuffers);
   const filter = audioCtx.createBiquadFilter(); filter.type='lowpass'; filter.frequency.value = 400;
   const gain = audioCtx.createGain(); gain.gain.setValueAtTime(vol, audioCtx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+1.1);
@@ -2398,6 +2522,15 @@ let preSleepPitch = 0;
 let sleepYaw = 0;
 const thrownObjects = new Map();
 const sprayBursts = [];
+const INTERACTION_KEYS = ['summonPhone','grabbable','sleepSurface','seat'];
+
+function registerInteractionTargets(root){
+  root.traverse(object => {
+    if (INTERACTION_KEYS.some(key => object.userData?.[key]) && !interactionTargets.includes(object)){
+      interactionTargets.push(object);
+    }
+  });
+}
 
 function taggedAncestor(object,key){
   let node = object;
@@ -2410,9 +2543,16 @@ function taggedAncestor(object,key){
 
 function aimedInteraction(){
   interactionRaycaster.setFromCamera(interactionCenter,camera);
-  const hits = interactionRaycaster.intersectObject(worldGroup,true);
+  interactionRaycaster.near = 0;
+  interactionRaycaster.far = 3.1;
+  const hits = interactionRaycaster.intersectObjects(interactionTargets,true);
   for (const hit of hits){
-    if (hit.distance > 3.1) break;
+    interactionRaycaster.far = Math.max(0,hit.distance-0.04);
+    if (interactionRaycaster.intersectObjects(interactionBlockers,false).length){
+      interactionRaycaster.far = 3.1;
+      return null;
+    }
+    interactionRaycaster.far = 3.1;
     const summonPhone = taggedAncestor(hit.object,'summonPhone');
     if (summonPhone) return { type:'summonPhone', phone:summonPhone };
     const grabbable = taggedAncestor(hit.object,'grabbable');
@@ -2840,6 +2980,7 @@ function updateGuards(dt,outside){
 }
 
 const debugEl = document.getElementById('debug-readout');
+debugEl.style.display = DEBUG ? 'block' : 'none';
 const debugRaycaster = new THREE.Raycaster();
 const debugLookPoint = new THREE.Vector3();
 const debugLookDirection = new THREE.Vector3();
@@ -2870,16 +3011,41 @@ function zoneNameAt(x,z,y){
    ============================================================ */
 buildMansion();
 buildOutdoor();
+registerInteractionTargets(worldGroup);
 
 // Keep practical fixtures warm without letting overlapping point lights flatten
 // the low-poly forms into orange-white blocks.
 const localPointLights=[];
-scene.traverse((object) => {
-  if (object.isPointLight){
-    object.intensity *= 0.48;
+const lightWorldPosition=new THREE.Vector3();
+function registerRuntimePointLights(root){
+  root.traverse(object => {
+    if (!object.isPointLight || object.userData.runtimeLightRegistered) return;
+    object.userData.runtimeLightRegistered=true;
+    object.intensity*=0.48;
+    object.userData.distanceSq=Infinity;
     localPointLights.push(object);
+  });
+}
+registerRuntimePointLights(scene);
+
+function updatePointLightBudget(){
+  for (const light of localPointLights){
+    if (light.intensity<=0){
+      light.userData.distanceSq=Infinity;
+      continue;
+    }
+    light.getWorldPosition(lightWorldPosition);
+    light.userData.distanceSq=lightWorldPosition.distanceToSquared(player.pos);
   }
-});
+  localPointLights.sort((a,b)=>a.userData.distanceSq-b.userData.distanceSq);
+  const budget=QUALITY_LEVELS[qualityName].lights;
+  let enabled=0;
+  for (const light of localPointLights){
+    const canEnable=light.intensity>0 && enabled<budget;
+    light.visible=canEnable;
+    if (canEnable) enabled++;
+  }
+}
 
 /* ============================================================
    PLAYER INITIALIZATION
@@ -2892,6 +3058,7 @@ const player = {
 };
 camera.position.copy(player.pos);
 applyLook();
+updatePointLightBudget();
 
 function tryJump(){
   if (!gameStarted) return;
@@ -2979,8 +3146,7 @@ function finishIntro(){
 document.getElementById('intro-play').addEventListener('click',startIntro);
 introSkipEl.addEventListener('click',finishIntro);
 
-const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-if (hasTouch){
+if (TOUCH_CAPABLE){
   document.getElementById('touch-jump-btn').style.display = 'flex';
   touchCrouchBtn.style.display = 'flex';
   touchMoveEl.style.pointerEvents = 'auto';
@@ -3003,7 +3169,6 @@ window.addEventListener('touchstart', initAudioOnFirstInteraction, { passive: tr
 const clock = new THREE.Clock();
 let perfElapsed=0,perfFrames=0,perfFps=0,perfFrameMs=0;
 let interactionElapsed=0,debugElapsed=0,lightCullElapsed=0,rainPhase=false;
-const lightWorldPosition=new THREE.Vector3();
 
 function animate(){
   requestAnimationFrame(animate);
@@ -3013,6 +3178,7 @@ function animate(){
   if (perfElapsed>=1){
     perfFps=perfFrames/perfElapsed;
     perfFrameMs=1000/perfFps;
+    if (gameStarted) updateAdaptiveQuality(perfFps);
     perfElapsed=0; perfFrames=0;
   }
 
@@ -3085,10 +3251,7 @@ function animate(){
     updateLightning(dt, outside);
     lightCullElapsed+=dt;
     if (lightCullElapsed>=0.25){
-      for (const light of localPointLights){
-        light.getWorldPosition(lightWorldPosition);
-        light.visible=light.intensity>100 || lightWorldPosition.distanceToSquared(player.pos)<196;
-      }
+      updatePointLightBudget();
       lightCullElapsed=0;
     }
     scene.fog.near = outside ? 8 : 20;
@@ -3119,8 +3282,8 @@ function animate(){
       }
     }
 
-    debugElapsed+=dt;
-    if (debugElapsed>=0.12){
+    if (DEBUG) debugElapsed+=dt;
+    if (DEBUG && debugElapsed>=0.12){
       debugRaycaster.setFromCamera({ x:0, y:0 }, camera);
       const lookHits = debugRaycaster.intersectObject(worldGroup, true);
       if (lookHits.length){
@@ -3131,12 +3294,12 @@ function animate(){
       }
       const zone = zoneNameAt(player.pos.x, player.pos.z, player.pos.y - player.eyeHeight);
       const stance = sleepingBed ? 'sleeping' : wantsCrouch() ? 'crouched' : sittingSeat ? 'seated' : 'standing';
-      debugEl.textContent = `YOU x=${player.pos.x.toFixed(2)} y=${player.pos.y.toFixed(2)} z=${player.pos.z.toFixed(2)} · LOOK x=${debugLookPoint.x.toFixed(2)} y=${debugLookPoint.y.toFixed(2)} z=${debugLookPoint.z.toFixed(2)} · ${zone} · ${stance} · yaw=${(yaw*180/Math.PI).toFixed(0)}° pitch=${(pitch*180/Math.PI).toFixed(0)}° · fps=${perfFps.toFixed(0)} frame=${perfFrameMs.toFixed(1)}ms`;
+      debugEl.textContent = `YOU x=${player.pos.x.toFixed(2)} y=${player.pos.y.toFixed(2)} z=${player.pos.z.toFixed(2)} · LOOK x=${debugLookPoint.x.toFixed(2)} y=${debugLookPoint.y.toFixed(2)} z=${debugLookPoint.z.toFixed(2)} · ${zone} · ${stance} · yaw=${(yaw*180/Math.PI).toFixed(0)}° pitch=${(pitch*180/Math.PI).toFixed(0)}° · fps=${perfFps.toFixed(0)} frame=${perfFrameMs.toFixed(1)}ms · calls=${renderer.info.render.calls} tris=${renderer.info.render.triangles} quality=${qualityName}`;
       debugElapsed=0;
     }
   }
 
-  renderer.render(scene, camera);
+  if (!graphicsContextLost) renderer.render(scene, camera);
 }
 animate();
 </script>
