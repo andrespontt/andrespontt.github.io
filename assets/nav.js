@@ -5,23 +5,6 @@
  *   <script src="assets/nav.js" defer></script>
  */
 (function(){
-  function isStandaloneDisplay(){
-    return window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true;
-  }
-
-  function setupPwaLaunchVeil(){
-    if (!isStandaloneDisplay() || !document.documentElement.classList.contains('pwa-launching')) return;
-
-    window.setTimeout(function(){
-      document.documentElement.classList.remove('pwa-launching');
-      document.documentElement.classList.add('pwa-launch-ending');
-      window.setTimeout(function(){
-        document.documentElement.classList.remove('pwa-launch-ending');
-      }, 260);
-    }, 220);
-  }
-
   function setupPullToRefresh(){
     if (!('ontouchstart' in window) || window.__apPullToRefreshReady) return;
     window.__apPullToRefreshReady = true;
@@ -172,7 +155,6 @@
   function init(){
     buildNav();
     setupPullToRefresh();
-    setupPwaLaunchVeil();
     try {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js');

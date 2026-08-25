@@ -1,12 +1,12 @@
-const CACHE_VERSION = 'ap-site-v15';
+const CACHE_VERSION = 'ap-site-v16';
 const ASSET_CACHE = `assets-${CACHE_VERSION}`;
 const PAGE_CACHE = `pages-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
   '/',
   '/index.html',
-  '/assets/pages.css?v=pwa-launch-2',
-  '/assets/nav.js?v=pwa-launch-2',
+  '/assets/pages.css?v=pwa-launch-3',
+  '/assets/nav.js?v=pwa-launch-3',
   '/assets/manifest.webmanifest',
   '/assets/icons/icon.svg',
   '/assets/icons/site-icon-v2-192.png',
