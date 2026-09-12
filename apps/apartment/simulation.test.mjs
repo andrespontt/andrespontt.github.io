@@ -23,8 +23,8 @@ const closed={x:1,z:5,y:0};movePlayer(closed,0,3,world.colliders,false);assert(c
 const open={x:1,z:5,y:0};movePlayer(open,0,3,world.colliders,true);assert(open.z>7.5,'Open entrance is traversable');
 const wall={x:0,z:-5};movePlayer(wall,0,-20,world.colliders,false);assert(wall.z> -5.8,'Substeps prevent tunnelling');
 assert.equal(roomAt(-4,-3),'Bedroom');assert.equal(roomAt(3,-2),'Kitchen & dining');
-const state=createState();state.player.z=12;state.guards[0]={x:-3,z:11};state.clown.x=state.player.x;state.clown.z=13;
-assert.equal(updateClown(state,.02),'guard');assert.equal(state.clown.mode,'flee');state.backup='arrived';updateClown(state,.02);assert.equal(state.clown.mode,'gone');
+const state=createState();state.player.z=12;state.guards[0]={x:-3,z:12};state.clown.x=state.player.x;state.clown.z=13;
+assert.equal(updateClown(state,.02),'block');assert.equal(state.clown.mode,'blocked');assert.equal(updateClown(state,.21),'guard');assert.equal(state.clown.mode,'stunned');updateClown(state,.5);assert.equal(state.clown.mode,'flee');state.backup='arrived';updateClown(state,.02);assert.equal(state.clown.mode,'gone');
 // Flood-fill the actual floor plan, checking every interaction has a reachable
 // standing position and clear sight line within the in-game interaction range.
 const size=.25,start=[-3,1.5],queue=[start],seen=new Set([start.join(',')]);
@@ -41,8 +41,8 @@ assert.equal(isProtected(alone),false);
 assert.equal(updateClown(alone,.02),'caught','Clown catches a player away from the guards');
 assert(alone.caught);
 const escort=createState();escort.escort=true;escort.player.z=15;
-const guardStart={...escort.guards[0]};updateGuards(escort,.1);
-assert(Math.hypot(escort.guards[0].x-guardStart.x,escort.guards[0].z-guardStart.z)<=.261,'Escorts have a finite speed');
+const guardStart={...escort.guards[1]};updateGuards(escort,.1);
+assert(Math.hypot(escort.guards[1].x-guardStart.x,escort.guards[1].z-guardStart.z)<=.261,'Escorts have a finite speed');
 assert.equal(isProtected(escort),false,'Requesting escort does not grant distant protection');
 const sealed=createState();sealed.player={...sealed.player,x:1,z:5};sealed.clown.x=1;sealed.clown.z=6.6;
 for(let i=0;i<120;i++)updateClown(sealed,1/60,world.colliders);
@@ -57,3 +57,36 @@ assert(indoor.gain>0&&indoor.gain<ajar.gain&&ajar.gain<outdoor.gain,'Indoor rain
 assert(indoor.cutoff<ajar.cutoff&&ajar.cutoff<outdoor.cutoff,'Closed door muffles rain more strongly');
 assert(rainSettings({x:-5,z:-4},true).gain<ajar.gain,'Distant rooms attenuate the open doorway');
 console.log('Threat, nearby guard rescue, escort lag, closed/open door, wall occlusion and indoor rain checks passed.');
+for(const escorting of [false,true]){
+  const doorWatch=createState();doorWatch.doorOpen=true;doorWatch.escort=escorting;
+  doorWatch.player.x=escorting?9:-3;doorWatch.player.z=escorting?14:-3;
+  // Begin with an actual attempt to cross the doorway, including when Rivera escorts.
+  doorWatch.clown.x=1;doorWatch.clown.z=9;
+  let strikes=0;
+  for(let frame=0;frame<240;frame++){
+    doorWatch.time+=1/60;
+    updateGuards(doorWatch,1/60,world.colliders);
+    const event=updateClown(doorWatch,1/60,world.colliders);
+    if(event==='guard')strikes++;
+    assert(doorWatch.guards.every(g=>g.z>=6.6),'Guards never enter the apartment');
+    assert(doorWatch.clown.z>6,'Posted guard blocks the clown outside the threshold');
+  }
+  if(!escorting)assert(strikes>0,'Opening the door leads to a visible block and punch');
+  assert(doorWatch.guards[0].z<9,'One guard remains at the entrance');
+}
+const crossing=createState();crossing.doorOpen=true;
+const walker={x:1,z:5};movePlayer(walker,0,3,world.colliders,true);
+assert(walker.z>7.5,'Doorway guards do not obstruct the player');
+console.log('Doorway interception, punch/recoil sequence, posted guard and unobstructed player passage passed.');
+for(const approachX of [-7,-4,1,6]){
+  const watched=createState();watched.doorOpen=true;watched.player={...watched.player,x:-3,z:-3};watched.clown.x=approachX;
+  let hits=0;
+  for(let frame=0;frame<900;frame++){
+    watched.time+=1/30;updateGuards(watched,1/30,world.colliders);
+    if(updateClown(watched,1/30,world.colliders)==='guard')hits++;
+    assert(watched.clown.z>6,'Clown stays outside during repeated doorway approaches');
+    assert(!watched.caught);
+  }
+  assert(hits>0,'A posted guard punches arrivals from either side of the street');
+}
+console.log('Repeated doorway approaches from both street directions remain blocked.');

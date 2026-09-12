@@ -98,3 +98,12 @@ pursuit indoors. Repellent remains an alternative to nearby protection.
 Rain uses continuous volume and low-pass changes: outdoor gain is 0.12; indoor
 gain starts at 0.018 and rises near the doorway, especially with it open, to at
 most 0.07. Indoor rain is never completely muted or as loud as outside.
+### Doorway defense
+
+Hayes stays on entrance duty; Rivera may escort the player outdoors. Both remain
+outside and are not obstacles for player movement. A posted guard approaches an
+incoming clown, stops him at arm's reach, winds up a punch, and knocks him back.
+The clown visibly recoils before fleeing. Doorway defense works independently of
+the player's distance from the guard. Away from the entrance, the player can still
+be caught when separated from the escort. Opening the door does not dismiss its
+guard or let the clown bypass him.

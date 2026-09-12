@@ -179,7 +179,7 @@ export function createCharacter(kind = 'guard', variant = 0) {
   return root;
 }
 
-export function animateCharacter(root, time, dt, mood='watch') {
+export function animateCharacter(root, time, dt, mood='watch', punchTime=0) {
   const rig=rigs.get(root);
   if(!rig)return;
   const position=root.position;
@@ -205,5 +205,19 @@ export function animateCharacter(root, time, dt, mood='watch') {
     const radio=Math.pow(Math.max(0,Math.sin(time*.35+rig.phase)),12);
     rig.arms[0].rotation.x=-radio*.48;
     rig.forearms[0].rotation.x=-.13-radio*1.75;
+  }
+  if(!rig.clown&&punchTime>0){
+    const progress=THREE.MathUtils.clamp(1-punchTime/.65,0,1);
+    const extension=progress<.3?progress/.3:Math.max(0,1-(progress-.3)/.7);
+    rig.body.rotation.y=-extension*.24;
+    rig.arms[1].rotation.x=-.7-extension*.85;
+    rig.arms[1].rotation.z=-.1;
+    rig.forearms[1].rotation.x=-1.05+extension*.95;
+    rig.arms[0].rotation.x=-.65;rig.forearms[0].rotation.x=-1.2;
+  }else rig.body.rotation.y=0;
+  if(rig.clown&&(mood==='blocked'||mood==='stunned')){
+    rig.body.rotation.x=mood==='stunned'?-.28:-.06;
+    rig.head.rotation.z=-.18;
+    rig.arms.forEach((arm,i)=>{arm.rotation.x=-.7;arm.rotation.z=i?.35:-.35;});
   }
 }

@@ -248,9 +248,9 @@ function update(dt){
     p.velocity-=9.8*dt;p.y=Math.max(0,p.y+p.velocity*dt);if(p.y===0)p.velocity=0;
     const eye=state.seated?(state.seated==='bed'?.95:1.18):state.crouched?1.04:1.68;
     const seat=state.seated==='sofa'?[-5.4,1.45]:state.seated==='bed'?[-5.8,-4.3]:[p.x,p.z];camera.position.set(seat[0],THREE.MathUtils.lerp(camera.position.y,eye+p.y,1-Math.exp(-14*dt)),seat[1]);camera.rotation.set(p.pitch,p.yaw,0,'YXZ');
-    updateGuards(state,dt);
+    updateGuards(state,dt,world.colliders);
     const encounter=updateClown(state,dt,world.colliders);
-    if(encounter==='guard')say('warning');
+    if(encounter==='guard'){tone(85,.16,.12,'triangle');say('warning');}
     if(encounter==='caught'){endRun();return;}
     if(state.backup==='called'){state.backupTime+=dt;world.van.visible=true;world.van.position.set(16-Math.min(18,state.backupTime*2),0,11);if(state.backupTime>=9){state.backup='arrived';say('secure');}}
     state.captionTime-=dt;if(state.captionTime<=0)$('caption').classList.remove('show');state.sprayCooldown=Math.max(0,state.sprayCooldown-dt);
@@ -265,10 +265,10 @@ function update(dt){
     if(!hasGreeted&&Math.hypot(p.x-1,p.z-6)<2.4){hasGreeted=true;say('welcome');}
   } else if(!state.started){camera.position.set(-5.4,1.8,-.1);camera.lookAt(-1.7+Math.sin(state.time*.08)*.2,1.45,5.8);}
   world.door.rotation.y=THREE.MathUtils.lerp(world.door.rotation.y,state.doorOpen?-Math.PI*.51:0,1-Math.exp(-7*dt));
-  const c=state.clown;world.clown.visible=c.mode!=='gone';world.clown.position.set(c.x,0,c.z);world.clown.rotation.y=c.mode==='flee'?Math.atan2(3,2):Math.atan2(p.x-c.x,p.z-c.z);
+  const c=state.clown;world.clown.visible=c.mode!=='gone';world.clown.position.set(c.x,0,c.z);const facing=['blocked','stunned'].includes(c.mode)?state.guards[c.defender]||p:p;world.clown.rotation.y=c.mode==='flee'?Math.atan2(3,2):Math.atan2(facing.x-c.x,facing.z-c.z);
   animateCharacter(world.clown,state.time,state.playing?dt:0,c.mode);
   world.guards.forEach((g,i)=>{const guard=state.guards[i];g.position.set(guard.x,0,guard.z);g.rotation.y=Math.atan2(c.x-guard.x,c.z-guard.z);world.targets.find(t=>t.id==='guard'+i).position.set(guard.x,1.5,guard.z);});
-  world.guards.forEach(g=>animateCharacter(g,state.time,state.playing?dt:0));
+  world.guards.forEach((g,i)=>animateCharacter(g,state.time,state.playing?dt:0,'watch',state.guards[i].punch||0));
   const positions=world.positions;for(let i=0;i<positions.length;i+=6){positions[i+1]-=dt*9;positions[i+4]-=dt*9;if(positions[i+1]<0){positions[i+1]=15;positions[i+4]=14.7;}}world.rain.geometry.attributes.position.needsUpdate=true;
   const flash=!reducedMotion&&state.time%19>.1&&state.time%19<.23;moon.intensity=flash?3.5:.8;
   if(rainGain&&audio?.state==='running'){
