@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createState,canStand,movePlayer,roomAt,updateClown} from './simulation.js';
+import {createState,canStand,movePlayer,roomAt,updateClown,updateGuards,isProtected,rainSettings} from './simulation.js';
 import * as THREE from '../vendor/three.module.min.js';
 const vendor=new URL('../vendor/three.module.min.js',import.meta.url).href;
 const characters=(await readFile(new URL('./characters.js',import.meta.url),'utf8')).replace("from 'three'",`from '${vendor}'`);
@@ -23,7 +23,7 @@ const closed={x:1,z:5,y:0};movePlayer(closed,0,3,world.colliders,false);assert(c
 const open={x:1,z:5,y:0};movePlayer(open,0,3,world.colliders,true);assert(open.z>7.5,'Open entrance is traversable');
 const wall={x:0,z:-5};movePlayer(wall,0,-20,world.colliders,false);assert(wall.z> -5.8,'Substeps prevent tunnelling');
 assert.equal(roomAt(-4,-3),'Bedroom');assert.equal(roomAt(3,-2),'Kitchen & dining');
-const state=createState();state.player.z=12;state.clown.x=state.player.x;state.clown.z=13;
+const state=createState();state.player.z=12;state.guards[0]={x:-3,z:11};state.clown.x=state.player.x;state.clown.z=13;
 assert.equal(updateClown(state,.02),'guard');assert.equal(state.clown.mode,'flee');state.backup='arrived';updateClown(state,.02);assert.equal(state.clown.mode,'gone');
 // Flood-fill the actual floor plan, checking every interaction has a reachable
 // standing position and clear sight line within the in-game interaction range.
@@ -35,3 +35,25 @@ for(const t of world.targets.filter(t=>t.action!=='guard')){
   assert(reachable,`${t.id} has a reachable, unobstructed interaction point`);
 }
 console.log(`Passed collision, doorway, guard, ending and ${world.targets.length-2} interaction reachability checks (${queue.length} reachable floor positions).`);
+
+const alone=createState();alone.player.x=5;alone.player.z=14;alone.clown.x=5;alone.clown.z=14.6;
+assert.equal(isProtected(alone),false);
+assert.equal(updateClown(alone,.02),'caught','Clown catches a player away from the guards');
+assert(alone.caught);
+const escort=createState();escort.escort=true;escort.player.z=15;
+const guardStart={...escort.guards[0]};updateGuards(escort,.1);
+assert(Math.hypot(escort.guards[0].x-guardStart.x,escort.guards[0].z-guardStart.z)<=.261,'Escorts have a finite speed');
+assert.equal(isProtected(escort),false,'Requesting escort does not grant distant protection');
+const sealed=createState();sealed.player={...sealed.player,x:1,z:5};sealed.clown.x=1;sealed.clown.z=6.6;
+for(let i=0;i<120;i++)updateClown(sealed,1/60,world.colliders);
+assert(!sealed.caught,'A closed door separates player and clown');
+const intruder=createState();intruder.doorOpen=true;intruder.player.x=1;intruder.player.z=3.8;intruder.clown.x=1;intruder.clown.z=7;intruder.guards=[{x:9,z:14},{x:10,z:14}];
+for(let i=0;i<180&&!intruder.caught;i++)updateClown(intruder,1/60,world.colliders);
+assert(intruder.caught,'An unguarded open entrance lets the clown reach the player indoors');
+const window=createState();window.player.x=-4;window.player.z=5.5;window.guards=[{x:-4,z:6.5}];
+assert(!isProtected(window,world.colliders),'Guards cannot protect through a solid window/wall');
+const indoor=rainSettings({x:1,z:5},false),ajar=rainSettings({x:1,z:5},true),outdoor=rainSettings({x:1,z:8},true);
+assert(indoor.gain>0&&indoor.gain<ajar.gain&&ajar.gain<outdoor.gain,'Indoor rain remains audible, rises with an open door and stays below outdoors');
+assert(indoor.cutoff<ajar.cutoff&&ajar.cutoff<outdoor.cutoff,'Closed door muffles rain more strongly');
+assert(rainSettings({x:-5,z:-4},true).gain<ajar.gain,'Distant rooms attenuate the open doorway');
+console.log('Threat, nearby guard rescue, escort lag, closed/open door, wall occlusion and indoor rain checks passed.');

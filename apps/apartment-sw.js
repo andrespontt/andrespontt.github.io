@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apartment-v11';
+const CACHE_NAME = 'apartment-v12';
 const ASSETS = ['./apartment.html','./apartment/style.css','./apartment/world.js','./apartment/characters.js','./apartment/game.js','./apartment/simulation.js','./apartment-manifest.json','../assets/icons/icon.svg','./vendor/three.module.min.js'];
 ASSETS.push(...['welcome','escort','hold','warning','incoming','waiting','secure'].map(id=>'./apartment/voices/'+id+'.wav'));
 const urls = new Set(ASSETS.map(path => new URL(path, self.location).href));

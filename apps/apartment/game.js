@@ -2,20 +2,25 @@ import * as THREE from 'three';
 import {buildWorld} from './world.js';
 import {animateCharacter} from './characters.js';
 import {createState,movePlayer,roomAt} from './simulation.js';
-import {updateClown} from './simulation.js';
+import {updateClown,updateGuards,isProtected,rainSettings} from './simulation.js';
 
 const $=id=>document.getElementById(id);
 const state=createState(), keys=new Set();
 const canvas=$('scene');
 let renderer,world,camera,scene,moon,aimed=null,last=0,drag=null,stickId=null,lookId=null;
-let touchX=0,touchZ=0,audio=null,soundOn=true,rainGain=null,held=null,mist=null;
+let touchX=0,touchZ=0,audio=null,soundOn=true,rainGain=null,rainFilter=null,held=null,mist=null;
 const ray=new THREE.Raycaster(),forward=new THREE.Vector3(),delta=new THREE.Vector3();
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function fail(message){$('error-message').textContent=message;$('error').hidden=false;}
 function caption(message){$('caption').textContent=message;state.captionTime=5.5;$('caption').classList.add('show');}
 function clearInput(){keys.clear();touchX=0;touchZ=0;drag=null;stickId=null;lookId=null;$('knob').style.transform='';}
 function pause(){if(!state.playing)return;state.playing=false;clearInput();document.exitPointerLock?.();document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=false;$('menu-footer').hidden=false;$('start').textContent='Resume the night  →';stopAudio();$('start').focus();}
-function start(){state.playing=true;state.started=true;$('menu').hidden=true;$('hud').hidden=false;$('menu-footer').hidden=true;document.body.classList.add('playing');last=performance.now();if(soundOn)ensureAudio();if(!matchMedia('(pointer: coarse)').matches){try{const request=canvas.requestPointerLock?.();request?.catch(()=>caption('Drag to look. WASD to move. E to interact.'));}catch{caption('Drag to look. WASD to move. E to interact.');}}caption('You’re home. The guards are at the front door.');}
+function endRun(){
+  state.playing=false;clearInput();stopAudio();document.exitPointerLock?.();
+  document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=true;$('menu-footer').hidden=true;
+  $('caught').hidden=false;$('retry').focus();
+}
+function start(){if(state.caught)return;state.playing=true;state.started=true;$('menu').hidden=true;$('hud').hidden=false;$('menu-footer').hidden=true;document.body.classList.add('playing');last=performance.now();if(soundOn)ensureAudio();if(!matchMedia('(pointer: coarse)').matches){try{const request=canvas.requestPointerLock?.();request?.catch(()=>caption('Drag to look. WASD to move. E to interact.'));}catch{caption('Drag to look. WASD to move. E to interact.');}}caption('You’re home. The guards are at the front door.');}
 // AUDIO START: prepared samples need no network or decoding during the Enter tap.
 const rainSamples=new Float32Array(22050*2);
 for(let i=0;i<rainSamples.length;i++)rainSamples[i]=Math.random()*2-1;
@@ -57,8 +62,8 @@ function ensureAudio(){
       const buffer=audio.createBuffer(1,rainSamples.length,22050);
       buffer.getChannelData(0).set(rainSamples);
       const source=audio.createBufferSource();source.buffer=buffer;source.loop=true;
-      const filter=audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=1500;
-      rainGain=audio.createGain();rainGain.gain.value=.07;
+      const filter=audio.createBiquadFilter();rainFilter=filter;filter.type='lowpass';filter.frequency.value=550;
+      rainGain=audio.createGain();rainGain.gain.value=.018;
       source.connect(filter).connect(rainGain).connect(masterGain);source.start();
       musicGain=audio.createGain();musicGain.gain.value=0;
       musicFilter=audio.createBiquadFilter();musicFilter.type='lowpass';musicFilter.frequency.value=750;
@@ -243,14 +248,17 @@ function update(dt){
     p.velocity-=9.8*dt;p.y=Math.max(0,p.y+p.velocity*dt);if(p.y===0)p.velocity=0;
     const eye=state.seated?(state.seated==='bed'?.95:1.18):state.crouched?1.04:1.68;
     const seat=state.seated==='sofa'?[-5.4,1.45]:state.seated==='bed'?[-5.8,-4.3]:[p.x,p.z];camera.position.set(seat[0],THREE.MathUtils.lerp(camera.position.y,eye+p.y,1-Math.exp(-14*dt)),seat[1]);camera.rotation.set(p.pitch,p.yaw,0,'YXZ');
-    if(updateClown(state,dt)==='guard')say('warning');
+    updateGuards(state,dt);
+    const encounter=updateClown(state,dt,world.colliders);
+    if(encounter==='guard')say('warning');
+    if(encounter==='caught'){endRun();return;}
     if(state.backup==='called'){state.backupTime+=dt;world.van.visible=true;world.van.position.set(16-Math.min(18,state.backupTime*2),0,11);if(state.backupTime>=9){state.backup='arrived';say('secure');}}
     state.captionTime-=dt;if(state.captionTime<=0)$('caption').classList.remove('show');state.sprayCooldown=Math.max(0,state.sprayCooldown-dt);
     held.visible=state.spray;
     mist.visible=state.sprayCooldown>.8;
     mist.material.opacity=Math.max(0,(state.sprayCooldown-.8)*.45);
     mist.scale.setScalar(1+(1.5-state.sprayCooldown)*2);
-    $('room').textContent=roomAt(p.x,p.z);$('status').textContent=state.backup==='arrived'?'The street is secure':state.escort?'Bodyguards escorting you':'Two guards on watch';
+    $('room').textContent=roomAt(p.x,p.z);$('status').textContent=state.backup==='arrived'?'The street is secure':isProtected(state,world.colliders)?'Protected · guard nearby':p.z>6?'Exposed · stay near a guard':'Sheltered · watch the entrance';
     $('objective').textContent=state.backup==='arrived'?'You’re safe. Make yourself at home.':state.backup==='called'?'Backup is approaching. Stay near the guards.':p.z>6?'The phone inside can call security backup.':'Explore your home. Check the front entrance.';
     $('inventory').textContent=state.spray?(state.sprayCooldown>0?'REPELLENT · SPRAYING':'REPELLENT READY · F'):'NO ITEM EQUIPPED';aim();
     updateMusic(p,state.doorOpen,state.clown.mode!=='gone');
@@ -259,11 +267,15 @@ function update(dt){
   world.door.rotation.y=THREE.MathUtils.lerp(world.door.rotation.y,state.doorOpen?-Math.PI*.51:0,1-Math.exp(-7*dt));
   const c=state.clown;world.clown.visible=c.mode!=='gone';world.clown.position.set(c.x,0,c.z);world.clown.rotation.y=c.mode==='flee'?Math.atan2(3,2):Math.atan2(p.x-c.x,p.z-c.z);
   animateCharacter(world.clown,state.time,state.playing?dt:0,c.mode);
-  world.guards.forEach((g,i)=>{const tx=state.escort&&p.z>6?p.x+(i?1:-1):i?2.65:-.65;const tz=state.escort&&p.z>6?Math.max(7,p.z-.8):7;g.position.x=THREE.MathUtils.lerp(g.position.x,tx,1-Math.exp(-3*dt));g.position.z=THREE.MathUtils.lerp(g.position.z,tz,1-Math.exp(-3*dt));g.rotation.y=Math.atan2(c.x-g.position.x,c.z-g.position.z);world.targets.find(t=>t.id==='guard'+i).position.set(g.position.x,1.5,g.position.z);});
+  world.guards.forEach((g,i)=>{const guard=state.guards[i];g.position.set(guard.x,0,guard.z);g.rotation.y=Math.atan2(c.x-guard.x,c.z-guard.z);world.targets.find(t=>t.id==='guard'+i).position.set(guard.x,1.5,guard.z);});
   world.guards.forEach(g=>animateCharacter(g,state.time,state.playing?dt:0));
   const positions=world.positions;for(let i=0;i<positions.length;i+=6){positions[i+1]-=dt*9;positions[i+4]-=dt*9;if(positions[i+1]<0){positions[i+1]=15;positions[i+4]=14.7;}}world.rain.geometry.attributes.position.needsUpdate=true;
   const flash=!reducedMotion&&state.time%19>.1&&state.time%19<.23;moon.intensity=flash?3.5:.8;
-  if(rainGain&&audio?.state==='running')rainGain.gain.setTargetAtTime(p.z>6?.12:.07,audio.currentTime,.3);
+  if(rainGain&&audio?.state==='running'){
+    const rain=rainSettings(p,state.doorOpen);
+    rainGain.gain.setTargetAtTime(rain.gain,audio.currentTime,.4);
+    rainFilter.frequency.setTargetAtTime(rain.cutoff,audio.currentTime,.4);
+  }
 }
 try{
   scene=new THREE.Scene();scene.background=new THREE.Color('#182d36');scene.fog=new THREE.FogExp2('#182d36',.019);

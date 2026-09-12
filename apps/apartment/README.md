@@ -1,7 +1,7 @@
 # Apartment
 
 A first-person, low-poly suspense sandbox. A canceled birthday clown waits outside
-on a rainy night. The apartment is a safe place; two bodyguards hold the entrance.
+on a rainy night. Two bodyguards hold the entrance; stay close to them to remain protected.
 Explore, inspect the birthday card, sit, rest, switch the TV, take repellent, talk
 to the guards, and call the security phone to bring the night to a peaceful end.
 
@@ -32,7 +32,7 @@ apartment for subsequent offline visits.
 The rebuild concentrates the original sprawling house in a single-floor apartment.
 The canceled-booking premise, protected exploration, furnished rooms, storm,
 clown encounters and security call remain the central experience. Backup arrives
-by van; the guards always protect the player. There is no death state.
+by van; guards protect within 2.8 metres and need a clear path. Their escort speed is limited. The clown can catch an unprotected player, including inside an open entrance; the caught screen offers a fresh retry.
 
 ## Verification
 
@@ -86,3 +86,15 @@ interaction and warn the clown; dispatch speaks during the security call.
 
 For the Wi-Fi preview with voice files, run:
 `node tools/serve-apartment.cjs 192.168.1.162` (replace the IP when it changes).
+
+### Threat and rain balance
+
+Guards must be within 2.8 metres of the player and close enough to intercept the
+clown. Walls and closed doors block protection. Escort movement is limited to
+2.6 m/s, while the clown pursues at 3.15 m/s; the player can sprint at 4.1 m/s.
+A closed entrance blocks the clown, while an unguarded open entrance permits
+pursuit indoors. Repellent remains an alternative to nearby protection.
+
+Rain uses continuous volume and low-pass changes: outdoor gain is 0.12; indoor
+gain starts at 0.018 and rises near the doorway, especially with it open, to at
+most 0.07. Indoor rain is never completely muted or as loud as outside.
