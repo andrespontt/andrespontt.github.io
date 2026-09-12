@@ -44,3 +44,45 @@ for every indoor target using the actual generated scene.
 Browser checks: scene startup, desktop and 390 × 844 layouts, help disclosure,
 pause/resume, crouch input, and the unequipped repellent hint. Physical touch and
 audio output should also be checked on a device when tuning the experience.
+
+## Character assets
+
+`characters.js` authors the original guards and clown as reusable, articulated
+Three.js models. These are procedural meshes, not downloaded GLB files. Each
+character merges its coloured surfaces into eight body-part meshes, sharing one
+material. The two guards have different skin, hair and suit colours. Idle motion,
+walking, radio gestures and the clown's head tilt are render-only animation.
+
+Open `/apps/apartment/characters.html` for the model studio (drag to rotate, scroll
+to zoom, and toggle the walking preview). The models are self-contained and do
+not require remote assets, textures or an additional runtime dependency.
+
+## Audio startup and recovery
+
+Rain samples are prepared in memory during startup. The Enter tap synchronously
+creates/resumes Web Audio, and sound is enabled by default (an explicit mute is
+remembered). The menu and HUD expose sound controls, including retry after an
+interruption or blocked startup. AudioSession playback mode is requested when
+available. Pause and mute silence the master gain before suspending the context;
+late resume promises cannot undo a mute.
+
+Run `node apps/apartment/audio.test.mjs` to check gesture startup, interruption,
+resume rejection/timeouts and mute races. Desktop browser startup and mute/re-enable
+were verified; physical iPhone output still needs device verification.
+
+### Circus music and spoken dialogue
+
+The original synthesized minor-key circus waltz is scheduled on the audio clock.
+Its volume rises with proximity to the front door; opening the door raises the
+volume and filter cutoff. Music fades when security clears the street and is
+lowered during dialogue.
+
+Seven original dialogue clips in `voices/` were generated locally with installed
+Microsoft David Desktop and Microsoft Zira Desktop speech voices. The WAV files
+preload at page startup, decode after audio is unlocked, and play through the
+same Web Audio master gain as the ambience. No browser speech synthesis or remote
+voice service is needed. Guards greet the player near the entrance, respond to
+interaction and warn the clown; dispatch speaks during the security call.
+
+For the Wi-Fi preview with voice files, run:
+`node tools/serve-apartment.cjs 192.168.1.162` (replace the IP when it changes).

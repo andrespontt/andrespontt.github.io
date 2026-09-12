@@ -3,7 +3,18 @@ import {readFile} from 'node:fs/promises';
 import {createState,canStand,movePlayer,roomAt,updateClown} from './simulation.js';
 import * as THREE from '../vendor/three.module.min.js';
 const vendor=new URL('../vendor/three.module.min.js',import.meta.url).href;
-const source=(await readFile(new URL('./world.js',import.meta.url),'utf8')).replace("from 'three'",`from '${vendor}'`);
+const characters=(await readFile(new URL('./characters.js',import.meta.url),'utf8')).replace("from 'three'",`from '${vendor}'`);
+const characterURL='data:text/javascript;base64,'+Buffer.from(characters).toString('base64');
+const {createCharacter,animateCharacter}=await import(characterURL);
+for(const kind of ['guard','clown']) {
+  const model=createCharacter(kind);
+  let draws=0;
+  model.traverse(object=>{if(object.isMesh){draws++;for(const attribute of Object.values(object.geometry.attributes))assert(attribute.array.every(Number.isFinite),`${kind} geometry is finite`);}});
+  assert.equal(draws,8,`${kind} stays within the character draw-call budget`);
+  for(let frame=0;frame<120;frame++){model.position.z+=.025;animateCharacter(model,frame/60,1/60,'flee');}
+  model.traverse(object=>assert([object.rotation.x,object.rotation.y,object.rotation.z].every(Number.isFinite),`${kind} animation is finite`));
+}
+const source=(await readFile(new URL('./world.js',import.meta.url),'utf8')).replace("from 'three'",`from '${vendor}'`).replace("from './characters.js'",`from '${characterURL}'`);
 const {buildWorld}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const scene=new THREE.Scene(),world=buildWorld(scene);scene.updateMatrixWorld(true);
 const p=createState().player;

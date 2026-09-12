@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createCharacter} from './characters.js';
 
 // Procedural, low-poly set: every measurement is in metres. Static geometry is
 // separate from gameplay state; interactive IDs connect the two layers.
@@ -115,8 +116,13 @@ export function buildWorld(scene) {
   for(let i=0;i<12;i++){const puddle=new THREE.Mesh(new THREE.CircleGeometry(.7+(i%3)*.3,12),wet);puddle.rotation.x=-Math.PI/2;puddle.position.set(-11+i*2,.005,10+(i%3)*2);puddle.scale.x=1.7;scene.add(puddle);}
   for(let i=0;i<9;i++){const x=-23+i*5.8;const h=8+(i%4)*2;box(x,h/2,23,5.5,h,6,['#293b40','#34474b','#28383d'][i%3]);for(let row=0;row<4;row++)for(let col=0;col<3;col++){const win=box(x-1.6+col*1.6,2+row*2.1,19.94,.72,1.12,.03,(row+col+i)%3?'#657269':'#b1a773');if((row+col+i)%3===0)win.material=material('#b1a773',true);}}
   for(const x of [-10,9]){box(x,2.5,8.5,.09,5,.09,dark);box(x+.55,4.9,8.5,1.2,.08,.08,dark);const light=box(x+1,4.8,8.5,.5,.1,.3,'#dcc68d');light.material=material('#dcc68d',true);const p=new THREE.PointLight('#e0ca94',35,12,2);p.position.set(x+1,4.65,8.5);scene.add(p);}
-  function person(x,z,clown=false){const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);const coat=clown?'#914e42':'#202d30';box(0,1.03,0,.54,.74,.32,coat,g);for(const side of [-1,1]){box(side*.17,.38,0,.2,.76,.23,coat,g);box(side*.17,.09,-.09,.23,.18,.38,'#172224',g);box(side*.37,1,0,.17,.75,.22,coat,g);}orb(0,1.64,0,.23,clown?'#ded5b6':'#b69b7b',g);if(clown){orb(0,1.63,.21,.068,'#aa4237',g);for(const x of [-.1,.1])orb(x,1.72,.2,.034,'#111b1b',g);for(const x of [-.24,.24])orb(x,1.72,0,.15,'#973c33',g);const hat=new THREE.Mesh(new THREE.ConeGeometry(.23,.52,8),material('#a78255'));hat.position.y=2.06;g.add(hat);}else{box(0,1.7,.2,.37,.08,.06,'#111b1b',g);box(0,1.18,.18,.1,.42,.03,'#ccd0bb',g);}return g;}
-  const guards=[person(-.65,7),person(2.65,7)];guards.forEach((g,i)=>target('guard'+i,'Talk to bodyguard',g.position.x,1.5,7,g,'guard'));
+  function person(x,z,clown=false,variant=0){
+    const model=createCharacter(clown?'clown':'guard',variant);
+    model.position.set(x,0,z);
+    scene.add(model);
+    return model;
+  }
+  const guards=[person(-.65,7),person(2.65,7,false,1)];guards.forEach((g,i)=>target('guard'+i,'Talk to bodyguard',g.position.x,1.5,7,g,'guard'));
   const clown=person(-4,15,true);
   const van=new THREE.Group();scene.add(van);van.visible=false;box(0,.85,0,2,1.2,4,'#283c3e',van);box(0,1.7,.25,1.85,.65,2.4,'#455b5b',van);box(0,1.75,-.98,1.65,.45,.03,'#789c9d',van);for(const x of [-.9,.9])for(const z of [-1.2,1.2])orb(x,.4,z,.38,'#151e20',van);for(const x of [-.6,.6]){const beacon=box(x,2.1,0,.35,.12,.3,'#628eae',van);beacon.material=material('#628eae',true);}
   // Rain only falls outside the roof, including in the front window view.
