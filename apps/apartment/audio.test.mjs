@@ -8,7 +8,7 @@ const game=await readFile(new URL('./game.js',import.meta.url),'utf8');
 const block=game.slice(game.indexOf('// AUDIO START'),game.indexOf('// AUDIO END'));
 const contexts=[],buttons=new Map(),timers=[];
 let rejectResume=false,stored=null;
-function node(){return {gain:{value:0,setValueAtTime(v){this.value=v;},exponentialRampToValueAtTime(){},setTargetAtTime(v){this.value=v;}},frequency:{value:0,setTargetAtTime(v){this.value=v;}},connect(){return this;},start(){},stop(){},disconnect(){}};}
+function node(){return {playbackRate:{value:1},gain:{value:0,setValueAtTime(v){this.value=v;},exponentialRampToValueAtTime(){},setTargetAtTime(v){this.value=v;}},frequency:{value:0,setTargetAtTime(v){this.value=v;}},connect(){return this;},start(){},stop(){},disconnect(){}};}
 class AudioContext {
   constructor(){this.state='suspended';this.currentTime=0;this.destination={};contexts.push(this);}
   decodeAudioData(){return Promise.resolve({duration:3});}
@@ -19,7 +19,7 @@ class AudioContext {
   close(){this.closed=true;this.state='closed';return Promise.resolve();}
 }
 const sandbox=vm.createContext({Float32Array,Math,Promise,Date,console,state:{captionTime:0},fetch:async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(8)}),window:{AudioContext},navigator:{audioSession:{}},localStorage:{getItem:()=>stored,setItem:(k,v)=>stored=v},setTimeout:callback=>{timers.push(callback);return timers.length-1;},clearTimeout:id=>timers[id]=null,caption:()=>{},$:(id)=>{if(!buttons.has(id))buttons.set(id,{setAttribute(){},textContent:''});return buttons.get(id);}});
-vm.runInContext('let audio=null,soundOn=true,rainGain=null;'+block,sandbox);
+vm.runInContext('let audio=null,soundOn=true,rainGain=null,rainFilter=null;'+block,sandbox);
 const run=code=>vm.runInContext(code,sandbox);
 const flush=async()=>{await Promise.resolve();await Promise.resolve();};
 assert.equal(contexts.length,0,'Preparing samples does not create or play an AudioContext');
@@ -50,3 +50,28 @@ for(const id of ['welcome','escort','hold','warning','incoming','waiting','secur
   assert(wav.length>10000,`${id} includes recorded dialogue`);
 }
 console.log('Dialogue playback/cancellation, door proximity and seven local WAV clips passed.');
+run('ensureAudio()');contexts.at(-1).complete();for(let i=0;i<8;i++)await flush();
+run("say('escort')");const guardVoice=run('activeVoice');
+assert.equal(run("say('taunt-01')"),false,'Clown waits while a guard speaks');
+assert.equal(run('activeVoice'),guardVoice);
+run("say('incoming')");assert.equal(run('dialogueQueue.length'),1,'Important lines queue without overlapping');
+guardVoice.onended();assert.equal(run('activeVoiceId'),'incoming');
+run('activeVoice.onended()');
+run("say('taunt-01')");assert.equal(run('activeVoice.playbackRate.value'),1.08,'Clown voice has its own pitch');
+const clownVoice=run('activeVoice');run("say('warning')");
+assert.equal(clownVoice.onended,null,'Guard warning cancels clown playback');
+assert.equal(run('activeVoiceId'),'warning');
+run('activeVoice.onended();state.player={x:1,z:5};state.clown={x:1,z:10,mode:"watch"};state.captionTime=0');
+const heard=new Set();
+for(let i=0;i<25;i++){
+  run('tauntWait=0;state.captionTime=0;updateTaunts(.1)');
+  const id=run('activeVoiceId');assert(!heard.has(id),'No repetition until all 25 phrases have played');heard.add(id);
+  run('activeVoice.onended()');
+}
+assert.equal(heard.size,25);
+run('state.clown.mode="flee";tauntWait=0;updateTaunts(1)');assert.equal(run('activeVoice'),null,'No taunts during retreat');
+for(let i=1;i<=25;i++){
+  const wav=await readFile(new URL(`./voices/taunt-${String(i).padStart(2,'0')}.wav`,import.meta.url));
+  assert.equal(wav.toString('ascii',0,4),'RIFF');assert(wav.length>10000);
+}
+console.log('25 voiced taunts, distinct pitch, non-repeating shuffle, guard priority and no overlapping dialogue passed.');

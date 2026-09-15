@@ -117,20 +117,54 @@ const dialogue={
   waiting:['DISPATCH','The team is approaching. Hold tight.'],
   secure:['SECURITY',"Perimeter secure. He won't be back tonight. Make yourself at home."],
 };
+const tauntLines=[
+  "One little step. One little smile.",
+  "Come closer. The best jokes are whispered.",
+  "Your bodyguards cannot laugh for you.",
+  "The rain is lovely. Come dance in it.",
+  "You canceled the party. Not the fun.",
+  "Knock, knock. Your turn to come out.",
+  "I saved you a front row seat.",
+  "Just to the curb. I promise a good punchline.",
+  "All those windows. Such a shy audience.",
+  "Come on out. Make an old clown smile.",
+  "The door is open. That must be my invitation.",
+  "One step past the suits. There you are.",
+  "You look braver from across the street.",
+  "No tickets needed. Just a little courage.",
+  "I brought the music. You bring the applause.",
+  "Why watch the show when you can be in it?",
+  "Peekaboo. I can wait longer than you.",
+  "Big house. Tiny little steps.",
+  "Let the serious men rest. Come play.",
+  "It is only rain. What are you really afraid of?",
+  "I know a shortcut to the grand finale.",
+  "Come closer. This trick needs a volunteer.",
+  "Smile for me. No, a little closer.",
+  "The sidewalk is our stage tonight.",
+  "Last call for the bravest guest."
+];
+const tauntIds=tauntLines.map((line,i)=>'taunt-'+String(i+1).padStart(2,'0'));
+for(let i=0;i<tauntIds.length;i++)dialogue[tauntIds[i]]=['THE CLOWN',tauntLines[i]];
+let activeVoiceId=null,tauntWait=9,lastTaunt=null;
+const dialogueQueue=[],tauntBag=[];
+const isTaunt=id=>id?.startsWith('taunt-');
 const voiceBuffers=new Map();
-const voiceDownloads=Promise.all(Object.keys(dialogue).map(async id=>{
+// Decode each clip as soon as its own request finishes; a slow taunt download
+// must never hold up an already-loaded guard line.
+const voiceDownloads=new Map(Object.keys(dialogue).map(id=>[id,(async()=>{
   try{
     const response=await fetch(`apartment/voices/${id}.wav`);
     if(!response.ok)throw new Error(`Voice ${id}: ${response.status}`);
-    return [id,await response.arrayBuffer()];
+    return await response.arrayBuffer();
   }catch(error){console.warn('Dialogue could not preload:',error);return null;}
-}));
+})()]));
 async function prepareVoices(context){
   voiceBuffers.clear();
-  const downloads=await voiceDownloads;
-  if(context!==audio)return;
-  await Promise.all(downloads.filter(Boolean).map(async([id,bytes])=>{
+  await Promise.all([...voiceDownloads].map(async([id,download])=>{
     try{
+      const bytes=await download;
+      if(!bytes||context!==audio)return;
       const buffer=await context.decodeAudioData(bytes.slice(0));
       if(context!==audio)return;
       voiceBuffers.set(id,buffer);
@@ -138,25 +172,70 @@ async function prepareVoices(context){
     }catch(error){console.warn('Dialogue could not decode:',error);}
   }));
 }
-function cancelVoice(){
-  pendingDialogue=null;
+function cancelVoice(clearQueue=true){
+  pendingDialogue=null;activeVoiceId=null;
+  if(clearQueue)dialogueQueue.length=0;
   if(activeVoice){activeVoice.onended=null;try{activeVoice.stop();}catch{}activeVoice.disconnect();activeVoice=null;}
 }
 function playDialogue(id){
   if(!soundOn||!audioWanted||!audio||audio.state!=='running')return;
+  if(activeVoice)return;
   if(pendingDialogue&&pendingDialogue.expires<Date.now()){pendingDialogue=null;return;}
   const buffer=voiceBuffers.get(id);
   if(!buffer){pendingDialogue={id,expires:Date.now()+10000};return;}
-  cancelVoice();
-  const source=audio.createBufferSource();source.buffer=buffer;source.connect(masterGain);activeVoice=source;
-  source.onended=()=>{source.disconnect();if(activeVoice===source)activeVoice=null;};
-  state.captionTime=Math.max(state.captionTime,buffer.duration+.5);source.start();
+  pendingDialogue=null;
+  const [speaker,line]=dialogue[id];caption(`${speaker}: ${line}`);
+  const source=audio.createBufferSource();source.buffer=buffer;
+  // A brighter voice with a modest pitch lift; guards retain their normal voice.
+  source.playbackRate.value=isTaunt(id)?1.08:1;
+  source.connect(masterGain);activeVoice=source;activeVoiceId=id;
+  source.onended=()=>{
+    source.disconnect();
+    if(activeVoice!==source)return;
+    activeVoice=null;activeVoiceId=null;
+    tauntWait=Math.max(tauntWait,5);
+    const next=dialogueQueue.shift();if(next)say(next);
+  };
+  state.captionTime=Math.max(state.captionTime,buffer.duration/source.playbackRate.value+.5);source.start();
 }
 function say(id){
+  const clown=isTaunt(id);
+  // Background taunts never interrupt or queue in front of important dialogue.
+  if(clown&&(activeVoice||pendingDialogue||dialogueQueue.length))return false;
+  if(!clown){
+    if(isTaunt(activeVoiceId)||isTaunt(pendingDialogue?.id))cancelVoice(false);
+    if(activeVoice||pendingDialogue){
+      if(activeVoiceId!==id&&pendingDialogue?.id!==id&&!dialogueQueue.includes(id)&&dialogueQueue.length<3)dialogueQueue.push(id);
+      return true;
+    }
+  }
   const [speaker,line]=dialogue[id];caption(`${speaker}: ${line}`);
-  if(!soundOn)return;
+  if(!soundOn)return true;
   if(audio?.state!=='running')ensureAudio();
   pendingDialogue={id,expires:Date.now()+10000};playDialogue(id);
+  return true;
+}
+function updateTaunts(dt){
+  const c=state.clown;
+  if(['flee','blocked','stunned','gone','caught'].includes(c.mode)){
+    if(isTaunt(activeVoiceId)||isTaunt(pendingDialogue?.id))cancelVoice(false);
+    tauntWait=Math.max(tauntWait,7);return;
+  }
+  if(!soundOn||!audioWanted||audio?.state!=='running')return;
+  if(activeVoice||pendingDialogue||dialogueQueue.length||state.captionTime>0)return;
+  const p=state.player;
+  const nearDoor=Math.hypot(p.x-1,p.z-6)<4.5;
+  const nearClown=p.z>6&&Math.hypot(p.x-c.x,p.z-c.z)<13;
+  if(!nearDoor&&!nearClown)return;
+  tauntWait-=dt;
+  if(tauntWait>0)return;
+  if(!tauntBag.length){
+    tauntBag.push(...tauntIds);
+    for(let i=tauntBag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[tauntBag[i],tauntBag[j]]=[tauntBag[j],tauntBag[i]];}
+    if(tauntBag.at(-1)===lastTaunt)[tauntBag[0],tauntBag[tauntBag.length-1]]=[tauntBag.at(-1),tauntBag[0]];
+  }
+  const id=tauntBag.pop();
+  if(say(id)){lastTaunt=id;tauntWait=12+Math.random()*8;}
 }
 // An original minor-key calliope waltz. Schedule ahead on the audio clock so
 // frame-rate dips cannot skip notes. Door distance controls gain and filtering.
@@ -263,6 +342,7 @@ function update(dt){
     $('inventory').textContent=state.spray?(state.sprayCooldown>0?'REPELLENT · SPRAYING':'REPELLENT READY · F'):'NO ITEM EQUIPPED';aim();
     updateMusic(p,state.doorOpen,state.clown.mode!=='gone');
     if(!hasGreeted&&Math.hypot(p.x-1,p.z-6)<2.4){hasGreeted=true;say('welcome');}
+    updateTaunts(dt);
   } else if(!state.started){camera.position.set(-5.4,1.8,-.1);camera.lookAt(-1.7+Math.sin(state.time*.08)*.2,1.45,5.8);}
   world.door.rotation.y=THREE.MathUtils.lerp(world.door.rotation.y,state.doorOpen?-Math.PI*.51:0,1-Math.exp(-7*dt));
   const c=state.clown;world.clown.visible=c.mode!=='gone';world.clown.position.set(c.x,0,c.z);const facing=['blocked','stunned'].includes(c.mode)?state.guards[c.defender]||p:p;world.clown.rotation.y=c.mode==='flee'?Math.atan2(3,2):Math.atan2(facing.x-c.x,facing.z-c.z);

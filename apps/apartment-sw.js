@@ -1,6 +1,7 @@
-const CACHE_NAME = 'apartment-v13';
+const CACHE_NAME = 'apartment-v14';
 const ASSETS = ['./apartment.html','./apartment/style.css','./apartment/world.js','./apartment/characters.js','./apartment/game.js','./apartment/simulation.js','./apartment-manifest.json','../assets/icons/icon.svg','./vendor/three.module.min.js'];
 ASSETS.push(...['welcome','escort','hold','warning','incoming','waiting','secure'].map(id=>'./apartment/voices/'+id+'.wav'));
+ASSETS.push(...Array.from({length:25},(_,i)=>'./apartment/voices/taunt-'+String(i+1).padStart(2,'0')+'.wav'));
 const urls = new Set(ASSETS.map(path => new URL(path, self.location).href));
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(names=>Promise.all(names.filter(name=>name.startsWith('apartment-')&&name!==CACHE_NAME).map(name=>caches.delete(name)))).then(()=>self.clients.claim()));});
