@@ -15,7 +15,7 @@ const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function fail(message){$('error-message').textContent=message;$('error').hidden=false;}
 function caption(message){$('caption').textContent=message;state.captionTime=5.5;$('caption').classList.add('show');}
 function clearInput(){keys.clear();touchX=0;touchZ=0;drag=null;stickId=null;lookId=null;$('knob').style.transform='';}
-function pause(){if(intro?.active){finishIntro();return;}if(!state.playing)return;state.playing=false;clearInput();document.exitPointerLock?.();document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=false;$('menu-footer').hidden=false;$('start').textContent='Resume the night  →';stopAudio();$('start').focus();}
+function pause(){if(intro?.active){finishIntro();return;}if(!state.playing){stopAudio();return;}state.playing=false;clearInput();document.exitPointerLock?.();document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=false;$('menu-footer').hidden=false;$('start').textContent='Resume the night  →';stopAudio();$('start').focus();}
 function endRun(){
   state.playing=false;clearInput();stopAudio();document.exitPointerLock?.();
   document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=true;$('menu-footer').hidden=true;
@@ -26,6 +26,7 @@ function start(){if(state.caught)return;state.playing=true;state.started=true;$(
 const rainSamples=new Float32Array(22050*2);
 for(let i=0;i<rainSamples.length;i++)rainSamples[i]=Math.random()*2-1;
 let musicGain=null,musicFilter=null,musicNextTime=0,musicStep=0,activeVoice=null,pendingDialogue=null,hasGreeted=false;
+let scoreGain=null,scoreNextTime=0,scoreStep=0;
 let masterGain=null,audioWanted=false,audioPending=false,audioFailed=false,audioAttempt=0;
 try{soundOn=localStorage.getItem('apartment-sound')!=='off';}catch{}
 function updateSoundUI(){
@@ -39,7 +40,7 @@ function updateSoundUI(){
   }
 }
 function stopAudio(){
-  audioWanted=false;audioAttempt++;audioPending=false;cancelVoice();musicNextTime=0;
+  audioWanted=false;audioAttempt++;audioPending=false;cancelVoice();musicNextTime=0;scoreNextTime=0;
   if(masterGain&&audio)masterGain.gain.setValueAtTime(0,audio.currentTime);
   if(audio&&audio.state!=='closed')audio.suspend().catch(()=>{});
   updateSoundUI();
@@ -58,7 +59,7 @@ function ensureAudio(){
       const Context=window.AudioContext||window.webkitAudioContext;
       if(!Context)throw new Error('Web Audio unavailable');
       try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch{}
-      audio=new Context();musicNextTime=0;musicStep=0;cancelVoice();
+      audio=new Context();musicNextTime=0;musicStep=0;scoreNextTime=0;scoreStep=0;cancelVoice();
       masterGain=audio.createGain();masterGain.gain.value=0;masterGain.connect(audio.destination);
       const buffer=audio.createBuffer(1,rainSamples.length,22050);
       buffer.getChannelData(0).set(rainSamples);
@@ -66,6 +67,7 @@ function ensureAudio(){
       const filter=audio.createBiquadFilter();rainFilter=filter;filter.type='lowpass';filter.frequency.value=550;
       rainGain=audio.createGain();rainGain.gain.value=.018;
       source.connect(filter).connect(rainGain).connect(masterGain);source.start();
+      scoreGain=audio.createGain();scoreGain.gain.value=0;scoreGain.connect(masterGain);
       musicGain=audio.createGain();musicGain.gain.value=0;
       musicFilter=audio.createBiquadFilter();musicFilter.type='lowpass';musicFilter.frequency.value=750;
       musicFilter.connect(musicGain).connect(masterGain);
@@ -120,11 +122,11 @@ const dialogue={
 };
 const introBeats=[
   {
-    "id": "intro-01",
+    "id": "story-pushy-01",
     "speaker": "NARRATOR",
-    "title": "Booking canceled.",
+    "title": "A birthday booking.",
     "chapter": "THE BOOKING",
-    "line": "For your son's birthday, you booked a clown. A cake, a few balloons. One perfect afternoon. But the man on the phone knew your address before you gave it to him. Something was wrong. You called back. Cancel the booking, you said. Do not come to our home.",
+    "line": "For your son's birthday, you called a local clown service.",
     "from": [
       2,
       1.8,
@@ -142,11 +144,55 @@ const introBeats=[
     ]
   },
   {
-    "id": "intro-02",
+    "id": "story-pushy-02",
+    "speaker": "NARRATOR",
+    "title": "He knew your address.",
+    "chapter": "THE CALL",
+    "line": "The clown was pushy. Strange. He knew your address before you gave it to him.",
+    "from": [
+      1.6,
+      1.65,
+      3.4
+    ],
+    "to": [
+      2.3,
+      1.4,
+      3.9
+    ],
+    "look": [
+      3.2,
+      1.2,
+      4.9
+    ]
+  },
+  {
+    "id": "story-pushy-03",
+    "speaker": "YOU",
+    "title": "Booking canceled.",
+    "chapter": "THE CANCELLATION",
+    "line": "Something felt wrong. You told him the booking was canceled.",
+    "from": [
+      3.4,
+      1.8,
+      3.1
+    ],
+    "to": [
+      3.4,
+      1.5,
+      3.6
+    ],
+    "look": [
+      3.2,
+      1.2,
+      4.9
+    ]
+  },
+  {
+    "id": "story-pushy-04",
     "speaker": "THE CLOWN",
     "title": "Too late.",
     "chapter": "THE ANSWER",
-    "line": "Too late. I already know the way.",
+    "line": "Too late.",
     "from": [
       -4,
       1.8,
@@ -164,11 +210,11 @@ const introBeats=[
     ]
   },
   {
-    "id": "intro-03",
+    "id": "story-pushy-05",
     "speaker": "NARRATOR",
-    "title": "The clown came anyway.",
-    "chapter": "THE WATCH",
-    "line": "You hired two bodyguards. One would hold the entrance. Whatever happened, the clown was not getting inside. That night, the rain came down. Across the street, a familiar tune began to play. The booking was canceled. The clown had come anyway.",
+    "title": "Nobody gets inside.",
+    "chapter": "THE GUARDS",
+    "line": "You hired two bodyguards and stationed them at the entrance. The clown would not be allowed inside.",
     "from": [
       1,
       2.4,
@@ -183,6 +229,28 @@ const introBeats=[
       1,
       1.2,
       7
+    ]
+  },
+  {
+    "id": "story-pushy-06",
+    "speaker": "NARRATOR",
+    "title": "Then the music started.",
+    "chapter": "THAT NIGHT",
+    "line": "That night, the circus music started outside your house.",
+    "from": [
+      -5.4,
+      1.8,
+      -0.1
+    ],
+    "to": [
+      -4.6,
+      1.7,
+      0.2
+    ],
+    "look": [
+      -2.4,
+      1.55,
+      6
     ]
   }
 ];
@@ -338,6 +406,22 @@ function updateMusic(player,doorOpen,present){
     musicStep++;musicNextTime+=.32;
   }
 }
+// Original slow D-minor theme: soft bell arpeggios with a suspended melody.
+const nightChords=[[50,57,65,69],[46,53,62,65],[53,60,64,69],[45,52,61,67]];
+const nightMelody=[77,76,74,69,72,74,77,76,81,79,77,76,73,76,74,69];
+function updateScore(level=.5){
+  if(!soundOn||!audioWanted||audio?.state!=='running'||!scoreGain)return;
+  scoreGain.gain.setTargetAtTime(level*(activeVoice?.2:1),audio.currentTime,.5);
+  if(scoreNextTime<audio.currentTime)scoreNextTime=audio.currentTime;
+  while(scoreNextTime<audio.currentTime+.12){
+    const chord=nightChords[Math.floor(scoreStep/8)%4];
+    const note=chord[scoreStep%4];
+    tone(440*2**((note-69)/12),1.8,.045,'sine',scoreGain,scoreNextTime);
+    if(scoreStep%2===0)tone(440*2**((nightMelody[Math.floor(scoreStep/2)%16]-69)/12),2.1,.035,'sine',scoreGain,scoreNextTime);
+    if(scoreStep%8===0)tone(440*2**((chord[0]-81)/12),4,.035,'triangle',scoreGain,scoreNextTime);
+    scoreStep++;scoreNextTime+=.6;
+  }
+}
 // AUDIO END
 function spray(){if(!state.playing)return;if(!state.spray){caption('Clown repellent is on the entry console, beside the phone.');return;}if(state.sprayCooldown>0)return;state.sprayCooldown=1.5;const c=state.clown;const distance=Math.hypot(c.x-state.player.x,c.z-state.player.z);camera.getWorldDirection(forward);const facing=((c.x-state.player.x)*forward.x+(c.z-state.player.z)*forward.z)/Math.max(distance,.01);if(distance<6 && facing>.6 && state.player.z>6 && c.mode!=='gone'){c.mode='flee';c.timer=12;caption('The clown recoils and retreats into the rain.');}else caption('A cloud of repellent. Keep it ready for the street.');tone(170,.5,.025,'sawtooth');$('inventory').textContent='REPELLENT · SPRAYING';}
 function interact(){if(!state.playing)return;if(state.seated){state.seated=null;caption('Back on your feet.');return;}if(!aimed)return;const a=aimed;
@@ -387,7 +471,7 @@ function showIntroBeat(index){
   $('intro').dataset.beat=String(index);
   $('intro-chapter').textContent=`${String(index+1).padStart(2,'0')} / ${String(introBeats.length).padStart(2,'0')} · ${beat.chapter}`;
   $('intro-title').textContent=beat.title;$('intro-speaker').textContent=beat.speaker;$('intro-subtitle').textContent=beat.line;
-  $('intro-mark').textContent=index===0?'CANCELED':'';
+  $('intro-mark').textContent=index===2?'CANCELED':'';
   $('intro-next').textContent=index===introBeats.length-1?'Finish intro →':'Next scene →';
   if(!reducedMotion)$('intro-title').animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],{duration:650});
   say(beat.id);
@@ -405,6 +489,7 @@ function nextIntroBeat(){
   if(intro.index+1>=introBeats.length)finishIntro();else showIntroBeat(intro.index+1);
 }
 function updateIntro(dt){
+  updateScore(.42);
   const beat=introBeats[intro.index],buffer=voiceBuffers.get(beat.id);
   const duration=Math.max(6,buffer?buffer.duration/(beat.speaker==='THE CLOWN'?1.08:1)+1:beat.line.length/12);
   // Hold the shot while its narration unlocks/downloads; fall back to subtitles
@@ -423,7 +508,7 @@ function updateIntro(dt){
   for(let i=0;i<positions.length;i+=6){positions[i+1]-=dt*9;positions[i+4]-=dt*9;if(positions[i+1]<0){positions[i+1]=15;positions[i+4]=14.7;}}
   world.rain.geometry.attributes.position.needsUpdate=true;
   if(rainGain&&audio?.state==='running')rainGain.gain.setTargetAtTime(.025,audio.currentTime,.3);
-  if(intro.index===1)updateMusic({x:1,z:5},true,true);
+  if(intro.index===5)updateMusic({x:1,z:5},true,true);
   else if(musicGain&&audio?.state==='running')musicGain.gain.setTargetAtTime(0,audio.currentTime,.2);
   const progress=(intro.index+t)/introBeats.length*100;
   $('intro-progress').setAttribute('aria-valuenow',String(Math.round(progress)));$('intro-progress').firstElementChild.style.width=progress+'%';
@@ -468,6 +553,7 @@ function bindInput(){
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 function update(dt){
   if(intro?.active){updateIntro(dt);return;}
+  updateScore(state.playing?.16:.55);
   if(state.playing||!state.started)state.time+=dt;const p=state.player;
   if(state.playing){
     let x=touchX+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
@@ -503,7 +589,7 @@ function update(dt){
   const positions=world.positions;for(let i=0;i<positions.length;i+=6){positions[i+1]-=dt*9;positions[i+4]-=dt*9;if(positions[i+1]<0){positions[i+1]=15;positions[i+4]=14.7;}}world.rain.geometry.attributes.position.needsUpdate=true;
   const flash=!reducedMotion&&state.time%19>.1&&state.time%19<.23;moon.intensity=flash?3.5:.8;
   if(rainGain&&audio?.state==='running'){
-    const rain=rainSettings(p,state.doorOpen);
+    const rain=state.playing?rainSettings(p,state.doorOpen):{gain:.045,cutoff:1600};
     rainGain.gain.setTargetAtTime(rain.gain,audio.currentTime,.4);
     rainFilter.frequency.setTargetAtTime(rain.cutoff,audio.currentTime,.4);
   }

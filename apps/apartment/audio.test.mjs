@@ -76,13 +76,30 @@ for(let i=1;i<=25;i++){
 }
 console.log('25 voiced taunts, distinct pitch, non-repeating shuffle, guard priority and no overlapping dialogue passed.');run('cancelVoice();pendingDialogue={id:"welcome",expires:0};dialogueQueue.push("warning");updateTaunts(.1)');
 assert.equal(run('activeVoiceId'),'warning','Expired download does not wedge queued guards');
-for(let i=1;i<=3;i++){
-  const id=`intro-${String(i).padStart(2,'0')}`;
+for(let i=1;i<=6;i++){
+  const id=`story-pushy-${String(i).padStart(2,'0')}`;
   const wav=await readFile(new URL(`./voices/${id}.wav`,import.meta.url));
   assert.equal(wav.toString('ascii',0,4),'RIFF');assert(wav.length>10000);
   run(`cancelVoice();say('${id}')`);
   assert.equal(run('activeVoiceId'),id,'Every intro scene starts actual narration');
-  assert.equal(run('activeVoice.playbackRate.value'),i===2?1.08:1);
+  assert.equal(run('activeVoice.playbackRate.value'),i===4?1.08:1);
 }
 run('stopAudio()');assert.equal(run('activeVoice'),null,'Leaving intro stops its narration');
-console.log('Three recorded intro clips, narrator/clown voice distinction and expired-download recovery passed.');
+console.log('Six recorded intro clips, narrator/clown voice distinction and expired-download recovery passed.');
+assert.deepEqual(Array.from(run('introBeats.map(beat=>beat.line)')), [
+  "For your son's birthday, you called a local clown service.",
+  'The clown was pushy. Strange. He knew your address before you gave it to him.',
+  'Something felt wrong. You told him the booking was canceled.',
+  'Too late.',
+  'You hired two bodyguards and stationed them at the entrance. The clown would not be allowed inside.',
+  'That night, the circus music started outside your house.'
+], 'Intro preserves the user-confirmed original script verbatim');
+run('ensureAudio()');contexts.at(-1).complete();for(let i=0;i<8;i++)await flush();
+run('cancelVoice();updateScore(.5)');
+assert(run('scoreStep>0'),'Title melody schedules notes after sound unlock');
+assert.equal(run('scoreGain.gain.value'),.5);
+run("say('story-pushy-02');updateScore(.5)");
+assert.equal(run('scoreGain.gain.value'),.1,'Score ducks beneath narration');
+run('stopAudio()');const pausedStep=run('scoreStep');run('updateScore(.5)');
+assert.equal(run('scoreStep'),pausedStep,'Muted score stops scheduling');
+console.log('Title score scheduling, narration ducking and mute passed.');

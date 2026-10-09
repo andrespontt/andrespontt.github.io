@@ -109,18 +109,23 @@ be caught when separated from the escort. Opening the door does not dismiss its
 guard or let the clown bypass him.
 ### Narrated intro
 
-The optional **Intro** button plays three camera-animated story scenes with recorded
+The optional **Intro** button plays six camera-animated story scenes with recorded
 narration, subtitles, progress, next/skip controls and a distinct clown voice.
-The three `intro-*.wav` clips use the same local preload and cache pipeline as the
+The six `story-pushy-*.wav` clips use the same local preload and cache pipeline as the
 guard dialogue. Unmuting restarts the current scene's narration. Escape, pause
 or leaving the tab stops the cinematic; gameplay state is preserved. Reduced
 motion disables camera travel and text transitions.
 
 The behavior suite also runs 30 extended doorway scenarios across three frame
 intervals and verifies the posted guard cannot be lured away. Audio tests cover
-all three narration clips and recovery when a queued voice download expires.
-The browser pass covered all three scenes, replay, skip, mute/unmute, finish,
+all six narration clips and recovery when a queued voice download expires.
+The browser pass covered all six scenes, replay, skip, mute/unmute, finish,
 return to gameplay, desktop and 390 x 844 layouts with no console errors.
 
 The preview server accepts an optional port after the host, for example:
 `node tools/serve-apartment.cjs 127.0.0.1 8001`.
+
+The intro uses the original confirmed “pushy” script verbatim. A quiet original
+D-minor melody and filtered rain accompany the title screen after a sound tap.
+The melody softens during gameplay and ducks beneath narration; the nearby
+clown retains his separate circus tune. All music is synthesized locally.
