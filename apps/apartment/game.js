@@ -27,6 +27,7 @@ const rainSamples=new Float32Array(22050*2);
 for(let i=0;i<rainSamples.length;i++)rainSamples[i]=Math.random()*2-1;
 let musicGain=null,musicFilter=null,musicNextTime=0,musicStep=0,activeVoice=null,pendingDialogue=null,hasGreeted=false;
 let scoreGain=null,scoreNextTime=0,scoreStep=0;
+let cinemaGain=null,cinemaNextTime=0,cinemaStep=0;
 let masterGain=null,audioWanted=false,audioPending=false,audioFailed=false,audioAttempt=0;
 try{soundOn=localStorage.getItem('apartment-sound')!=='off';}catch{}
 function updateSoundUI(){
@@ -40,7 +41,7 @@ function updateSoundUI(){
   }
 }
 function stopAudio(){
-  audioWanted=false;audioAttempt++;audioPending=false;cancelVoice();musicNextTime=0;scoreNextTime=0;
+  audioWanted=false;audioAttempt++;audioPending=false;cancelVoice();musicNextTime=0;scoreNextTime=0;cinemaNextTime=0;
   if(masterGain&&audio)masterGain.gain.setValueAtTime(0,audio.currentTime);
   if(audio&&audio.state!=='closed')audio.suspend().catch(()=>{});
   updateSoundUI();
@@ -59,7 +60,7 @@ function ensureAudio(){
       const Context=window.AudioContext||window.webkitAudioContext;
       if(!Context)throw new Error('Web Audio unavailable');
       try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch{}
-      audio=new Context();musicNextTime=0;musicStep=0;scoreNextTime=0;scoreStep=0;cancelVoice();
+      audio=new Context();musicNextTime=0;musicStep=0;scoreNextTime=0;scoreStep=0;cinemaNextTime=0;cinemaStep=0;cancelVoice();
       masterGain=audio.createGain();masterGain.gain.value=0;masterGain.connect(audio.destination);
       const buffer=audio.createBuffer(1,rainSamples.length,22050);
       buffer.getChannelData(0).set(rainSamples);
@@ -67,6 +68,7 @@ function ensureAudio(){
       const filter=audio.createBiquadFilter();rainFilter=filter;filter.type='lowpass';filter.frequency.value=550;
       rainGain=audio.createGain();rainGain.gain.value=.018;
       source.connect(filter).connect(rainGain).connect(masterGain);source.start();
+      cinemaGain=audio.createGain();cinemaGain.gain.value=0;cinemaGain.connect(masterGain);
       scoreGain=audio.createGain();scoreGain.gain.value=0;scoreGain.connect(masterGain);
       musicGain=audio.createGain();musicGain.gain.value=0;
       musicFilter=audio.createBiquadFilter();musicFilter.type='lowpass';musicFilter.frequency.value=750;
@@ -423,6 +425,36 @@ function updateScore(level=.5){
     scoreStep++;scoreNextTime+=.6;
   }
 }
+// A separate nostalgic F-major/D-minor score for the story: felt-piano-like
+// overtones above slow, warm string swells. Notes release and disconnect naturally.
+const cinemaChords=[[53,60,64,69],[57,60,64,67],[50,57,60,65],[46,53,57,62]];
+const cinemaMelody=[77,76,72,69,72,76,79,76,77,76,74,72,69,72,74,77];
+function cinematicNote(note,when,duration,volume,pad=false){
+  const frequency=440*2**((note-69)/12);
+  for(const [multiple,weight] of (pad?[[1,1],[2,.16]]:[[1,1],[2,.3],[3,.08]])){
+    const oscillator=audio.createOscillator(),envelope=audio.createGain();
+    oscillator.type='sine';oscillator.frequency.value=frequency*multiple;
+    envelope.gain.setValueAtTime(.0001,when);
+    envelope.gain.exponentialRampToValueAtTime(volume*weight,when+(pad?.9:.025));
+    envelope.gain.exponentialRampToValueAtTime(.0001,when+duration);
+    oscillator.connect(envelope).connect(cinemaGain);
+    oscillator.onended=()=>{oscillator.disconnect();envelope.disconnect();};
+    oscillator.start(when);oscillator.stop(when+duration+.05);
+  }
+}
+function updateCinema(active,ending=false){
+  if(!soundOn||!audioWanted||audio?.state!=='running'||!cinemaGain)return;
+  cinemaGain.gain.setTargetAtTime(active?(ending?.24:.65)*(activeVoice?.28:1):0,audio.currentTime,.45);
+  if(!active){cinemaNextTime=0;return;}
+  if(cinemaNextTime<audio.currentTime)cinemaNextTime=audio.currentTime;
+  while(cinemaNextTime<audio.currentTime+.12){
+    const chord=cinemaChords[Math.floor(cinemaStep/8)%4];
+    cinematicNote(chord[cinemaStep%4]+12,cinemaNextTime,2.4,.027);
+    if(cinemaStep%2===0)cinematicNote(cinemaMelody[Math.floor(cinemaStep/2)%16],cinemaNextTime,3.2,.047);
+    if(cinemaStep%8===0)for(const note of chord)cinematicNote(note,cinemaNextTime,4.8,.017,true);
+    cinemaStep++;cinemaNextTime+=.44;
+  }
+}
 // AUDIO END
 function spray(){if(!state.playing)return;if(!state.spray){caption('Clown repellent is on the entry console, beside the phone.');return;}if(state.sprayCooldown>0)return;state.sprayCooldown=1.5;const c=state.clown;const distance=Math.hypot(c.x-state.player.x,c.z-state.player.z);camera.getWorldDirection(forward);const facing=((c.x-state.player.x)*forward.x+(c.z-state.player.z)*forward.z)/Math.max(distance,.01);if(distance<6 && facing>.6 && state.player.z>6 && c.mode!=='gone'){c.mode='flee';c.timer=12;caption('The clown recoils and retreats into the rain.');}else caption('A cloud of repellent. Keep it ready for the street.');tone(170,.5,.025,'sawtooth');$('inventory').textContent='REPELLENT · SPRAYING';}
 function interact(){if(!state.playing)return;if(state.seated){state.seated=null;caption('Back on your feet.');return;}if(!aimed)return;const a=aimed;
@@ -458,7 +490,7 @@ function look(dx,dy){state.player.yaw-=dx*.0025;state.player.pitch=THREE.MathUti
 function startIntro(){
   if(!world||intro?.active)return;
   if(state.playing)pause();
-  clearInput();cancelVoice();
+  clearInput();cancelVoice();cinemaStep=0;cinemaNextTime=0;
   intro={active:true,index:0,elapsed:0,time:0,position:camera.position.clone(),rotation:camera.quaternion.clone(),door:world.door.rotation.y,held:held.visible,mist:mist.visible};
   $('menu').hidden=true;$('menu-footer').hidden=true;$('hud').hidden=true;$('intro').hidden=false;
   document.body.classList.add('in-intro');held.visible=false;mist.visible=false;
@@ -490,7 +522,7 @@ function nextIntroBeat(){
   if(intro.index+1>=introBeats.length)finishIntro();else showIntroBeat(intro.index+1);
 }
 function updateIntro(dt){
-  updateScore(0);
+  updateScore(0);updateCinema(true,intro.index===introBeats.length-1);
   const beat=introBeats[intro.index],buffer=voiceBuffers.get(beat.id);
   const duration=Math.max(6,buffer?buffer.duration/(beat.speaker==='THE CLOWN'?1.08:1)+1:beat.line.length/12);
   // Hold the shot while its narration unlocks/downloads; fall back to subtitles
@@ -554,7 +586,7 @@ function bindInput(){
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 function update(dt){
   if(intro?.active){updateIntro(dt);return;}
-  updateScore(state.playing?0:.45);
+  updateCinema(false);updateScore(state.playing?0:.45);
   if(state.playing||!state.started)state.time+=dt;const p=state.player;
   if(state.playing){
     let x=touchX+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));

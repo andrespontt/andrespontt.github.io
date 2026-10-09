@@ -129,3 +129,8 @@ The intro uses the original confirmed “pushy” script verbatim. A quiet origi
 D-minor melody and filtered rain accompany the title screen after a sound tap.
 The melody is exclusive to the landing screen and fades out for intro/gameplay; the nearby
 clown retains his separate circus tune. All music is synthesized locally.
+
+The intro has its own original cinematic score: a slow major/minor progression,
+piano-like harmonic tones and warm sustained swells. It ducks beneath narration,
+softens for the final circus-music reveal, and stops scheduling on exit or mute.
+The landing-page melody remains separate.

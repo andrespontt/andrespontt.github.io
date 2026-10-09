@@ -29,7 +29,7 @@
 </section>
 <section id="caught" hidden role="dialog" aria-modal="true" aria-labelledby="caught-title"><div><p class="eyebrow">THE UNINVITED GUEST</p><h2 id="caught-title">Too far from help.</h2><p>The clown caught you. Keep a bodyguard nearby,<br>use your repellent, or close the door behind you.</p><button id="retry" class="primary">Try again →</button></div></section><section id="error" hidden role="alert"><h2>The scene couldn’t start.</h2><p id="error-message">Please reload with WebGL enabled.</p><button onclick="location.reload()">Reload scene</button></section><noscript>This interactive apartment needs JavaScript enabled.</noscript>
 <script type="module">
-import('./apartment/game.js?v=20').catch(error => {
+import('./apartment/game.js?v=21').catch(error => {
   console.error(error);
   document.getElementById('error-message').textContent = location.protocol === 'file:'
     ? 'Open this page through a local HTTP server to load the apartment.'
