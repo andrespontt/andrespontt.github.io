@@ -103,3 +103,8 @@ assert.equal(run('scoreGain.gain.value'),.1,'Score ducks beneath narration');
 run('stopAudio()');const pausedStep=run('scoreStep');run('updateScore(.5)');
 assert.equal(run('scoreStep'),pausedStep,'Muted score stops scheduling');
 console.log('Title score scheduling, narration ducking and mute passed.');
+run('ensureAudio()');contexts.at(-1).complete();for(let i=0;i<8;i++)await flush();
+run('cancelVoice();updateScore(.45)');const titleStep=run('scoreStep');
+run('updateScore(0)');assert.equal(run('scoreGain.gain.value'),0,'Leaving the landing page fades its music to silence');
+assert.equal(run('scoreStep'),titleStep,'Intro/gameplay do not schedule landing music');
+run('stopAudio()');

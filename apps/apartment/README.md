@@ -127,5 +127,5 @@ The preview server accepts an optional port after the host, for example:
 
 The intro uses the original confirmed “pushy” script verbatim. A quiet original
 D-minor melody and filtered rain accompany the title screen after a sound tap.
-The melody softens during gameplay and ducks beneath narration; the nearby
+The melody is exclusive to the landing screen and fades out for intro/gameplay; the nearby
 clown retains his separate circus tune. All music is synthesized locally.

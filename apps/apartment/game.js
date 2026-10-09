@@ -412,6 +412,7 @@ const nightMelody=[77,76,74,69,72,74,77,76,81,79,77,76,73,76,74,69];
 function updateScore(level=.5){
   if(!soundOn||!audioWanted||audio?.state!=='running'||!scoreGain)return;
   scoreGain.gain.setTargetAtTime(level*(activeVoice?.2:1),audio.currentTime,.5);
+  if(level<=0){scoreNextTime=0;return;}
   if(scoreNextTime<audio.currentTime)scoreNextTime=audio.currentTime;
   while(scoreNextTime<audio.currentTime+.12){
     const chord=nightChords[Math.floor(scoreStep/8)%4];
@@ -489,7 +490,7 @@ function nextIntroBeat(){
   if(intro.index+1>=introBeats.length)finishIntro();else showIntroBeat(intro.index+1);
 }
 function updateIntro(dt){
-  updateScore(.42);
+  updateScore(0);
   const beat=introBeats[intro.index],buffer=voiceBuffers.get(beat.id);
   const duration=Math.max(6,buffer?buffer.duration/(beat.speaker==='THE CLOWN'?1.08:1)+1:beat.line.length/12);
   // Hold the shot while its narration unlocks/downloads; fall back to subtitles
@@ -553,7 +554,7 @@ function bindInput(){
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 function update(dt){
   if(intro?.active){updateIntro(dt);return;}
-  updateScore(state.playing?.16:.55);
+  updateScore(state.playing?0:.45);
   if(state.playing||!state.started)state.time+=dt;const p=state.player;
   if(state.playing){
     let x=touchX+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
@@ -589,7 +590,7 @@ function update(dt){
   const positions=world.positions;for(let i=0;i<positions.length;i+=6){positions[i+1]-=dt*9;positions[i+4]-=dt*9;if(positions[i+1]<0){positions[i+1]=15;positions[i+4]=14.7;}}world.rain.geometry.attributes.position.needsUpdate=true;
   const flash=!reducedMotion&&state.time%19>.1&&state.time%19<.23;moon.intensity=flash?3.5:.8;
   if(rainGain&&audio?.state==='running'){
-    const rain=state.playing?rainSettings(p,state.doorOpen):{gain:.045,cutoff:1600};
+    const rain=state.playing?rainSettings(p,state.doorOpen):{gain:.024,cutoff:850};
     rainGain.gain.setTargetAtTime(rain.gain,audio.currentTime,.4);
     rainFilter.frequency.setTargetAtTime(rain.cutoff,audio.currentTime,.4);
   }
