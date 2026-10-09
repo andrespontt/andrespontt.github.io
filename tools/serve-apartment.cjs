@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..'),host=process.argv[2]||'127.0.0.1';
 const allowed=new Set(['/apps/apartment.html','/apps/apartment-manifest.json','/apps/apartment-sw.js','/apps/apartment/characters.html','/apps/apartment/style.css','/apps/apartment/game.js','/apps/apartment/world.js','/apps/apartment/simulation.js','/apps/apartment/characters.js','/apps/vendor/three.module.min.js','/assets/icons/icon.svg']);
 for(const id of ['welcome','escort','hold','warning','incoming','waiting','secure'])allowed.add('/apps/apartment/voices/'+id+'.wav');
 for(let i=1;i<=25;i++)allowed.add('/apps/apartment/voices/taunt-'+String(i).padStart(2,'0')+'.wav');
-for(let i=1;i<=6;i++)allowed.add('/apps/apartment/voices/intro-'+String(i).padStart(2,'0')+'.wav');
+for(let i=1;i<=3;i++)allowed.add('/apps/apartment/voices/intro-'+String(i).padStart(2,'0')+'.wav');
 http.createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost').pathname;
   if(url==='/'){res.writeHead(302,{Location:'/apps/apartment.html'}).end();return;}

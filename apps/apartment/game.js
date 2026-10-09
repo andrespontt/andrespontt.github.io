@@ -119,12 +119,72 @@ const dialogue={
   secure:['SECURITY',"Perimeter secure. He won't be back tonight. Make yourself at home."],
 };
 const introBeats=[
-  {id:'intro-01',speaker:'NARRATOR',title:'A perfect afternoon.',chapter:'THE BOOKING',line:"For your son's birthday, you booked a clown. A cake, a few balloons. One perfect afternoon.",from:[2,1.8,.5],to:[2.6,1.5,-.1],look:[3.8,1.15,-1.7]},
-  {id:'intro-02',speaker:'NARRATOR',title:'He already knew.',chapter:'THE CALL',line:'But the man on the phone knew your address before you gave it to him. Something was wrong.',from:[1.6,1.65,3.4],to:[2.3,1.4,3.9],look:[3.2,1.2,4.9]},
-  {id:'intro-03',speaker:'NARRATOR',title:'Booking canceled.',chapter:'THE WARNING',line:'You called back. Cancel the booking, you said. Do not come to our home.',from:[3.4,1.8,3.1],to:[3.4,1.5,3.6],look:[3.2,1.2,4.9]},
-  {id:'intro-04',speaker:'THE CLOWN',title:'Too late.',chapter:'THE ANSWER',line:'Too late. I already know the way.',from:[-4,1.8,11.4],to:[-4,1.75,12.4],look:[-4,1.65,15]},
-  {id:'intro-05',speaker:'NARRATOR',title:'Two men at the door.',chapter:'THE WATCH',line:'You hired two bodyguards. One would hold the entrance. Whatever happened, the clown was not getting inside.',from:[1,2.4,14],to:[1,2.1,13],look:[1,1.2,7]},
-  {id:'intro-06',speaker:'NARRATOR',title:'Then the music started.',chapter:'23:48',line:'That night, the rain came down. Across the street, a familiar tune began to play. The booking was canceled. The clown had come anyway.',from:[-5.4,1.8,-.1],to:[-4.6,1.7,.2],look:[-2.4,1.55,6]},
+  {
+    "id": "intro-01",
+    "speaker": "NARRATOR",
+    "title": "One tiny booking mistake.",
+    "chapter": "THE PLAN",
+    "line": "You booked a birthday clown. Then you saw his reviews. You canceled. Sensible decision.",
+    "from": [
+      2,
+      1.8,
+      0.5
+    ],
+    "to": [
+      2.6,
+      1.5,
+      -0.1
+    ],
+    "look": [
+      3.8,
+      1.15,
+      -1.7
+    ]
+  },
+  {
+    "id": "intro-02",
+    "speaker": "THE CLOWN",
+    "title": "Cancellation? Hilarious.",
+    "chapter": "THE PROBLEM",
+    "line": "Cancel me? I already put on the shoes!",
+    "from": [
+      -4,
+      1.8,
+      11.4
+    ],
+    "to": [
+      -4,
+      1.75,
+      12.4
+    ],
+    "look": [
+      -4,
+      1.65,
+      15
+    ]
+  },
+  {
+    "id": "intro-03",
+    "speaker": "NARRATOR",
+    "title": "Now it’s a security expense.",
+    "chapter": "PLAN B",
+    "line": "So you hired two bodyguards. Stay close. They handle the punchlines. Literally.",
+    "from": [
+      1,
+      2.4,
+      14
+    ],
+    "to": [
+      1,
+      2.1,
+      13
+    ],
+    "look": [
+      1,
+      1.2,
+      7
+    ]
+  }
 ];
 for(const beat of introBeats)dialogue[beat.id]=[beat.speaker,beat.line];
 const tauntLines=[
@@ -325,9 +385,9 @@ function showIntroBeat(index){
   intro.index=index;intro.elapsed=0;
   const beat=introBeats[index];
   $('intro').dataset.beat=String(index);
-  $('intro-chapter').textContent=`${String(index+1).padStart(2,'0')} / 06 · ${beat.chapter}`;
+  $('intro-chapter').textContent=`${String(index+1).padStart(2,'0')} / ${String(introBeats.length).padStart(2,'0')} · ${beat.chapter}`;
   $('intro-title').textContent=beat.title;$('intro-speaker').textContent=beat.speaker;$('intro-subtitle').textContent=beat.line;
-  $('intro-mark').textContent=index===2?'CANCELED':'';
+  $('intro-mark').textContent=index===0?'CANCELED':'';
   $('intro-next').textContent=index===introBeats.length-1?'Finish intro →':'Next scene →';
   if(!reducedMotion)$('intro-title').animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],{duration:650});
   say(beat.id);
@@ -363,7 +423,7 @@ function updateIntro(dt){
   for(let i=0;i<positions.length;i+=6){positions[i+1]-=dt*9;positions[i+4]-=dt*9;if(positions[i+1]<0){positions[i+1]=15;positions[i+4]=14.7;}}
   world.rain.geometry.attributes.position.needsUpdate=true;
   if(rainGain&&audio?.state==='running')rainGain.gain.setTargetAtTime(.025,audio.currentTime,.3);
-  if(intro.index===5)updateMusic({x:1,z:5},true,true);
+  if(intro.index===1)updateMusic({x:1,z:5},true,true);
   else if(musicGain&&audio?.state==='running')musicGain.gain.setTargetAtTime(0,audio.currentTime,.2);
   const progress=(intro.index+t)/introBeats.length*100;
   $('intro-progress').setAttribute('aria-valuenow',String(Math.round(progress)));$('intro-progress').firstElementChild.style.width=progress+'%';

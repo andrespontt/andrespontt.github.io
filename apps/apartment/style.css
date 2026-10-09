@@ -99,7 +99,7 @@ footer{bottom:12px;padding-top:10px}
 #intro-subtitle{font-size:clamp(14px,1.65vw,20px);line-height:1.6;max-width:690px;min-height:3.2em;text-shadow:0 2px 8px #000}
 .intro-actions{margin-top:18px}#intro-progress{position:absolute;bottom:6vh;left:8vw;right:8vw;height:2px;background:#ffffff25}#intro-progress span{display:block;height:100%;width:0;background:var(--lime)}
 #intro-mark{position:absolute;left:50%;top:31%;transform:translate(-50%,-50%) rotate(-8deg);font-size:clamp(24px,6vw,70px);letter-spacing:.15em;color:#d98e79;border:2px solid currentColor;padding:12px 25px;opacity:0;pointer-events:none}
-#intro[data-beat="2"] #intro-mark{opacity:.85;animation:story-stamp .5s ease both}#intro[data-beat="3"] #intro-title{color:#e5ab94}
+#intro[data-beat="0"] #intro-mark{opacity:.85;animation:story-stamp .5s ease both}#intro[data-beat="1"] #intro-title{color:#e5ab94}
 @keyframes story-reveal{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes story-stamp{from{opacity:0;transform:translate(-50%,-50%) rotate(-8deg) scale(1.3)}to{opacity:.85;transform:translate(-50%,-50%) rotate(-8deg) scale(1)}}
 @media(max-width:650px){.menu-actions{gap:16px;flex-wrap:wrap}.intro-top{font-size:8px;letter-spacing:1px;align-items:flex-start}.intro-top>div{flex-direction:column;align-items:flex-end}#intro button{font-size:10px;padding:9px 12px}.intro-copy{left:7vw;right:7vw;bottom:12vh}#intro-title{font-size:36px}#intro-subtitle{font-size:14px}.intro-copy .eyebrow{margin-bottom:8px}}
 @media(max-height:500px){.intro-copy{bottom:11vh}#intro-title{font-size:28px;margin:8px 0}#intro-subtitle{font-size:12px;min-height:0;margin:8px 0}.intro-actions{margin-top:8px}.intro-top{top:12px}#intro-mark{top:24%}}
