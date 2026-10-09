@@ -122,9 +122,9 @@ const introBeats=[
   {
     "id": "intro-01",
     "speaker": "NARRATOR",
-    "title": "One tiny booking mistake.",
-    "chapter": "THE PLAN",
-    "line": "You booked a birthday clown. Then you saw his reviews. You canceled. Sensible decision.",
+    "title": "Booking canceled.",
+    "chapter": "THE BOOKING",
+    "line": "For your son's birthday, you booked a clown. A cake, a few balloons. One perfect afternoon. But the man on the phone knew your address before you gave it to him. Something was wrong. You called back. Cancel the booking, you said. Do not come to our home.",
     "from": [
       2,
       1.8,
@@ -144,9 +144,9 @@ const introBeats=[
   {
     "id": "intro-02",
     "speaker": "THE CLOWN",
-    "title": "Cancellation? Hilarious.",
-    "chapter": "THE PROBLEM",
-    "line": "Cancel me? I already put on the shoes!",
+    "title": "Too late.",
+    "chapter": "THE ANSWER",
+    "line": "Too late. I already know the way.",
     "from": [
       -4,
       1.8,
@@ -166,9 +166,9 @@ const introBeats=[
   {
     "id": "intro-03",
     "speaker": "NARRATOR",
-    "title": "Now it’s a security expense.",
-    "chapter": "PLAN B",
-    "line": "So you hired two bodyguards. Stay close. They handle the punchlines. Literally.",
+    "title": "The clown came anyway.",
+    "chapter": "THE WATCH",
+    "line": "You hired two bodyguards. One would hold the entrance. Whatever happened, the clown was not getting inside. That night, the rain came down. Across the street, a familiar tune began to play. The booking was canceled. The clown had come anyway.",
     "from": [
       1,
       2.4,
