@@ -90,3 +90,31 @@ for(const approachX of [-7,-4,1,6]){
   assert(hits>0,'A posted guard punches arrivals from either side of the street');
 }
 console.log('Repeated doorway approaches from both street directions remain blocked.');
+// Stress the actual floor plan at three supported frame intervals.
+let scenarios=0;
+for(const dt of [1/60,1/30,.04])for(const escorting of [false,true])for(const x of [-7,-4,1,6,10]){
+  const s=createState();s.doorOpen=true;s.escort=escorting;s.player={...s.player,x:1,z:4.5};s.clown.x=x;
+  let punches=0;
+  for(let t=0;t<35;t+=dt){
+    s.time+=dt;updateGuards(s,dt,world.colliders);
+    if(updateClown(s,dt,world.colliders)==='guard')punches++;
+    assert(!s.caught&&s.clown.z>6,'Guarded doorway remains safe');
+    assert(s.guards.every(g=>g.z>=6.6&&Number.isFinite(g.x)));
+    assert(Math.hypot(s.guards[0].x-1,s.guards[0].z-6.8)<=2.601,'Posted guard keeps his entrance assignment');
+  }
+  assert(punches>0);scenarios++;
+}
+// Walk away with a nearby threat: a posted guard must not become an escort.
+const lure=createState();lure.doorOpen=true;
+for(let frame=0;frame<600;frame++){
+  lure.player.x=lure.guards[0].x;lure.player.z=lure.guards[0].z+2;
+  lure.clown.x=lure.guards[0].x;lure.clown.z=lure.guards[0].z+3.5;lure.clown.mode='approach';
+  updateGuards(lure,1/60,world.colliders);
+  assert(Math.hypot(lure.guards[0].x-1,lure.guards[0].z-6.8)<=2.601);
+}
+for(const dt of [1/60,1/30,.04]){
+  const chase=createState();chase.player={...chase.player,x:7,z:14};chase.clown.x=7;chase.clown.z=17;
+  for(let t=0;t<3&&!chase.caught;t+=dt){updateGuards(chase,dt,world.colliders);updateClown(chase,dt,world.colliders);}
+  assert(chase.caught,'Unprotected street player can be caught at every frame interval');
+}
+console.log(`${scenarios} extended doorway scenarios, posted-guard lure regression and unprotected captures passed.`);

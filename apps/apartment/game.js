@@ -10,11 +10,12 @@ const canvas=$('scene');
 let renderer,world,camera,scene,moon,aimed=null,last=0,drag=null,stickId=null,lookId=null;
 let touchX=0,touchZ=0,audio=null,soundOn=true,rainGain=null,rainFilter=null,held=null,mist=null;
 const ray=new THREE.Raycaster(),forward=new THREE.Vector3(),delta=new THREE.Vector3();
+let intro=null;
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function fail(message){$('error-message').textContent=message;$('error').hidden=false;}
 function caption(message){$('caption').textContent=message;state.captionTime=5.5;$('caption').classList.add('show');}
 function clearInput(){keys.clear();touchX=0;touchZ=0;drag=null;stickId=null;lookId=null;$('knob').style.transform='';}
-function pause(){if(!state.playing)return;state.playing=false;clearInput();document.exitPointerLock?.();document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=false;$('menu-footer').hidden=false;$('start').textContent='Resume the night  →';stopAudio();$('start').focus();}
+function pause(){if(intro?.active){finishIntro();return;}if(!state.playing)return;state.playing=false;clearInput();document.exitPointerLock?.();document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=false;$('menu-footer').hidden=false;$('start').textContent='Resume the night  →';stopAudio();$('start').focus();}
 function endRun(){
   state.playing=false;clearInput();stopAudio();document.exitPointerLock?.();
   document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=true;$('menu-footer').hidden=true;
@@ -30,7 +31,7 @@ try{soundOn=localStorage.getItem('apartment-sound')!=='off';}catch{}
 function updateSoundUI(){
   const running=audio?.state==='running'&&audioWanted&&!audioFailed;
   const label=!soundOn?'SOUND OFF':audioPending?'STARTING SOUND':running?'SOUND ON':audioFailed||audioWanted?'TAP FOR SOUND':'SOUND READY';
-  for(const id of ['sound','hud-sound']){
+  for(const id of ['sound','hud-sound','intro-sound']){
     const button=$(id);if(!button)continue;
     button.textContent=label;
     button.setAttribute('aria-pressed',String(soundOn));
@@ -117,6 +118,15 @@ const dialogue={
   waiting:['DISPATCH','The team is approaching. Hold tight.'],
   secure:['SECURITY',"Perimeter secure. He won't be back tonight. Make yourself at home."],
 };
+const introBeats=[
+  {id:'intro-01',speaker:'NARRATOR',title:'A perfect afternoon.',chapter:'THE BOOKING',line:"For your son's birthday, you booked a clown. A cake, a few balloons. One perfect afternoon.",from:[2,1.8,.5],to:[2.6,1.5,-.1],look:[3.8,1.15,-1.7]},
+  {id:'intro-02',speaker:'NARRATOR',title:'He already knew.',chapter:'THE CALL',line:'But the man on the phone knew your address before you gave it to him. Something was wrong.',from:[1.6,1.65,3.4],to:[2.3,1.4,3.9],look:[3.2,1.2,4.9]},
+  {id:'intro-03',speaker:'NARRATOR',title:'Booking canceled.',chapter:'THE WARNING',line:'You called back. Cancel the booking, you said. Do not come to our home.',from:[3.4,1.8,3.1],to:[3.4,1.5,3.6],look:[3.2,1.2,4.9]},
+  {id:'intro-04',speaker:'THE CLOWN',title:'Too late.',chapter:'THE ANSWER',line:'Too late. I already know the way.',from:[-4,1.8,11.4],to:[-4,1.75,12.4],look:[-4,1.65,15]},
+  {id:'intro-05',speaker:'NARRATOR',title:'Two men at the door.',chapter:'THE WATCH',line:'You hired two bodyguards. One would hold the entrance. Whatever happened, the clown was not getting inside.',from:[1,2.4,14],to:[1,2.1,13],look:[1,1.2,7]},
+  {id:'intro-06',speaker:'NARRATOR',title:'Then the music started.',chapter:'23:48',line:'That night, the rain came down. Across the street, a familiar tune began to play. The booking was canceled. The clown had come anyway.',from:[-5.4,1.8,-.1],to:[-4.6,1.7,.2],look:[-2.4,1.55,6]},
+];
+for(const beat of introBeats)dialogue[beat.id]=[beat.speaker,beat.line];
 const tauntLines=[
   "One little step. One little smile.",
   "Come closer. The best jokes are whispered.",
@@ -187,7 +197,7 @@ function playDialogue(id){
   const [speaker,line]=dialogue[id];caption(`${speaker}: ${line}`);
   const source=audio.createBufferSource();source.buffer=buffer;
   // A brighter voice with a modest pitch lift; guards retain their normal voice.
-  source.playbackRate.value=isTaunt(id)?1.08:1;
+  source.playbackRate.value=dialogue[id][0]==='THE CLOWN'?1.08:1;
   source.connect(masterGain);activeVoice=source;activeVoiceId=id;
   source.onended=()=>{
     source.disconnect();
@@ -199,6 +209,7 @@ function playDialogue(id){
   state.captionTime=Math.max(state.captionTime,buffer.duration/source.playbackRate.value+.5);source.start();
 }
 function say(id){
+  if(pendingDialogue?.expires<Date.now())pendingDialogue=null;
   const clown=isTaunt(id);
   // Background taunts never interrupt or queue in front of important dialogue.
   if(clown&&(activeVoice||pendingDialogue||dialogueQueue.length))return false;
@@ -216,6 +227,10 @@ function say(id){
   return true;
 }
 function updateTaunts(dt){
+  if(pendingDialogue?.expires<Date.now()){
+    pendingDialogue=null;
+    const next=dialogueQueue.shift();if(next)say(next);
+  }
   const c=state.clown;
   if(['flee','blocked','stunned','gone','caught'].includes(c.mode)){
     if(isTaunt(activeVoiceId)||isTaunt(pendingDialogue?.id))cancelVoice(false);
@@ -294,7 +309,82 @@ function aim(){
 }
 function jump(){if(state.playing && state.player.y===0 && !state.seated){state.player.velocity=3.6;}}
 function look(dx,dy){state.player.yaw-=dx*.0025;state.player.pitch=THREE.MathUtils.clamp(state.player.pitch-dy*.0025,-1.3,1.3);}
+// Optional cinematic: it only changes the view, never the live simulation state.
+function startIntro(){
+  if(!world||intro?.active)return;
+  if(state.playing)pause();
+  clearInput();cancelVoice();
+  intro={active:true,index:0,elapsed:0,time:0,position:camera.position.clone(),rotation:camera.quaternion.clone(),door:world.door.rotation.y,held:held.visible,mist:mist.visible};
+  $('menu').hidden=true;$('menu-footer').hidden=true;$('hud').hidden=true;$('intro').hidden=false;
+  document.body.classList.add('in-intro');held.visible=false;mist.visible=false;
+  if(soundOn)ensureAudio();
+  showIntroBeat(0);$('intro-skip').focus();
+}
+function showIntroBeat(index){
+  cancelVoice();
+  intro.index=index;intro.elapsed=0;
+  const beat=introBeats[index];
+  $('intro').dataset.beat=String(index);
+  $('intro-chapter').textContent=`${String(index+1).padStart(2,'0')} / 06 · ${beat.chapter}`;
+  $('intro-title').textContent=beat.title;$('intro-speaker').textContent=beat.speaker;$('intro-subtitle').textContent=beat.line;
+  $('intro-mark').textContent=index===2?'CANCELED':'';
+  $('intro-next').textContent=index===introBeats.length-1?'Finish intro →':'Next scene →';
+  if(!reducedMotion)$('intro-title').animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],{duration:650});
+  say(beat.id);
+}
+function finishIntro(){
+  if(!intro?.active)return;
+  stopAudio();
+  camera.position.copy(intro.position);camera.quaternion.copy(intro.rotation);world.door.rotation.y=intro.door;
+  held.visible=intro.held;mist.visible=intro.mist;
+  intro.active=false;document.body.classList.remove('in-intro');$('intro').hidden=true;$('menu').hidden=false;$('menu-footer').hidden=false;
+  $('start').focus();
+}
+function nextIntroBeat(){
+  if(!intro?.active)return;
+  if(intro.index+1>=introBeats.length)finishIntro();else showIntroBeat(intro.index+1);
+}
+function updateIntro(dt){
+  const beat=introBeats[intro.index],buffer=voiceBuffers.get(beat.id);
+  const duration=Math.max(6,buffer?buffer.duration/(beat.speaker==='THE CLOWN'?1.08:1)+1:beat.line.length/12);
+  // Hold the shot while its narration unlocks/downloads; fall back to subtitles
+  // after a bounded wait rather than trapping the player on a failed asset.
+  intro.time+=dt;
+  if(pendingDialogue&&pendingDialogue.expires<Date.now())pendingDialogue=null;
+  if(!(soundOn&&(audioPending||pendingDialogue)))intro.elapsed+=dt;
+  const t=Math.min(1,intro.elapsed/duration),ease=t*t*(3-2*t);
+  camera.position.fromArray(beat.from);
+  if(!reducedMotion)camera.position.lerp(new THREE.Vector3(...beat.to),ease);
+  camera.lookAt(...beat.look);
+  world.door.rotation.y=0;world.clown.visible=true;world.clown.position.set(-4,0,15);world.clown.rotation.y=Math.PI;
+  animateCharacter(world.clown,intro.time,dt,'watch');
+  world.guards.forEach((g,i)=>{g.position.set(i?2.65:-.65,0,7);g.rotation.y=0;animateCharacter(g,intro.time,dt);});
+  const positions=world.positions;
+  for(let i=0;i<positions.length;i+=6){positions[i+1]-=dt*9;positions[i+4]-=dt*9;if(positions[i+1]<0){positions[i+1]=15;positions[i+4]=14.7;}}
+  world.rain.geometry.attributes.position.needsUpdate=true;
+  if(rainGain&&audio?.state==='running')rainGain.gain.setTargetAtTime(.025,audio.currentTime,.3);
+  if(intro.index===5)updateMusic({x:1,z:5},true,true);
+  else if(musicGain&&audio?.state==='running')musicGain.gain.setTargetAtTime(0,audio.currentTime,.2);
+  const progress=(intro.index+t)/introBeats.length*100;
+  $('intro-progress').setAttribute('aria-valuenow',String(Math.round(progress)));$('intro-progress').firstElementChild.style.width=progress+'%';
+  if(intro.elapsed>=duration&&!activeVoice)nextIntroBeat();
+}
 function bindInput(){
+  $('intro-button').onclick=startIntro;
+  $('intro-skip').onclick=finishIntro;
+  $('intro-next').onclick=nextIntroBeat;
+  $('intro-sound').onclick=()=>{toggleSound();if(soundOn&&intro?.active)showIntroBeat(intro.index);};
+  $('retry').onclick=()=>location.reload();
+  $('intro').addEventListener('keydown',event=>{
+    if(event.code==='Escape'){event.preventDefault();finishIntro();}
+    if(event.code==='Tab'){
+      const buttons=[$('intro-sound'),$('intro-skip'),$('intro-next')],index=buttons.indexOf(document.activeElement);
+      if(event.shiftKey&&index<=0){event.preventDefault();buttons.at(-1).focus();}
+      else if(!event.shiftKey&&index===buttons.length-1){event.preventDefault();buttons[0].focus();}
+    }
+  });
+
+
   $('start').onclick=start;$('pause').onclick=pause;$('interact').onclick=interact;$('spray').onclick=spray;$('jump').onclick=jump;$('crouch').onclick=()=>{state.crouched=!state.crouched;};
   $('help-toggle').onclick=()=>{$('help').hidden=!$('help').hidden;$('help-toggle').setAttribute('aria-expanded',String(!$('help').hidden));};
   $('sound').onclick=toggleSound;
@@ -317,6 +407,7 @@ function bindInput(){
 }
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 function update(dt){
+  if(intro?.active){updateIntro(dt);return;}
   if(state.playing||!state.started)state.time+=dt;const p=state.player;
   if(state.playing){
     let x=touchX+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
@@ -369,7 +460,7 @@ try{
   const nozzle=new THREE.Mesh(new THREE.BoxGeometry(.05,.045,.06),new THREE.MeshStandardMaterial({color:'#28332f'}));nozzle.position.set(.315,-.145,-.55);held.add(nozzle);
   const mistPoints=new Float32Array(90);for(let i=0;i<90;i+=3){mistPoints[i]=(Math.random()-.5)*.3;mistPoints[i+1]=(Math.random()-.5)*.3;mistPoints[i+2]=-Math.random()*.65;}
   const mistGeo=new THREE.BufferGeometry();mistGeo.setAttribute('position',new THREE.BufferAttribute(mistPoints,3));mist=new THREE.Points(mistGeo,new THREE.PointsMaterial({color:'#d7e7a5',size:.07,transparent:true,opacity:.4,depthWrite:false}));mist.position.set(.27,-.12,-.7);camera.add(mist);mist.visible=false;
-  bindInput();resize();addEventListener('resize',resize);
+  $('intro-button').disabled=false;bindInput();resize();addEventListener('resize',resize);
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();pause();fail('The graphics context was interrupted. Reload to return to the apartment.');});
   $('start').disabled=false;$('start').textContent='Enter the apartment  →';
   renderer.setAnimationLoop(now=>{const dt=Math.min((now-(last||now))/1000,.04);last=now;if(!document.hidden){update(dt);renderer.render(scene,camera);}});

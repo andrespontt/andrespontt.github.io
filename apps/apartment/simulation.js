@@ -51,6 +51,11 @@ export function updateGuards(state,dt,colliders=[]){
       if(d>1.05)target={x:c.x+(g.x-c.x)/d*.95,z:Math.max(6.6,c.z+(g.z-c.z)/d*.95)};
       else target=g;
     }
+    // The posted guard may intercept, but cannot be lured away with the player.
+    if(i===0){
+      const reach=distance(target,entrance);
+      if(reach>2.6)target={x:entrance.x+(target.x-entrance.x)*2.6/reach,z:entrance.z+(target.z-entrance.z)*2.6/reach};
+    }
     const d=distance(g,target),step=Math.min(d,2.6*dt);
     if(d>.001)movePlayer(g,(target.x-g.x)/d*step,(target.z-g.z)/d*step,colliders,state.doorOpen);
     g.z=Math.max(6.6,g.z); // Guards stay outside; their bodies never block player movement.

@@ -74,4 +74,15 @@ for(let i=1;i<=25;i++){
   const wav=await readFile(new URL(`./voices/taunt-${String(i).padStart(2,'0')}.wav`,import.meta.url));
   assert.equal(wav.toString('ascii',0,4),'RIFF');assert(wav.length>10000);
 }
-console.log('25 voiced taunts, distinct pitch, non-repeating shuffle, guard priority and no overlapping dialogue passed.');
+console.log('25 voiced taunts, distinct pitch, non-repeating shuffle, guard priority and no overlapping dialogue passed.');run('cancelVoice();pendingDialogue={id:"welcome",expires:0};dialogueQueue.push("warning");updateTaunts(.1)');
+assert.equal(run('activeVoiceId'),'warning','Expired download does not wedge queued guards');
+for(let i=1;i<=6;i++){
+  const id=`intro-${String(i).padStart(2,'0')}`;
+  const wav=await readFile(new URL(`./voices/${id}.wav`,import.meta.url));
+  assert.equal(wav.toString('ascii',0,4),'RIFF');assert(wav.length>10000);
+  run(`cancelVoice();say('${id}')`);
+  assert.equal(run('activeVoiceId'),id,'Every intro scene starts actual narration');
+  assert.equal(run('activeVoice.playbackRate.value'),i===4?1.08:1);
+}
+run('stopAudio()');assert.equal(run('activeVoice'),null,'Leaving intro stops its narration');
+console.log('Six recorded intro clips, narrator/clown voice distinction and expired-download recovery passed.');
