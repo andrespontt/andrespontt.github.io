@@ -15,6 +15,7 @@ Personal website and playground for Andres Pontt, hosted on GitHub Pages. The si
 Located in the `apps/` directory:
 - **ABC Learning** (`abc.html`) - Interactive alphabet practice for young learners
 - **Apartment** (`apartment.html`) - Atmospheric first-person horror sandbox: a furnished apartment, rainy street, an unwelcome clown, protective bodyguards, and callable security backup
+- **Afterhours** (`afterhours.html`) - An original music collection, starting with Apartment’s title theme, with playback, seeking, volume, and repeat controls; add songs through `apps/afterhours/tracks.json`
 - **Bridge Math** (`bridge-math.html`) - Equation game where correct answers rebuild a bridge
 - **Chromatic Keyboard** (`keyboard.html`) - Browser keyboard with octave controls
 - **Count Cats** (`count-cats.html`) - Counting game for kids

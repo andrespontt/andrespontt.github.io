@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Afterhours — Andres Pontt</title>
+  <meta name="description" content="A growing collection of original songs. Start with Midnight Window, the quiet title theme from Apartment.">
+  <meta name="theme-color" content="#10191b">
+  <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="afterhours/style.css?v=1">
+  <script src="afterhours/player.js?v=1" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to player</a>
+  <div class="shell">
+    <header class="topbar"><a class="back" href="index.html">← All apps</a><a class="wordmark" href="afterhours.html">afterhours<span aria-hidden="true">✳</span></a><span class="edition">A personal music collection</span></header>
+    <main id="main">
+      <div class="intro"><p class="eyebrow">SOUNDTRACKS & SMALL ESCAPES</p><h1>Stay a little longer.</h1><p>A few songs for the hours that are yours.</p></div>
+      <section class="listening-room" aria-label="Music player">
+        <div class="cover" role="img" aria-label="A warm apartment window glowing against a rainy midnight sky">
+          <div class="cover-top"><span>APARTMENT</span><span>VOL. 01</span></div>
+          <div class="window-art" aria-hidden="true"><div class="window-glow"></div><div class="window-frame"></div><div class="sill"></div></div>
+          <div class="cover-bottom"><span>MIDNIGHT<br>WINDOW</span><small>23:48 / THE NIGHT IS STILL YOUNG</small></div>
+        </div>
+        <div class="player">
+          <p class="eyebrow">NOW SELECTED <span class="playing-light" aria-hidden="true"></span></p>
+          <p id="source" class="source">Apartment · Title theme</p>
+          <h2 id="title">Midnight Window</h2><p id="artist" class="artist">Andres Pontt</p>
+          <p id="description" class="description">Soft bells, a slow melody, and a little room to breathe. The original D-minor theme from Apartment’s title screen.</p>
+          <p id="mood" class="mood">Quiet / Atmospheric</p>
+          <div class="transport">
+            <div class="seek-wrap"><label class="sr-only" for="seek">Playback position</label><input id="seek" type="range" min="0" max="80.8" step="0.1" value="0" disabled><div class="time"><span id="elapsed">0:00</span><span id="duration">1:20</span></div></div>
+            <div class="controls">
+              <button id="restart" class="icon-button" aria-label="Restart song" title="Restart song" disabled>↤</button>
+              <button id="play" class="play-button" disabled><span id="play-icon" aria-hidden="true">▶</span><span id="play-label">Loading…</span></button>
+              <button id="repeat" class="icon-button" aria-label="Repeat song" aria-pressed="false" title="Repeat song">↻</button>
+              <div class="volume"><button id="mute" class="icon-button" aria-label="Mute" aria-pressed="false" title="Mute">♪</button><label class="sr-only" for="volume">Volume</label><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8"></div>
+            </div>
+            <p id="status" class="status" role="status" aria-live="polite">Loading the collection…</p>
+          </div>
+        </div>
+      </section>
+      <section class="library" aria-labelledby="library-title"><div class="library-heading"><h2 id="library-title">The collection</h2><span id="song-count">01 SONG</span></div><div id="tracks"></div><p class="library-note">A small beginning. More songs will find their way here.</p></section>
+      <audio id="audio" preload="metadata" controls src="afterhours/audio/midnight-window.wav">Your browser does not support audio playback. <a href="afterhours/audio/midnight-window.wav">Download Midnight Window</a>.</audio>
+      <noscript><p>Listen with the audio controls above. Enable JavaScript for the collection player.</p></noscript>
+    </main>
+    <footer><span>Made by Andres Pontt</span><span>Take your time. Press play.</span></footer>
+  </div>
+</body>
+</html>
