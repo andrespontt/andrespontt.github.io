@@ -4,9 +4,179 @@
     "title": "Midnight Window",
     "artist": "Andres Pontt",
     "collection": "Apartment · Title theme",
-    "description": "Soft bells, a slow melody, and a little room to breathe. The original D-minor theme from Apartment’s title screen.",
+    "description": "Twenty minutes by a rain-streaked window. The soft bells and D-minor melody from Apartment’s title screen, extended into a slow, uninterrupted escape.",
     "mood": "Quiet / Atmospheric",
-    "duration": 80.8,
-    "src": "audio/midnight-window.wav"
+    "duration": 1213.6,
+    "src": "audio/midnight-window.mp3",
+    "visual": "window",
+    "bpm": 100,
+    "coverLabel": "APARTMENT",
+    "coverNote": "23:48 / THE NIGHT IS STILL YOUNG",
+    "story": [
+      {
+        "at": 0,
+        "title": "One light left on",
+        "text": "The city falls quiet. Your window stays awake."
+      },
+      {
+        "at": 300,
+        "title": "A visitor in the rain",
+        "text": "A small golden light finds its way to the glass."
+      },
+      {
+        "at": 600,
+        "title": "Somewhere to go",
+        "text": "You open the window. The night opens with it."
+      },
+      {
+        "at": 900,
+        "title": "Follow the light",
+        "text": "Across the rooftops, a thousand other stories glow."
+      }
+    ]
+  },
+  {
+    "id": "last-train-home",
+    "title": "Last Train Home",
+    "artist": "Andres Pontt",
+    "collection": "Night journeys · No. 02",
+    "description": "Low electric keys, a soft drum machine, and a bass line going somewhere. A warm lo-fi ride from the neon city to open countryside.",
+    "mood": "Lo-fi / Warm keys",
+    "duration": 310.4545454545,
+    "src": "audio/last-train-home.mp3",
+    "visual": "train",
+    "bpm": 88,
+    "coverLabel": "NIGHT JOURNEYS",
+    "coverNote": "00:27 / NEXT STOP, SOMEWHERE",
+    "story": [
+      {
+        "at": 0,
+        "title": "The last departure",
+        "text": "One passenger. One ticket. A city slipping away."
+      },
+      {
+        "at": 77,
+        "title": "Neon becomes memory",
+        "text": "The windows collect places you almost called home."
+      },
+      {
+        "at": 155,
+        "title": "Beyond the city",
+        "text": "Buildings turn to hills. There is room to breathe."
+      },
+      {
+        "at": 233,
+        "title": "A light in the distance",
+        "text": "Somewhere ahead, someone has left a light on."
+      }
+    ]
+  },
+  {
+    "id": "paper-satellites",
+    "title": "Paper Satellites",
+    "artist": "Andres Pontt",
+    "collection": "Night journeys · No. 03",
+    "description": "Low, rounded keys float through a cloud of warm synths. Fold a little wish, send it into orbit, and let this soft lo-fi daydream carry it.",
+    "mood": "Lo-fi / Weightless",
+    "duration": 326,
+    "src": "audio/paper-satellites.mp3",
+    "visual": "space",
+    "bpm": 72,
+    "coverLabel": "NIGHT JOURNEYS",
+    "coverNote": "02:14 / WISHES HAVE ORBITS",
+    "story": [
+      {
+        "at": 0,
+        "title": "A wish, folded twice",
+        "text": "You fold the thing you cannot say into a paper plane."
+      },
+      {
+        "at": 81,
+        "title": "Leaving gravity",
+        "text": "It climbs past the clouds. Even worries look small here."
+      },
+      {
+        "at": 163,
+        "title": "An unlikely constellation",
+        "text": "Other wishes arrive. None of them are flying alone."
+      },
+      {
+        "at": 245,
+        "title": "Return address: the sky",
+        "text": "The universe sends a little light back."
+      }
+    ]
+  },
+  {
+    "id": "the-blue-between",
+    "title": "The Blue Between",
+    "artist": "Andres Pontt",
+    "collection": "Night journeys · No. 04",
+    "description": "Mellow low-register keys and a tide of warm chords. A tiny boat, a patient lighthouse, and a slow lo-fi drift with nowhere to hurry.",
+    "mood": "Lo-fi / Ocean drift",
+    "duration": 306,
+    "src": "audio/the-blue-between.mp3",
+    "visual": "sea",
+    "bpm": 64,
+    "coverLabel": "NIGHT JOURNEYS",
+    "coverNote": "04:36 / LET THE TIDE DECIDE",
+    "story": [
+      {
+        "at": 0,
+        "title": "The shore lets go",
+        "text": "A little boat carries the last of the night out to sea."
+      },
+      {
+        "at": 76,
+        "title": "The blue between",
+        "text": "There is no road here. Only the rhythm of the water."
+      },
+      {
+        "at": 153,
+        "title": "A patient lighthouse",
+        "text": "A light turns, again and again. You are still on course."
+      },
+      {
+        "at": 230,
+        "title": "Nothing is lost",
+        "text": "The tide brings you somewhere you have never been."
+      }
+    ]
+  },
+  {
+    "id": "first-light",
+    "title": "First Light",
+    "artist": "Andres Pontt",
+    "collection": "Night journeys · No. 05",
+    "description": "Warm low keys, a gentle beat, and a melody that takes its time. A soft lo-fi sunrise, with the rooftop all to yourself.",
+    "mood": "Lo-fi / Soft sunrise",
+    "duration": 306,
+    "src": "audio/first-light.mp3",
+    "visual": "dawn",
+    "bpm": 96,
+    "coverLabel": "NIGHT JOURNEYS",
+    "coverNote": "06:02 / WE MADE IT TO MORNING",
+    "story": [
+      {
+        "at": 0,
+        "title": "Before everyone else",
+        "text": "You take the stairs to the roof. The sky is waiting."
+      },
+      {
+        "at": 76,
+        "title": "The first gold",
+        "text": "A thin line of light finds the edges of everything."
+      },
+      {
+        "at": 153,
+        "title": "The city exhales",
+        "text": "Windows catch the sun. Somewhere, the first kettle sings."
+      },
+      {
+        "at": 230,
+        "title": "A new beginning",
+        "text": "Nothing has to happen yet. This morning is enough."
+      }
+    ]
   }
 ]

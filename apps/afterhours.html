@@ -4,11 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Afterhours — Andres Pontt</title>
-  <meta name="description" content="A growing collection of original songs. Start with Midnight Window, the quiet title theme from Apartment.">
+  <meta name="description" content="Five original songs for the hours that are yours. Press Animate and watch each song become a little film.">
   <meta name="theme-color" content="#10191b">
   <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="afterhours/style.css?v=1">
-  <script src="afterhours/player.js?v=1" defer></script>
+  <link rel="stylesheet" href="afterhours/style.css?v=2">
+  <script src="afterhours/story.js?v=2" defer></script>
+  <script src="afterhours/player.js?v=2" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to player</a>
@@ -17,19 +18,23 @@
     <main id="main">
       <div class="intro"><p class="eyebrow">SOUNDTRACKS & SMALL ESCAPES</p><h1>Stay a little longer.</h1><p>A few songs for the hours that are yours.</p></div>
       <section class="listening-room" aria-label="Music player">
-        <div class="cover" role="img" aria-label="A warm apartment window glowing against a rainy midnight sky">
-          <div class="cover-top"><span>APARTMENT</span><span>VOL. 01</span></div>
+        <div id="cover" class="cover" data-scene="window">
+          <canvas id="story-canvas" role="img" aria-label="A warm apartment window glowing against a rainy midnight sky"></canvas>
+          <div class="cover-top" aria-hidden="true"><span id="cover-collection">APARTMENT</span><span id="cover-number">VOL. 01</span></div>
           <div class="window-art" aria-hidden="true"><div class="window-glow"></div><div class="window-frame"></div><div class="sill"></div></div>
-          <div class="cover-bottom"><span>MIDNIGHT<br>WINDOW</span><small>23:48 / THE NIGHT IS STILL YOUNG</small></div>
+          <div class="cover-bottom" aria-hidden="true"><span id="cover-title">MIDNIGHT<br>WINDOW</span><small id="cover-note">23:48 / THE NIGHT IS STILL YOUNG</small></div>
+          <div id="story-caption" class="story-caption" hidden><p id="story-chapter" class="story-chapter"></p><p id="story-line" class="story-line"></p><div id="story-chapters" class="story-chapters" aria-hidden="true"></div></div>
+          <span id="film-state" class="film-state" hidden>VISUAL STORY</span>
         </div>
         <div class="player">
           <p class="eyebrow">NOW SELECTED <span class="playing-light" aria-hidden="true"></span></p>
           <p id="source" class="source">Apartment · Title theme</p>
           <h2 id="title">Midnight Window</h2><p id="artist" class="artist">Andres Pontt</p>
-          <p id="description" class="description">Soft bells, a slow melody, and a little room to breathe. The original D-minor theme from Apartment’s title screen.</p>
+          <p id="description" class="description">Twenty minutes by a rain-streaked window. The soft bells and D-minor melody from Apartment’s title screen, extended into a slow, uninterrupted escape.</p>
           <p id="mood" class="mood">Quiet / Atmospheric</p>
+          <div class="animation-controls"><button id="animate" class="animate-button" aria-pressed="false" aria-controls="cover" disabled><span aria-hidden="true">✦</span> <span id="animate-label">Animate</span></button><span id="animation-hint">Every song has a little story.</span></div>
           <div class="transport">
-            <div class="seek-wrap"><label class="sr-only" for="seek">Playback position</label><input id="seek" type="range" min="0" max="80.8" step="0.1" value="0" disabled><div class="time"><span id="elapsed">0:00</span><span id="duration">1:20</span></div></div>
+            <div class="seek-wrap"><label class="sr-only" for="seek">Playback position</label><input id="seek" type="range" min="0" max="1213.6" step="0.1" value="0" disabled><div class="time"><span id="elapsed">0:00</span><span id="duration">20:13</span></div></div>
             <div class="controls">
               <button id="restart" class="icon-button" aria-label="Restart song" title="Restart song" disabled>↤</button>
               <button id="play" class="play-button" disabled><span id="play-icon" aria-hidden="true">▶</span><span id="play-label">Loading…</span></button>
@@ -40,8 +45,8 @@
           </div>
         </div>
       </section>
-      <section class="library" aria-labelledby="library-title"><div class="library-heading"><h2 id="library-title">The collection</h2><span id="song-count">01 SONG</span></div><div id="tracks"></div><p class="library-note">A small beginning. More songs will find their way here.</p></section>
-      <audio id="audio" preload="metadata" controls src="afterhours/audio/midnight-window.wav">Your browser does not support audio playback. <a href="afterhours/audio/midnight-window.wav">Download Midnight Window</a>.</audio>
+      <section class="library" aria-labelledby="library-title"><div class="library-heading"><h2 id="library-title">The collection</h2><span id="song-count">05 SONGS</span></div><div id="tracks"></div><p class="library-note">Five small escapes. One journey from midnight to morning.</p></section>
+      <audio id="audio" preload="metadata" controls src="afterhours/audio/midnight-window.mp3">Your browser does not support audio playback. <a href="afterhours/audio/midnight-window.mp3">Download Midnight Window</a>.</audio>
       <noscript><p>Listen with the audio controls above. Enable JavaScript for the collection player.</p></noscript>
     </main>
     <footer><span>Made by Andres Pontt</span><span>Take your time. Press play.</span></footer>

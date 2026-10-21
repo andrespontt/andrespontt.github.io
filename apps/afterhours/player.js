@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const audio = $('audio');
+const story = window.AfterhoursStory ? new window.AfterhoursStory(audio) : null;
 let tracks = [], selected = 0, loading = false, request = 0, scrubbing = false;
 const time = seconds => `${Math.floor(Math.max(0, seconds || 0) / 60)}:${String(Math.floor(Math.max(0, seconds || 0) % 60)).padStart(2, '0')}`;
 function save(key, value) { try { localStorage.setItem(`afterhours-${key}`, String(value)); } catch {} }
@@ -25,6 +26,7 @@ function sync() {
     button.setAttribute('aria-label', `${playing && index === selected ? 'Pause' : 'Play'} ${tracks[index].title}`);
   });
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+  story?.update();
 }
 function progress() {
   const duration = Number.isFinite(audio.duration) ? audio.duration : tracks[selected]?.duration || 0;
@@ -34,6 +36,7 @@ function progress() {
   $('elapsed').textContent = time(scrubbing ? Number($('seek').value) : audio.currentTime);
   $('duration').textContent = time(duration);
   $('seek').setAttribute('aria-valuetext', `${$('elapsed').textContent} of ${time(duration)}`);
+  story?.update();
 }
 function selectTrack(index) {
   request++;
@@ -43,6 +46,8 @@ function selectTrack(index) {
   audio.load();
   for (const key of ['title', 'artist', 'description', 'mood']) $(key).textContent = track[key] || '';
   $('source').textContent = track.collection || 'Original music';
+  story?.select(track, index);
+  $('animate').disabled = !story?.available || !track.story?.length;
   $('status').textContent = 'Ready when you are.';
   save('selected', track.id);
   if ('mediaSession' in navigator && 'MediaMetadata' in window) {
@@ -69,13 +74,14 @@ async function play() {
 function pause() { request++; loading = false; audio.pause(); $('status').textContent = 'Paused. Stay a while.'; sync(); }
 function toggle() { if (loading || !audio.paused) pause(); else play(); }
 $('play').addEventListener('click', toggle);
+$('animate').addEventListener('click', () => story?.toggle());
 $('restart').addEventListener('click', () => { audio.currentTime = 0; progress(); $('status').textContent = 'Back to the beginning.'; });
 $('repeat').addEventListener('click', () => { audio.loop = !audio.loop; save('repeat', audio.loop); $('repeat').setAttribute('aria-pressed', String(audio.loop)); $('status').textContent = audio.loop ? 'Repeat on.' : 'Repeat off.'; });
 $('mute').addEventListener('click', () => { audio.muted = !audio.muted; sync(); });
 $('volume').addEventListener('input', event => { audio.volume = Number(event.target.value); audio.muted = false; save('volume', audio.volume); sync(); });
 $('seek').addEventListener('input', () => { scrubbing = true; progress(); });
 $('seek').addEventListener('change', () => { audio.currentTime = Number($('seek').value); scrubbing = false; progress(); });
-for (const event of ['loadedmetadata', 'durationchange', 'timeupdate']) audio.addEventListener(event, progress);
+for (const event of ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked']) audio.addEventListener(event, progress);
 for (const event of ['play', 'pause', 'volumechange']) audio.addEventListener(event, sync);
 audio.addEventListener('playing', () => { $('status').textContent = 'Now playing. Take your time.'; });
 audio.addEventListener('waiting', () => { if (!audio.paused) $('status').textContent = 'Buffering…'; });
@@ -94,7 +100,7 @@ if ('mediaSession' in navigator) {
 }
 async function init() {
   try {
-    const response = await fetch('afterhours/tracks.json');
+    const response = await fetch('afterhours/tracks.json?v=2');
     if (!response.ok) throw new Error('Collection unavailable');
     tracks = await response.json();
     if (!Array.isArray(tracks) || !tracks.length || tracks.some(track => !track.id || !track.title || !track.src)) throw new Error('Invalid collection');
