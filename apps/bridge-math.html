@@ -2,260 +2,332 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
   <title>Cat Bridge Math 🌉</title>
   <meta name="theme-color" content="#22c55e" />
   <link rel="manifest" href="bridge-math.webmanifest" />
   <style>
     :root {
-      --bg: #87ceeb; /* Sky blue */
-      --grass: #4ade80; /* Light green */
-      --dirt: #78350f; /* Dark brown */
-      --plank: #b45309; /* Wood */
+      --sky-top: #4fb3ec;
+      --sky-bottom: #dff3fd;
+      --grass: #5fd07a;
+      --grass-dark: #2f9e4f;
+      --dirt: #8a5a2e;
+      --dirt-dark: #5b3717;
+      --wood: #c47a35;
+      --wood-dark: #7c4318;
       --accent: #f59e0b;
+      --accent-dark: #c2710c;
       --card: #ffffff;
       --text: #1e293b;
+      --muted: #64748b;
     }
     * { box-sizing: border-box; }
     body, html {
       margin: 0; padding: 0; height: 100%;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: var(--bg);
+      font-family: 'Fredoka', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, var(--sky-top) 0%, #8fd3f6 55%, var(--sky-bottom) 100%);
+      color: var(--text);
       display: flex; flex-direction: column;
       overflow: hidden;
       user-select: none; -webkit-user-select: none;
     }
-    
+    button, input { font-family: inherit; }
+
+    /* Sky decorations */
+    .sky { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .sun {
+      position: absolute; top: 90px; right: 8%;
+      width: 84px; height: 84px; border-radius: 50%;
+      background: radial-gradient(circle, #fff7c2 0 45%, #fde047 46% 100%);
+      box-shadow: 0 0 0 14px rgba(253, 224, 71, 0.25), 0 0 60px 20px rgba(253, 224, 71, 0.35);
+    }
+    .cloud {
+      position: absolute; width: 120px; height: 36px;
+      background: rgba(255, 255, 255, 0.92); border-radius: 40px;
+      animation: drift 60s linear infinite;
+    }
+    .cloud::before, .cloud::after {
+      content: ''; position: absolute; background: inherit; border-radius: 50%;
+    }
+    .cloud::before { width: 54px; height: 54px; left: 18px; top: -26px; }
+    .cloud::after { width: 40px; height: 40px; left: 60px; top: -18px; }
+    .c1 { top: 120px; left: -10%; animation-delay: -20s; }
+    .c2 { top: 230px; left: -10%; transform: scale(0.7); animation-duration: 85s; animation-delay: -55s; opacity: 0.8; }
+    .c3 { top: 170px; left: -10%; transform: scale(1.15); animation-duration: 110s; animation-delay: -85s; }
+    @keyframes drift { to { left: 110%; } }
+    .hills {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 26vh;
+      background:
+        radial-gradient(ellipse 40% 70% at 12% 100%, #7ed69a 0 98%, transparent 100%),
+        radial-gradient(ellipse 45% 85% at 85% 100%, #86dca1 0 98%, transparent 100%),
+        radial-gradient(ellipse 60% 55% at 50% 100%, #9be4b2 0 98%, transparent 100%);
+    }
+
     header {
-      padding: 16px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.9);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 10;
+      position: relative; z-index: 10;
+      padding: 10px 16px;
+      padding-top: max(10px, env(safe-area-inset-top));
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
     }
     h1 {
-      margin: 0; font-size: 24px; color: var(--accent);
-      display: flex; align-items: center; gap: 8px;
+      margin: 0; font-size: 24px; font-weight: 700; color: var(--accent-dark);
+      display: flex; align-items: center; gap: 8px; white-space: nowrap;
     }
-    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .back-link {
-      color: var(--accent); text-decoration: none; font-weight: 700; font-size: 20px;
-      width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent);
+      color: var(--accent-dark); text-decoration: none; font-weight: 700; font-size: 20px;
+      width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--accent);
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      background: #fff;
     }
-    
+    .header-tools { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .tool-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 36px; min-width: 36px; padding: 0 12px;
+      border: 1px solid #e2e8f0; border-radius: 999px;
+      background: #fff; color: var(--muted);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .tool-btn:hover { border-color: #cbd5e1; color: var(--text); }
+    .tool-btn.on { background: #dcfce7; border-color: #22c55e; color: #166534; }
+    #secret-btn.on { background: #ccfbf1; border-color: #14b8a6; color: #115e59; }
+    #music-toggle { justify-content: center; padding: 0; font-size: 18px; }
+    #music-toggle.muted { opacity: 0.45; }
+
     .game-area {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 30px;
-      padding: 20px;
+      position: relative; z-index: 1;
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 16px;
+      padding: 16px 16px 0;
     }
-    
+
     .equation-card {
+      width: min(100%, 520px);
       background: var(--card);
-      padding: 24px 32px;
-      border-radius: 24px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      padding: 18px 28px 12px;
+      border-radius: 28px;
+      box-shadow: 0 6px 0 var(--accent-dark), 0 18px 40px rgba(15, 23, 42, 0.18);
       border: 4px solid var(--accent);
       text-align: center;
-      margin-top: 20px;
+      margin-top: clamp(4px, 3vh, 32px);
       position: relative;
     }
-    
-    .equation {
-      font-size: clamp(32px, 8vw, 48px);
-      font-weight: bold;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      justify-content: center;
+
+    .progress {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-size: 14px; font-weight: 600; color: var(--muted);
+      margin-bottom: 14px;
     }
-    
+    .pips { display: inline-flex; gap: 4px; }
+    .pips i {
+      width: 22px; height: 9px; border-radius: 3px;
+      border: 2px dashed #cbd5e1; transition: background 0.3s, border-color 0.3s;
+    }
+    .pips i.on { background: var(--wood); border: 2px solid var(--wood-dark); }
+
+    .equation {
+      min-height: 64px;
+      font-size: clamp(32px, 8vw, 48px);
+      font-weight: 700;
+      color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      gap: clamp(8px, 2.5vw, 16px);
+    }
+    .equation .op { color: var(--accent); }
+    .equation.message { font-size: clamp(20px, 5vw, 28px); line-height: 1.25; }
+
     input[type="number"] {
-      width: 80px;
-      height: 60px;
-      font-size: 36px;
-      font-weight: bold;
+      width: clamp(64px, 18vw, 84px);
+      height: 64px;
+      font-size: 36px; font-weight: 700;
       text-align: center;
-      border: 3px solid #cbd5e1;
-      border-radius: 12px;
+      border: 3px dashed var(--accent);
+      border-radius: 14px;
       outline: none;
       color: var(--text);
-      background: #f8fafc;
-      transition: all 0.2s;
+      background: #fffbeb;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      -moz-appearance: textfield; appearance: textfield;
     }
-    
     input[type="number"]:focus {
-      border-color: var(--accent);
+      border-style: solid;
       background: #fff;
-      box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+      box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.22);
     }
-    
+    input[type="number"]:disabled { border-color: #22c55e; border-style: solid; background: #f0fdf4; }
     input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-    
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
     .btn {
-      margin-top: 20px;
-      padding: 12px 24px;
-      font-size: 20px;
-      font-weight: bold;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 12px;
+      margin-top: 16px;
+      padding: 12px 28px;
+      font-size: 20px; font-weight: 700;
+      background: var(--accent); color: white;
+      border: none; border-radius: 14px;
       cursor: pointer;
-      box-shadow: 0 4px 0 #b45309;
-      transition: transform 0.1s;
+      box-shadow: 0 4px 0 var(--accent-dark);
+      transition: transform 0.1s, box-shadow 0.1s, opacity 0.2s;
     }
-    .btn:active {
-      transform: translateY(4px);
-      box-shadow: none;
+    .btn:hover { filter: brightness(1.05); }
+    .btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--accent-dark); }
+    .btn:disabled { opacity: 0.55; cursor: default; transform: none; filter: none; }
+    .btn:focus-visible, .tool-btn:focus-visible, .back-link:focus-visible {
+      outline: 3px solid #2563eb; outline-offset: 2px;
     }
-    
+
     .feedback {
-      height: 30px;
-      margin-top: 10px;
-      font-size: 18px;
-      font-weight: bold;
+      min-height: 26px;
+      margin-top: 8px;
+      font-size: 18px; font-weight: 600;
     }
     .good { color: #15803d; }
     .bad { color: #b91c1c; }
 
-    /* Scene Styling */
+    /* Scene */
     .scene {
       position: relative;
-      width: 100%;
-      max-width: 800px;
-      height: 30vh;
-      display: flex;
-      align-items: flex-end;
+      width: 100%; max-width: 800px;
+      height: clamp(200px, 36vh, 320px);
+      margin-top: auto;
+      display: flex; align-items: flex-end;
     }
-    
     .cliff {
-      width: 20%;
-      height: 50%;
-      background: var(--dirt);
-      position: relative;
+      width: 20%; height: 55%;
+      position: relative; z-index: 2;
       border-top: 10px solid var(--grass);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(0, 0, 0, 0.12) 0 4px, transparent 5px) 0 0 / 38px 34px,
+        radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.08) 0 5px, transparent 6px) 0 0 / 46px 40px,
+        linear-gradient(180deg, var(--dirt) 0%, var(--dirt-dark) 100%);
     }
-    
-    .gap {
-      width: 60%;
-      height: 50%;
-      position: relative;
+    /* Darker grass lip under the grass edge */
+    .cliff::before {
+      content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px;
+      background: var(--grass-dark); opacity: 0.55;
     }
+    .scene > .cliff:first-of-type { border-top-right-radius: 8px; box-shadow: inset -6px 0 0 rgba(0, 0, 0, 0.12); }
+    .scene > .cliff:last-of-type { border-top-left-radius: 8px; box-shadow: inset 6px 0 0 rgba(0, 0, 0, 0.12); }
+
+    .gap { width: 60%; height: 55%; position: relative; z-index: 3; }
 
     .water {
-      position: absolute;
-      left: 20%;
-      bottom: 0;
-      width: 60%;
-      height: 24%;
-      background:
-        linear-gradient(180deg, rgba(56, 189, 248, 0.95) 0%, rgba(14, 116, 144, 0.95) 100%);
-      border-top: 3px solid rgba(186, 230, 253, 0.95);
-      border-radius: 14px 14px 0 0;
-      z-index: 1;
-      overflow: hidden;
+      position: absolute; left: 20%; bottom: 0;
+      width: 60%; height: 26%;
+      background: linear-gradient(180deg, #38bdf8 0%, #0e7490 100%);
+      z-index: 1; overflow: hidden;
     }
-
-    .water.salty {
-      background: linear-gradient(180deg, rgba(45, 212, 191, 0.95) 0%, rgba(8, 145, 178, 0.95) 100%);
-      border-top-color: rgba(204, 251, 241, 0.95);
-    }
-
+    .water.salty { background: linear-gradient(180deg, #2dd4bf 0%, #0891b2 100%); }
+    /* Wave crest and drifting sparkles */
     .water::before {
-      content: '';
-      position: absolute;
-      inset: 0;
+      content: ''; position: absolute; left: 0; right: 0; top: 0; height: 10px;
+      background: radial-gradient(circle at 12px 14px, transparent 0 9px, rgba(224, 242, 254, 0.85) 10px 12px, transparent 13px) 0 0 / 24px 10px repeat-x;
+      animation: waves 3s linear infinite;
+    }
+    .water::after {
+      content: ''; position: absolute; inset: 12px 0 0;
       background:
-        radial-gradient(circle at 14% 30%, rgba(255, 255, 255, 0.25) 0 8%, transparent 9%),
-        radial-gradient(circle at 46% 65%, rgba(255, 255, 255, 0.2) 0 8%, transparent 9%),
-        radial-gradient(circle at 76% 40%, rgba(255, 255, 255, 0.22) 0 8%, transparent 9%);
-      opacity: 0.85;
+        radial-gradient(ellipse 18px 4px at 20% 40%, rgba(255, 255, 255, 0.35) 98%, transparent),
+        radial-gradient(ellipse 14px 3px at 60% 70%, rgba(255, 255, 255, 0.3) 98%, transparent),
+        radial-gradient(ellipse 20px 4px at 85% 35%, rgba(255, 255, 255, 0.3) 98%, transparent);
+      animation: shimmer 4s ease-in-out infinite alternate;
     }
-    
+    @keyframes waves { to { background-position: 24px 0; } }
+    @keyframes shimmer { to { transform: translateX(14px); opacity: 0.6; } }
+
     .bridge {
-      position: absolute;
-      top: -10px;
-      left: 0;
-      width: 100%;
-      height: 20px;
-      display: flex;
+      position: absolute; top: -10px; left: 0;
+      width: 100%; height: 20px;
+      display: flex; gap: 3px; padding: 0 2px;
     }
-    
+    /* Empty slot: shows where the next plank goes */
     .plank {
-      flex: 1;
-      height: 100%;
-      background: var(--plank);
-      border-right: 2px solid #78350f;
-      border-bottom: 4px solid #78350f;
-      opacity: 0;
-      transform: translateY(-50px);
-      transition: all 0.5s bounce;
+      flex: 1; height: 100%;
+      border: 2px dashed rgba(255, 255, 255, 0.85);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.18);
     }
-    
     .plank.show {
-      opacity: 1;
-      transform: translateY(0);
-      /* Bouncy drop in animation */
-      animation: drop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      border: none;
+      border-bottom: 4px solid var(--wood-dark);
+      background:
+        repeating-linear-gradient(180deg, transparent 0 5px, rgba(0, 0, 0, 0.08) 5px 6px),
+        linear-gradient(180deg, #d98d45 0%, var(--wood) 100%);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.18);
+      animation: drop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
     }
-    
     @keyframes drop {
       0% { opacity: 0; transform: translateY(-50px); }
       100% { opacity: 1; transform: translateY(0); }
     }
-    
+
     .cat {
-      position: absolute;
-      top: -60px;
-      left: 10px; /* start on the edge of the cliff */
+      position: absolute; top: -60px; left: 10px;
       font-size: 50px;
       transition: transform 0.9s linear;
       z-index: 5;
       transform: scaleX(-1);
+      filter: drop-shadow(0 4px 2px rgba(0, 0, 0, 0.25));
     }
 
     #confetti {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 100;
-      display: none;
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 100; display: none;
     }
-    
+
     .modal {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5);
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.55);
       display: flex; align-items: center; justify-content: center;
+      padding: 16px;
       z-index: 200;
-      visibility: hidden;
-      opacity: 0;
-      transition: all 0.3s;
+      visibility: hidden; opacity: 0;
+      transition: opacity 0.3s, visibility 0.3s;
     }
-    .modal.show {
-      visibility: visible;
-      opacity: 1;
-    }
+    .modal.show { visibility: visible; opacity: 1; }
     .modal-content {
-      background: white; padding: 40px;
-      border-radius: 20px; text-align: center;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      width: min(100%, 420px);
+      background: white; padding: 32px 24px 24px;
+      border-radius: 28px; border: 4px solid var(--accent);
+      text-align: center;
+      box-shadow: 0 6px 0 var(--accent-dark), 0 20px 50px rgba(0, 0, 0, 0.3);
+      transform: scale(0.92); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .modal h2 { margin-top: 0; font-size: 32px; color: var(--accent); }
-    
+    .modal.show .modal-content { transform: scale(1); }
+    .modal h2 { margin: 0 0 8px; font-size: 32px; color: var(--accent-dark); }
+    #modal-msg { font-size: 20px; margin: 0 0 8px; color: var(--muted); }
+    .reward-cat {
+      width: 200px; height: 200px; object-fit: cover;
+      border-radius: 16px; margin: 12px 0; border: 4px solid var(--accent);
+      background: #fef3c7;
+    }
+    .modal .btn { width: 100%; }
+
+    @media (max-width: 600px) {
+      header { padding-left: 12px; padding-right: 12px; }
+      h1 { font-size: 18px; gap: 6px; }
+      h1 > span:first-child { display: none; }
+      .header-tools { gap: 4px; }
+      .header-left { gap: 8px; }
+      .tool-label { display: none; }
+      .tool-btn { justify-content: center; padding: 0; font-size: 16px; }
+      .equation-card { padding: 14px 16px 10px; border-radius: 24px; }
+      .sun { width: 60px; height: 60px; top: 76px; right: 6%; }
+    }
+    @media (max-width: 360px) {
+      .title-text { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cloud, .water::before, .water::after { animation: none; }
+    }
   </style>
 <!-- Cloudflare Web Analytics -->
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "5d5f9cafacb64867a0d0b21c7e747d44"}'></script>
@@ -263,22 +335,33 @@
 </head>
 <body>
 
+  <div class="sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+    <div class="hills"></div>
+  </div>
+
   <header>
     <div class="header-left">
-      <a href="index.html" class="back-link" title="Back to Apps">←</a>
-      <h1>🌉 Cat Bridge Math</h1>
+      <a href="index.html" class="back-link" title="Back to Apps" aria-label="Back to Apps">←</a>
+      <h1><span aria-hidden="true">🌉</span><span class="title-text">Cat Bridge Math</span></h1>
     </div>
-    <div style="font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 16px;">
-      <button id="music-toggle" title="Toggle Music" style="background: none; border: none; font-size: 24px; cursor: pointer;">🎵</button>
-      <button id="debug-toggle" title="Toggle Debug Mode" style="border: 2px solid #0f172a; background: #ffffff; border-radius: 10px; padding: 6px 10px; font-weight: 700; cursor: pointer;">Debug: OFF</button>
-      <button id="secret-btn" title="Secret Mode" style="border: 2px solid #0f172a; background: #e0e7ff; border-radius: 10px; padding: 6px 10px; font-weight: 700; cursor: pointer;">Secret</button>
-      <button id="reset-page" title="Reset Game" style="border: 2px solid #0f172a; background: #fee2e2; border-radius: 10px; padding: 6px 10px; font-weight: 700; cursor: pointer;">Reset</button>
-      <div>Planks: <span id="progress">0</span> / 5</div>
+    <div class="header-tools">
+      <button id="music-toggle" class="tool-btn" title="Toggle music" aria-label="Toggle music" aria-pressed="true"><span aria-hidden="true">🎵</span></button>
+      <button id="debug-toggle" class="tool-btn" title="Toggle debug mode" aria-pressed="false"><span aria-hidden="true">🐞</span><span class="tool-label">Debug</span></button>
+      <button id="secret-btn" class="tool-btn" title="Secret mode"><span class="tool-icon" aria-hidden="true">🔒</span><span class="tool-label">Secret</span></button>
+      <button id="reset-page" class="tool-btn" title="Reset game"><span aria-hidden="true">↺</span><span class="tool-label">Reset</span></button>
     </div>
   </header>
 
   <div class="game-area">
     <div class="equation-card">
+      <div class="progress">
+        <span class="pips" id="pips" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span><span id="progress">0</span> / 5 planks</span>
+      </div>
       <div id="equation" class="equation">
         <!-- Equation goes here -->
       </div>
@@ -310,8 +393,8 @@
   <div class="modal" id="win-modal">
     <div class="modal-content">
       <h2 id="modal-title">You Did It! 🏆</h2>
-      <p id="modal-msg" style="font-size: 20px">The cat safely crossed the bridge.</p>
-      <img src="https://cataas.com/cat/gif" alt="Happy Cat" style="width:200px; height:200px; object-fit:cover; border-radius:12px; margin: 20px 0; border: 4px solid var(--accent); display:none;" id="reward-cat" />
+      <p id="modal-msg">The cat safely crossed the bridge.</p>
+      <img src="https://cataas.com/cat/gif" alt="Happy Cat" class="reward-cat" style="display:none;" id="reward-cat" />
       <button class="btn" onclick="resetGame()" style="width: 100%">Play Again ↺</button>
     </div>
   </div>
@@ -392,6 +475,7 @@
       feedback: document.getElementById('feedback'),
       progress: document.getElementById('progress'),
       planks: document.querySelectorAll('.plank'),
+      pips: document.querySelectorAll('#pips i'),
       cat: document.getElementById('cat'),
       water: document.getElementById('water'),
       scene: document.querySelector('.scene'),
@@ -417,9 +501,20 @@
     function applyCharacterMode() {
       ui.cat.textContent = snailMode ? '🐌' : '🐈';
       ui.water.classList.toggle('salty', snailMode);
-      ui.secretBtn.textContent = snailMode ? 'Secret: SNAIL' : 'Secret';
-      ui.secretBtn.style.background = snailMode ? '#99f6e4' : '#e0e7ff';
-      ui.secretBtn.style.borderColor = snailMode ? '#0f766e' : '#0f172a';
+      ui.secretBtn.querySelector('.tool-icon').textContent = snailMode ? '🐌' : '🔒';
+      ui.secretBtn.querySelector('.tool-label').textContent = snailMode ? 'Snail' : 'Secret';
+      ui.secretBtn.classList.toggle('on', snailMode);
+    }
+
+    function setProgress(count) {
+      ui.progress.textContent = count;
+      ui.pips.forEach((pip, i) => pip.classList.toggle('on', i < count));
+    }
+
+    // Short status text (not an equation) in the card.
+    function showMessage(text) {
+      ui.eq.textContent = text;
+      ui.eq.classList.add('message');
     }
 
     function stopCatWalk() {
@@ -490,7 +585,7 @@
       ui.checkBtn.disabled = true;
       ui.feedback.textContent = snailMode ? 'Game over salty snail' : 'Splash! No plank there. Game over.';
       ui.feedback.className = 'feedback bad';
-      ui.eq.innerHTML = snailMode ? 'Salty water got the snail! 🧂🐌' : 'The cat got wet! 💦';
+      showMessage(snailMode ? 'Salty water got the snail! 🧂🐌' : 'The cat got wet! 💦');
       ui.cat.style.transition = 'transform 0.45s ease-in';
       ui.cat.style.transform = `translateX(${fallX}px) translateY(65px) scaleX(-1)`;
       if (midiPlayer) {
@@ -543,7 +638,8 @@
 
     ui.musicToggle.addEventListener('click', () => {
       musicEnabled = !musicEnabled;
-      ui.musicToggle.style.opacity = musicEnabled ? '1' : '0.5';
+      ui.musicToggle.classList.toggle('muted', !musicEnabled);
+      ui.musicToggle.setAttribute('aria-pressed', String(musicEnabled));
       if (!musicEnabled && midiPlayer) {
         midiPlayer.pause();
         // Stop dangling notes
@@ -561,9 +657,8 @@
 
     ui.debugToggle.addEventListener('click', () => {
       debugMode = !debugMode;
-      ui.debugToggle.textContent = debugMode ? 'Debug: ON' : 'Debug: OFF';
-      ui.debugToggle.style.background = debugMode ? '#dcfce7' : '#ffffff';
-      ui.debugToggle.style.borderColor = debugMode ? '#15803d' : '#0f172a';
+      ui.debugToggle.classList.toggle('on', debugMode);
+      ui.debugToggle.setAttribute('aria-pressed', String(debugMode));
       resetGame();
     });
 
@@ -638,6 +733,7 @@
       
       // Render
       ui.eq.innerHTML = '';
+      ui.eq.classList.remove('message');
       for (let i = 0; i < terms.length; i++) {
         if (i === hiddenIdx) {
           const inp = document.createElement('input');
@@ -675,8 +771,8 @@
         
         if (i < terms.length - 1) {
           const opSpan = document.createElement('span');
-          opSpan.style.color = 'var(--accent)';
-          opSpan.textContent = ops[i];
+          opSpan.className = 'op';
+          opSpan.textContent = ops[i] === '-' ? '−' : ops[i];
           ui.eq.appendChild(opSpan);
         }
       }
@@ -701,13 +797,13 @@
         if (earnedPlanks < TOTAL_PLANKS) {
           ui.planks[earnedPlanks].classList.add('show');
           earnedPlanks++;
-          ui.progress.textContent = earnedPlanks;
+          setProgress(earnedPlanks);
         }
         
         if (earnedPlanks >= TOTAL_PLANKS) {
           ui.feedback.textContent = 'All planks ready - keep going kitty!';
           ui.feedback.className = 'feedback good';
-          ui.eq.innerHTML = 'Bridge is fully built. Cat is crossing...';
+          showMessage('Bridge is fully built. Cat is crossing…');
           return;
         }
         setTimeout(() => {
@@ -729,7 +825,7 @@
       gameState = 'won';
       stopCatWalk();
       ui.feedback.textContent = '';
-      ui.eq.innerHTML = 'Bridge Complete! 🌉';
+      showMessage('Bridge Complete! 🌉');
       ui.checkBtn.style.display = 'none';
       if (midiPlayer) {
           midiPlayer.pause();
@@ -750,7 +846,7 @@
       gameState = 'playing';
       earnedPlanks = 0;
       catStep = 0;
-      ui.progress.textContent = earnedPlanks;
+      setProgress(earnedPlanks);
       ui.planks.forEach(p => p.classList.remove('show'));
       ui.cat.style.transform = `translateX(0px) scaleX(-1)`;
       ui.checkBtn.style.display = '';
