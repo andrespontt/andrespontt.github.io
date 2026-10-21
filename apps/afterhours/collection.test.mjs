@@ -5,7 +5,7 @@ import test from 'node:test';
 
 const tracks = JSON.parse(await readFile(new URL('./tracks.json', import.meta.url), 'utf8'));
 test('Every recording contains its full advertised duration, including 20+ and 5+ minute minimums', async () => {
-  assert.equal(tracks.length, 5);
+  assert.equal(tracks.length, 8);
   assert.equal(new Set(tracks.map(track => track.id)).size, tracks.length);
   const bitrates = [0,8,16,24,32,40,48,56,64,80,96,112,128,144,160];
   for (const [index, track] of tracks.entries()) {

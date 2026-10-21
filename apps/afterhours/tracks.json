@@ -178,5 +178,113 @@
         "text": "Nothing has to happen yet. This morning is enough."
       }
     ]
+  },
+  {
+    "id": "room-for-thought",
+    "title": "Room for Thought",
+    "duration": 368,
+    "bpm": 50,
+    "visual": "room",
+    "mood": "Background / Soft piano",
+    "description": "A low note, a soft chord, and plenty of room between them. Quiet furniture music for reading, working, or letting your thoughts wander.",
+    "coverNote": "NO APPOINTMENTS / NOTHING TO FOLLOW",
+    "story": [
+      {
+        "at": 0,
+        "title": "A room, unhurried",
+        "text": "The room asks nothing of you."
+      },
+      {
+        "at": 92,
+        "title": "A page left open",
+        "text": "There is time for another sentence."
+      },
+      {
+        "at": 184,
+        "title": "Light on the wall",
+        "text": "The afternoon moves at its own pace."
+      },
+      {
+        "at": 276,
+        "title": "Room for thought",
+        "text": "Stay with whatever you are doing. The music will keep you company."
+      }
+    ],
+    "artist": "Andres Pontt",
+    "collection": "Furniture music · No. 06",
+    "src": "audio/room-for-thought.mp3",
+    "coverLabel": "FURNITURE MUSIC"
+  },
+  {
+    "id": "the-quiet-margin",
+    "title": "The Quiet Margin",
+    "duration": 384,
+    "bpm": 48,
+    "visual": "garden",
+    "mood": "Background / Gentle stillness",
+    "description": "Rounded piano-like chords repeat softly beside an imagined garden. No drums, no lead melody, no sudden changes: just a little quiet at the edge of the day.",
+    "coverNote": "IN THE MARGIN / LEAVE A LITTLE SPACE",
+    "story": [
+      {
+        "at": 0,
+        "title": "At the edge of the day",
+        "text": "A garden goes on growing, without an audience."
+      },
+      {
+        "at": 96,
+        "title": "Nothing to catch",
+        "text": "A leaf moves. You need not look up."
+      },
+      {
+        "at": 192,
+        "title": "The quiet margin",
+        "text": "Leave a little space around the things that matter."
+      },
+      {
+        "at": 288,
+        "title": "Still here",
+        "text": "The world can be gentle in small ways."
+      }
+    ],
+    "artist": "Andres Pontt",
+    "collection": "Furniture music · No. 07",
+    "src": "audio/the-quiet-margin.mp3",
+    "coverLabel": "FURNITURE MUSIC"
+  },
+  {
+    "id": "nothing-to-finish",
+    "title": "Nothing to Finish",
+    "duration": 428,
+    "bpm": 45,
+    "visual": "curtain",
+    "mood": "Background / Unhurried",
+    "description": "Slow, low-register chords with soft attacks and long pauses. An unobtrusive companion with no climax to wait for and nothing asking for your attention.",
+    "coverNote": "AN OPEN WINDOW / A LITTLE MORE TIME",
+    "story": [
+      {
+        "at": 0,
+        "title": "An open window",
+        "text": "The curtain moves. The room breathes."
+      },
+      {
+        "at": 107,
+        "title": "A little more time",
+        "text": "Nothing here needs to be completed."
+      },
+      {
+        "at": 214,
+        "title": "No destination",
+        "text": "Let the next thought arrive when it is ready."
+      },
+      {
+        "at": 321,
+        "title": "Nothing to finish",
+        "text": "You can leave the music in the background. It understands."
+      }
+    ],
+    "artist": "Andres Pontt",
+    "collection": "Furniture music · No. 08",
+    "src": "audio/nothing-to-finish.mp3",
+    "coverLabel": "FURNITURE MUSIC"
   }
 ]

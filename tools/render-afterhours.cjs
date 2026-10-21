@@ -27,7 +27,7 @@ function recording(duration) {
       } else {
         // Rounded keys: mostly fundamental, without bright bell overtones.
         wave = (wave + .08 * Math.sin(phase * 2) * Math.exp(-t * 4)) / 1.08;
-        envelope = volume * Math.exp(-t * (voice === 'pluck' ? 6 : 3.5) / length) * Math.min(1, t / .008) * Math.min(1, (length - t) / .08);
+        envelope = volume * Math.exp(-t * (voice === 'pluck' ? 6 : 3.5) / length) * Math.min(1, t / (voice === 'felt' ? .035 : .008)) * Math.min(1, (length - t) / .08);
       }
       samples[offset + i] += wave * envelope;
     }
@@ -42,7 +42,7 @@ function recording(duration) {
       samples[offset + i] += volume * wave * Math.exp(-t / (length / 6)) * Math.min(1, t / .003);
     }
   }
-  function finish(track, gain = 1, echo = 0) {
+  function finish(track, gain = 1, echo = 0, {fadeIn = .04, fadeOut = 2} = {}) {
     if (echo) {
       const delay = Math.round(rate * 60 / track.bpm * .75);
       for (let i = delay; i < samples.length; i++) samples[i] += samples[i - delay] * echo;
@@ -53,7 +53,7 @@ function recording(duration) {
       const pcm = new Int16Array(Math.min(1152, samples.length - offset));
       for (let i = 0; i < pcm.length; i++) {
         const t = (offset + i) / rate;
-        const sample = samples[offset + i] * gain * Math.min(1, t / .04, (duration - t) / 2);
+        const sample = samples[offset + i] * gain * Math.min(1, t / fadeIn, (duration - t) / fadeOut);
         if (Math.abs(sample) > .98) throw new Error(`${track.id} clips at ${t}s`);
         peak = Math.max(peak, Math.abs(sample)); energy += sample * sample;
         pcm[i] = Math.round(sample * 32767);
@@ -70,6 +70,7 @@ function recording(duration) {
   return {tone, drum, finish};
 }
 
+if (!process.argv.includes('--background-only')) {
 // Preserve Apartment's original melody and balance for 63 full 19.2-second cycles.
 const game = fs.readFileSync(path.join(root, 'apps/apartment/game.js'), 'utf8');
 function readNotes(name) {
@@ -115,4 +116,30 @@ for (const score of scores) {
     }
   }
   session.finish(track, 1.5, .22);
+}
+}
+
+// Original furniture music: unhurried triple meter, a narrow middle/low
+// register, soft attacks and no percussion, solos, dramatic builds or lifts.
+const backgroundScores = [
+  {id:'room-for-thought', bars:100, chords:[[38,50,57,61],[42,49,56,61],[40,50,55,59],[45,52,57,59]], order:[0,0,1,1,2,2,3,0]},
+  {id:'the-quiet-margin', bars:100, chords:[[41,53,57,60],[41,50,57,60],[46,53,57,62],[38,50,57,60]], order:[0,1,0,1,2,2,3,1]},
+  {id:'nothing-to-finish', bars:105, chords:[[43,50,57,59],[47,54,57,62],[45,52,55,59],[38,50,57,64]], order:[0,0,1,0,2,2,3,0]}
+];
+for (const score of backgroundScores) {
+  const track = catalog.find(item => item.id === score.id);
+  if (!track) continue;
+  const session = recording(track.duration), beat = 60 / track.bpm;
+  for (let bar = 0; bar < score.bars; bar++) {
+    const chord = score.chords[score.order[Math.floor(bar / 4) % score.order.length]];
+    const when = bar * beat * 3;
+    // A low note, then a gently spread chord. Identical dynamics leave attention
+    // free for something else; occasional rests give the room its own voice.
+    session.tone(chord[0], when, beat * 4.8, .11, 'felt');
+    if (bar % 12 !== 11) {
+      chord.slice(1).forEach((note,i) => session.tone(note, when + beat * 1.1 + i * .022, beat * 3.5, .07, 'felt'));
+    }
+    if (bar % 8 === 4) session.tone(chord[1], when + beat * 2.3, beat * 2.8, .035, 'felt');
+  }
+  session.finish(track, 1.35, .12, {fadeIn:8, fadeOut:12});
 }

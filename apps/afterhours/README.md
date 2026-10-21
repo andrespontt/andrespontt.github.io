@@ -27,6 +27,20 @@ percussion, with instrumental breaks across their longer lo-fi arrangements.
 They have no bright octave lifts. Everything is local: no streaming account,
 third-party audio requests, or runtime synthesis is required.
 
+Three additional pieces take inspiration from the unobtrusive intent of Satie's
+furniture music, with original compositions rather than arrangements of his work:
+
+| Song | Length | Quiet scene |
+| --- | --- | --- |
+| Room for Thought | 6:08 | A book, a lamp, and afternoon light |
+| The Quiet Margin | 6:24 | A patient garden and an empty bench |
+| Nothing to Finish | 7:08 | An open window and a moving curtain |
+
+These use slow triple meter (45–50 bpm), a narrow low/middle register, rounded
+piano-like tones, gradual fades and restrained dynamics. There are no drums,
+lead melodies, octave lifts or crescendos. Their optional visual stories use
+slow daylight and slight leaf/curtain movement, without beat pulses.
+
 ## Animate
 
 The player opens with still artwork. **Animate** turns the cover into a small
@@ -51,6 +65,7 @@ node --test apps/afterhours/collection.test.mjs
 
 Alternatively pass a path to an already installed `lamejs/lame.all.js` to the
 renderer. Lamejs is only a development encoder (MIT), never a browser dependency.
+Append `--background-only` to regenerate just the three furniture-music pieces.
 The renderer checks for clipping and writes 96 kbps mono MP3s. The tests walk
 every MP3 frame to verify real recording lengths, and exercise story timing,
 seeking, pause, track changes, hidden tabs and reduced motion.
@@ -76,7 +91,7 @@ seeking, pause, track changes, hidden tabs and reduced motion.
 `duration` is in seconds and provides the library label before audio metadata
 loads. Playback uses the file's actual duration. Tracks play in catalog order;
 repeat loops the current song. For a visual story, add `visual` (`window`,
-`train`, `space`, `sea`, or `dawn`), `bpm`, `coverLabel`, `coverNote`, and a `story`
+`train`, `space`, `sea`, `dawn`, `room`, `garden`, or `curtain`), `bpm`, `coverLabel`, `coverNote`, and a `story`
 array of `{ "at": 0, "title": "Chapter title", "text": "Story caption" }` entries.
 Chapter times are seconds, ascending, starting at zero. Without a story the
 Animate button is disabled.

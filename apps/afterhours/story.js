@@ -118,7 +118,58 @@ window.AfterhoursStory = class {
       for (let i=0;i<amount;i++) { const x=(t*13+i*137)%1160-100, h=y+Math.sin(i*2)*50; line([[x-9,h+Math.sin(t*2+i)*4],[x,h],[x+9,h+Math.sin(t*2+i)*4]],'#263f4a',2); }
     };
 
-    if (this.track.visual === 'train') {
+    if (['room','garden','curtain'].includes(this.track.visual)) {
+      // Furniture music gets quiet tableaux: no beat pulses, flying objects or
+      // busy movement. Only daylight, a curtain and an occasional leaf shift.
+      sky('#34494c','#8c9b87');
+      const daylight=c.createLinearGradient(0,180,0,690); daylight.addColorStop(0,'#a9b8a4'); daylight.addColorStop(1,'#d3c7a0');
+      glow(680,310,300,'#f3db9c24');
+      if(this.track.visual === 'garden') {
+        rect(100,180,760,470,'#233f43'); rect(115,195,730,440,daylight);
+        hills(550,'#829b89',.5); hills(640,'#647f73',1.5);
+        rect(100,625,760,18,'#b7b49b'); rect(0,700,W,260,'#3b5151');
+        line([[0,710],[960,710]],'#87998b',3);
+        rect(470,580,280,19,'#b0a384'); rect(485,599,12,105,'#6d7767'); rect(721,599,12,105,'#6d7767');
+        rect(470,540,280,15,'#a0967b'); rect(490,554,6,30,'#788372'); rect(725,554,6,30,'#788372');
+        polygon([[190,605],[300,605],[280,715],[210,715]],'#a0876c');
+        line([[245,610],[244,420],[214,328]],'#364e43',6);
+        for(let i=0;i<12;i++) {
+          const y=355+i*21, side=i%2?1:-1, sway=Math.sin(t*.12+i)*3;
+          line([[244,y+30],[244+side*50+sway,y]],'#44634c',2);
+          c.save(); c.translate(244+side*43+sway,y); c.rotate(side*.7); c.fillStyle=i%3?'#637f60':'#8a9c71'; c.beginPath(); c.ellipse(0,0,17,34,0,0,Math.PI*2); c.fill(); c.restore();
+        }
+        circle(669,590,14,'#d8c6a1');
+      } else {
+        rect(255,175,470,440,'#203a3d'); rect(270,190,440,410,daylight);
+        hills(530,'#8a9f8e',.7); // Mask the hills outside the window frame.
+        rect(0,0,255,W,'#52665e'); rect(725,0,235,W,'#52665e'); rect(255,615,470,345,'#52665e');
+        rect(480,185,9,420,'#536c64'); rect(270,397,440,8,'#536c64');
+        polygon([[270,613],[705,613],[960,940],[398,940]],'#e2ce9c16');
+        rect(236,610,506,15,'#a2a88d');
+        if(this.track.visual === 'curtain') {
+          const sway=Math.sin(t*.13)*6;
+          polygon([[248,160],[362,160],[349+sway,390],[377+sway,646],[255,661]],'#d5d3b9dd');
+          polygon([[620,160],[735,160],[725,661],[598-sway,646],[635-sway,390]],'#c7ccb4e8');
+          for(let i=0;i<4;i++) {
+            line([[265+i*23,165],[269+i*21+sway*.4,405],[269+i*25+sway,650]],'#f4eedb2b',3);
+            line([[638+i*23,165],[643+i*20-sway*.4,405],[613+i*26-sway,650]],'#f4eedb24',3);
+          }
+          rect(380,676,208,15,'#a18f71'); rect(397,691,8,134,'#4a5145'); rect(562,691,8,134,'#4a5145');
+          rect(469,640,35,36,'#d5c6a6'); line([[486,640],[487,584]],'#879a70',2); circle(488,582,7,'#e2cfa5');
+        } else {
+          rect(185,674,590,17,'#ad9d7e'); rect(209,691,13,152,'#31453f'); rect(738,691,13,152,'#31453f');
+          polygon([[400,644],[485,630],[485,666],[400,675]],'#c9c4a8');
+          polygon([[485,630],[562,642],[570,675],[485,666]],'#e2d8b9');
+          line([[485,631],[485,665]],'#899681',2);
+          for(let i=0;i<4;i++) line([[415,649+i*5],[470,641+i*6]],'#9b9f8455',1);
+          rect(631,640,33,34,'#d2c09a'); c.strokeStyle='#d2c09a'; c.lineWidth=5; c.beginPath(); c.arc(667,655,10,-Math.PI/2,Math.PI/2); c.stroke();
+          line([[286,674],[286,496],[324,473]],'#c4b38e',5); polygon([[292,471],[350,471],[373,512],[271,512]],'#bbae8a');
+          glow(324,550,100,'#eed39c18');
+        }
+      }
+      // The light changes almost imperceptibly over the whole composition.
+      rect(0,0,W,W,`rgba(230,193,139,${p*.06})`);
+    } else if (this.track.visual === 'train') {
       sky('#0c202e','#557175'); stars(50);
       glow(700,260,190,'#bdd6c71a'); circle(700,260,32,'#d7ddc1');
       hills(540,'#2e515b',t*.025); hills(600,'#23434c',t*.04);
@@ -219,7 +270,7 @@ window.AfterhoursStory = class {
       firefly(620+Math.sin(t*.3)*14+travel*120,560-travel*330+Math.cos(t*.4)*9,1.2);
       if(p>.72) for(let i=0;i<12;i++) firefly(100+random(i+5)*760,310+random(i+66)*400,.3);
     }
-    // A soft lens vignette and paper grain tie the five films together.
+    // A soft lens vignette and paper grain tie the collection together.
     const vignette=c.createRadialGradient(480,420,200,480,480,690); vignette.addColorStop(0,'transparent'); vignette.addColorStop(1,'#06151c99'); rect(0,0,W,W,vignette);
     for(let i=0;i<260;i++) rect(random(i+1000)*W,random(i+2000)*W,1,1,'#eff5dd18');
   }

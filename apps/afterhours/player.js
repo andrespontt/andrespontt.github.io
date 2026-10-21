@@ -100,7 +100,7 @@ if ('mediaSession' in navigator) {
 }
 async function init() {
   try {
-    const response = await fetch('afterhours/tracks.json?v=2');
+    const response = await fetch('afterhours/tracks.json?v=3');
     if (!response.ok) throw new Error('Collection unavailable');
     tracks = await response.json();
     if (!Array.isArray(tracks) || !tracks.length || tracks.some(track => !track.id || !track.title || !track.src)) throw new Error('Invalid collection');
