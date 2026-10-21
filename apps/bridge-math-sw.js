@@ -1,6 +1,6 @@
 // Network-first strategy: always try network, cache as fallback.
 // Bump CACHE_NAME version whenever app content changes to evict stale caches.
-const CACHE_NAME = 'cat-bridge-math-v5';
+const CACHE_NAME = 'cat-bridge-math-v6';
 const ASSETS = [
   'bridge-math.html',
   'bridge-math.webmanifest',
