@@ -634,6 +634,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="hnews-bookmarks.css" />
 <!-- Cloudflare Web Analytics -->
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "5d5f9cafacb64867a0d0b21c7e747d44"}'></script>
 <!-- End Cloudflare Web Analytics -->
@@ -647,13 +648,28 @@
     </header>
 
     <div class="controls" id="mainControls">
-      <div style="display: flex; gap: 12px; flex-wrap: nowrap;">
+      <div class="feed-controls">
         <button class="btn active feed-btn" id="btnTop"><span class="slash">/</span>top</button>
         <button class="btn feed-btn" id="btnNew"><span class="slash">/</span>new</button>
         <button class="btn feed-btn" id="btnBest"><span class="slash">/</span>best</button>
+        <button class="btn" id="btnBookmarks" aria-controls="bookmarksView"><span class="slash">/</span>saved (<span data-bookmark-count>0</span>)</button>
       </div>
       <button class="btn toggle-btn active" id="btnToggleSort"><span class="slash">/</span><span class="label-full">sort-by-comments</span><span class="label-short">sort</span></button>
     </div>
+
+    <section id="bookmarksView" hidden aria-labelledby="bookmarksTitle">
+      <div class="bookmarks-summary">
+        <div class="bookmarks-heading">
+          <h2 id="bookmarksTitle">Bookmarks</h2>
+          <button class="bookmark-button" id="copyAllBookmarks" disabled>copy all</button>
+        </div>
+        <p>Saved posts and comments, ready to pick up where you left off.</p>
+        <p id="bookmarkStorage" aria-live="polite">Checking storage…</p>
+        <progress id="bookmarkStorageMeter" aria-label="Estimated site storage used" hidden></progress>
+        <p class="bookmark-note">Saved in this browser on this device. Clearing site data removes bookmarks. Space estimates are shared with the rest of this site. Copy all includes saved text and links to this reader.</p>
+      </div>
+      <div id="bookmarksList"><p class="bookmark-empty">Loading bookmarks…</p></div>
+    </section>
 
     <div id="storiesView">
       <div id="content">
@@ -672,6 +688,7 @@
     </div>
   </div>
 
+  <script src="hnews-bookmarks.js"></script>
   <script>
     const API_BASE = 'https://hacker-news.firebaseio.com/v0';
     let currentType = 'top';
@@ -682,6 +699,8 @@
     let topLevelComments = [];
     let currentCommentIndex = -1;
     let selectedStoryIndex = -1;
+    let viewVersion = 0;
+    let feedVersion = 0;
 
     // Get time ago string
     function getTimeAgo(timestamp) {
@@ -732,18 +751,17 @@
       return Promise.all(storyPromises);
     }
 
-    // Fetch comment tree, only 2 levels deep (top-level + first-level replies).
-    // Deeper replies are left uncollapsed/unfetched — expanding them happens on hnews_view_comment.html.
-    async function fetchCommentTree(commentId, depth = 0) {
+    // Fetch the usual two levels, plus the ancestor branch of a linked comment.
+    async function fetchCommentTree(commentId, depth = 0, expandedPath = new Set()) {
       if (!commentId) return null;
 
       const comment = await fetchItem(commentId);
-      if (!comment || comment.deleted || comment.dead) return null;
+      if (!comment || ((comment.deleted || comment.dead) && !expandedPath.has(comment.id))) return null;
 
       if (comment.kids && comment.kids.length > 0) {
-        if (depth < 1) {
+        if (depth < 1 || expandedPath.has(comment.id)) {
           const replies = await Promise.all(
-            comment.kids.map(kidId => fetchCommentTree(kidId, depth + 1))
+            comment.kids.map(kidId => fetchCommentTree(kidId, depth + 1, expandedPath))
           );
           comment.replies = replies.filter(r => r !== null);
         } else {
@@ -754,55 +772,32 @@
       return comment;
     }
 
-    // Render comment (only 1 level deep)
     function renderComment(comment, depth = 0) {
-      if (!comment || comment.deleted || comment.dead) {
-        return '<div class="comment comment-deleted">[deleted]</div>';
-      }
-
-      const text = comment.text || '';
-      const replies = comment.replies || [];
-
-      return `
-        <div class="comment" data-comment-id="${comment.id}" data-depth="${depth}">
-          <div class="comment-header">
-            <span class="comment-author">${comment.by || 'unknown'}</span>
-            <span class="comment-time">${getTimeAgo(comment.time || 0)}</span>
-          </div>
-          <div class="comment-text">${text}</div>
-          <div class="comment-meta">
-            <span>⬆ ${comment.score || 0}</span>
-            <a href="https://news.ycombinator.com/item?id=${comment.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
-          </div>
-          ${replies.length > 0 ? `
-            <div class="comment-replies">
-              ${replies.map(reply => {
-        const replyText = reply.text || '';
-        return `
-                  <div class="comment" data-comment-id="${reply.id}" data-depth="${depth + 1}">
-                    <div class="comment-header">
-                      <span class="comment-author">${reply.by || 'unknown'}</span>
-                      <span class="comment-time">${getTimeAgo(reply.time || 0)}</span>
-                    </div>
-                    <div class="comment-text">${replyText}</div>
-                    <div class="comment-meta">
-                      <span>⬆ ${reply.score || 0}</span>
-                      <a href="https://news.ycombinator.com/item?id=${reply.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
-                    </div>
-                    ${reply.hasMoreReplies ? `
-                      <div class="collapsed-replies">
-                        <a href="hnews_view_comment.html?id=${reply.id}" class="expand-link" target="_blank">
-                          ↳ view replies
-                        </a>
-                      </div>
-                    ` : ''}
-                  </div>
-                `;
-      }).join('')}
-            </div>
-          ` : ''}
+      const unavailable = comment.deleted || comment.dead;
+      return `<div class="comment" data-comment-id="${comment.id}" data-depth="${depth}" tabindex="-1">
+        <div class="comment-header">
+          <span class="comment-author">${HNBookmarks.escape(comment.by || 'unknown')}</span>
+          <span class="comment-time">${getTimeAgo(comment.time || 0)}</span>
         </div>
-      `;
+        <div class="comment-text">${unavailable ? '<span class="comment-deleted">This comment is no longer available on HN. Your saved text is still in Bookmarks.</span>' : comment.text || ''}</div>
+        ${unavailable ? '' : HNBookmarks.actions(comment, currentStory)}
+        ${(comment.replies || []).length ? `<div class="comment-replies">${comment.replies.map(reply => renderComment(reply, depth + 1)).join('')}</div>` : ''}
+        ${comment.hasMoreReplies ? `<a href="hnews_view_comment.html?id=${comment.id}&amp;story=${currentStory.id}" class="expand-link">↳ view replies</a>` : ''}
+      </div>`;
+    }
+
+    // Parent pointers also let a link made in the standalone thread find its post.
+    async function resolveComment(commentId) {
+      const path = new Set();
+      let item = await fetchItem(commentId);
+      while (item && (item.type === 'comment' || item.parent)) {
+        if (path.has(item.id) || path.size >= 100) throw new Error('Could not resolve this comment thread.');
+        path.add(item.id);
+        if (!item.parent) throw new Error('This comment no longer has a parent post.');
+        item = await fetchItem(item.parent);
+      }
+      if (!item || !path.has(commentId)) throw new Error('This comment is no longer available. Its saved text is still in Bookmarks.');
+      return { story: item, path };
     }
 
     // Render stories
@@ -819,8 +814,8 @@
           ${stories.map((story, index) => `
             <article class="news-item" id="story-${index}" data-story-id="${story.id}" data-index="${index}">
               <div class="news-title">
-                <a href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank" rel="noopener noreferrer">
-                  ${index + 1}. ${story.title || 'Untitled'}
+                <a href="#item=${story.id}">
+                  ${index + 1}. ${HNBookmarks.escape(story.title || 'Untitled')}
                 </a>
               </div>
               <div class="news-meta">
@@ -828,9 +823,10 @@
                 <span class="author">by ${story.by || 'unknown'}</span>
                 <span class="time">${getTimeAgo(story.time || 0)}</span>
                 <span class="comments">💬 ${story.descendants || 0} comments</span>
-                <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
+                <a href="#item=${story.id}" class="hn-link" title="Read this discussion">read</a>
                 ${story.url ? `<span class="news-url">(${getDomain(story.url)})</span>` : ''}
               </div>
+              ${HNBookmarks.actions(story)}
             </article>
           `).join('')}
         </div>
@@ -839,15 +835,13 @@
       // Add click handlers to stories
       document.querySelectorAll('.news-item').forEach(item => {
         item.addEventListener('click', async (e) => {
-          if (e.target.tagName === 'A') return; // Don't interfere with links
+          if (e.target.closest('a, button')) return;
           const index = parseInt(item.dataset.index);
           const storyId = parseInt(item.dataset.storyId);
 
           highlightStory(index);
 
-          // Push state for history support
-          history.pushState({ storyId: storyId }, '', '#item=' + storyId);
-          await showComments(storyId);
+          window.location.hash = 'item=' + storyId;
         });
       });
 
@@ -874,18 +868,27 @@
     }
 
     // Show comments for a story
-    async function showComments(storyId) {
+    async function showComments(storyId, commentId = null) {
+      const version = ++viewVersion;
       const app = document.querySelector('.app');
       const storiesView = document.getElementById('storiesView');
       const commentsView = document.getElementById('commentsView');
       const commentsContainer = document.getElementById('commentsContainer');
       const storyHeader = document.getElementById('storyHeader');
+      document.getElementById('bookmarksView').hidden = true;
+      document.getElementById('btnToggleSort').hidden = false;
+      document.getElementById('btnBookmarks').classList.remove('active');
+      currentStory = null;
+      currentCommentIndex = -1;
+      updateNavButtons(0);
+      storyHeader.innerHTML = '';
 
       // Desktop Split View Logic
       if (window.innerWidth >= 1024) {
         app.classList.add('split-view');
-        // storiesView stays visible
+        storiesView.style.display = 'block';
       } else {
+        app.classList.remove('split-view');
         storiesView.style.display = 'none';
       }
 
@@ -893,37 +896,45 @@
       commentsContainer.innerHTML = '<div class="loading">Loading comments...</div>';
 
       try {
-        const story = stories.find(s => s.id === storyId) || await fetchItem(storyId);
+        const context = commentId ? await resolveComment(commentId) : null;
+        if (version !== viewVersion) return;
+        const story = context?.story || stories.find(s => s.id === storyId) || await fetchItem(storyId);
+        if (version !== viewVersion) return;
+        if (!story || story.deleted || story.dead) throw new Error('This post is no longer available. Saved text is still in Bookmarks.');
+        if (story.type === 'comment') {
+          window.location.hash = 'comment=' + story.id;
+          return;
+        }
         currentStory = story;
 
-        // Find story index if not set
-        if (selectedStoryIndex === -1 && stories.length > 0) {
-          const idx = stories.findIndex(s => s.id === storyId);
-          if (idx !== -1) highlightStory(idx);
-        }
+        // Keep the selected feed item aligned with links opened from bookmarks.
+        selectedStoryIndex = stories.findIndex(s => s.id === story.id);
+        highlightStory(selectedStoryIndex);
 
         // Render story header
         storyHeader.innerHTML = `
           <div class="story-header">
             <h2>
-              <a href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank" rel="noopener noreferrer">
-                ${story.title || 'Untitled'}
+              <a href="${story.url || `#item=${story.id}`}" ${story.url ? 'target="_blank" rel="noopener noreferrer"' : ''}>
+                ${HNBookmarks.escape(story.title || 'Untitled')}
               </a>
             </h2>
             <div class="news-meta">
               <span class="points">⬆ ${story.score || 0} points</span>
               <span class="author">by ${story.by || 'unknown'}</span>
               <span class="time">${getTimeAgo(story.time || 0)}</span>
-              <a href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" class="hn-link" title="View on Hacker News">HN</a>
               ${story.url ? `<span class="news-url">(${getDomain(story.url)})</span>` : ''}
             </div>
+            ${story.text ? `<div class="comment-text" style="margin-top: 16px">${story.text}</div>` : ''}
+            ${HNBookmarks.actions(story)}
           </div>
         `;
 
         // Fetch all top-level comments
         if (story.kids && story.kids.length > 0) {
-          const commentPromises = story.kids.map(kidId => fetchCommentTree(kidId));
+          const commentPromises = story.kids.map(kidId => fetchCommentTree(kidId, 0, context?.path));
           const comments = await Promise.all(commentPromises);
+          if (version !== viewVersion) return;
           topLevelComments = comments.filter(c => c !== null);
 
           // Render all comments
@@ -936,15 +947,30 @@
           currentCommentIndex = -1;
           updateNavButtons(topLevelElements.length);
 
-          // Scroll to first comment
-          if (topLevelElements.length > 0) {
+          // Position a deep link at its exact comment instead of the first parent.
+          if (commentId) {
+            const target = commentsContainer.querySelector(`[data-comment-id="${commentId}"]`);
+            if (target) {
+              target.classList.add('linked-comment');
+              target.insertAdjacentHTML('afterbegin', '<div class="linked-comment-label">↳ linked comment</div>');
+              const parent = target.closest('[data-depth="0"]');
+              currentCommentIndex = topLevelElements.indexOf(parent);
+              updateNavButtons(topLevelElements.length);
+              target.focus({ preventScroll: true });
+              requestAnimationFrame(() => {
+                if (version === viewVersion) target.scrollIntoView({ block: 'start', behavior: 'instant' });
+              });
+            } else {
+              commentsContainer.insertAdjacentHTML('afterbegin', '<p class="error">The linked comment is no longer in this discussion. Saved text is still in Bookmarks.</p>');
+            }
+          } else if (topLevelElements.length > 0) {
             navigateToComment(0, topLevelElements);
           }
         } else {
-          commentsContainer.innerHTML = '<div class="error">No comments yet.</div>';
+          commentsContainer.innerHTML = `<div class="error">${commentId ? 'The linked comment is no longer available. Saved text is still in Bookmarks.' : 'No comments yet.'}</div>`;
         }
       } catch (error) {
-        commentsContainer.innerHTML = `<div class="error">Error loading comments: ${error.message}</div>`;
+        if (version === viewVersion) commentsContainer.innerHTML = `<div class="error">Error loading comments: ${HNBookmarks.escape(error.message)}</div>`;
       }
     }
 
@@ -1006,6 +1032,8 @@
 
     // Load stories
     async function loadStories(type) {
+      const version = ++feedVersion;
+      currentType = type;
       const content = document.getElementById('content');
       content.innerHTML = '<div class="loading">Loading stories...</div>';
 
@@ -1017,34 +1045,63 @@
         if (type === 'best') document.getElementById('btnBest').classList.add('active');
 
         const ids = await fetchStoryIds(type);
-        originalStories = await fetchStories(ids);
+        const loaded = await fetchStories(ids);
+        if (version !== feedVersion) return;
+        originalStories = loaded.filter(Boolean);
         applySortAndRender();
         currentType = type;
         selectedStoryIndex = -1;
       } catch (error) {
-        content.innerHTML = `<div class="error">Error loading stories: ${error.message}</div>`;
+        if (version === feedVersion) content.innerHTML = `<div class="error">Error loading stories: ${HNBookmarks.escape(error.message)}</div>`;
       }
     }
 
     // Back to list
     function backToList() {
+      if (window.location.hash) window.location.hash = '';
+      else showList();
+    }
+
+    function showList() {
+      ++viewVersion;
       const app = document.querySelector('.app');
       app.classList.remove('split-view');
-
+      document.getElementById('bookmarksView').hidden = true;
+      document.getElementById('btnBookmarks').classList.remove('active');
+      document.querySelectorAll('.feed-btn').forEach(button => {
+        button.classList.toggle('active', button.id.toLowerCase() === 'btn' + currentType);
+      });
+      document.getElementById('btnToggleSort').hidden = false;
       document.getElementById('storiesView').style.display = 'block';
       document.getElementById('commentsView').classList.remove('active');
       currentStory = null;
       topLevelComments = [];
       currentCommentIndex = -1;
 
-      if (window.location.hash) {
-        history.pushState(null, '', window.location.pathname + window.location.search);
+    }
+
+    function route() {
+      if (window.location.hash === '#bookmarks') {
+        showList();
+        document.getElementById('storiesView').style.display = 'none';
+        document.getElementById('bookmarksView').hidden = false;
+        document.getElementById('btnToggleSort').hidden = true;
+        document.getElementById('btnBookmarks').classList.add('active');
+        document.querySelectorAll('.feed-btn').forEach(button => button.classList.remove('active'));
+        HNBookmarks.ready.then(() => HNBookmarks.render());
+        return;
       }
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      const id = value => /^\d+$/.test(value || '') && Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
+      const storyId = id(params.get('item'));
+      const commentId = id(params.get('comment'));
+      if (storyId || commentId) showComments(storyId, commentId);
+      else showList();
     }
 
     // Keyboard Navigation
     document.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.target.closest('input, textarea, button, a, summary, dialog, [contenteditable="true"]') || !document.getElementById('bookmarksView').hidden) return;
 
       const hasStoryOpen = currentStory !== null;
 
@@ -1083,8 +1140,7 @@
         if (selectedStoryIndex >= 0 && stories.length > 0) {
           const story = stories[selectedStoryIndex];
           if (!currentStory || currentStory.id !== story.id) {
-            history.pushState({ storyId: story.id }, '', '#item=' + story.id);
-            showComments(story.id);
+            window.location.hash = 'item=' + story.id;
           }
         }
       }
@@ -1099,28 +1155,20 @@
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
-      const hash = window.location.hash;
-      if (hash && hash.includes('item=')) {
-        const id = hash.split('=')[1];
-        if (id) {
-          loadStories(currentType).then(() => {
-            showComments(id);
-          });
-        }
-      } else {
-        loadStories(currentType);
-      }
-
-      document.getElementById('btnTop').addEventListener('click', () => loadStories('top'));
-      document.getElementById('btnNew').addEventListener('click', () => loadStories('new'));
-      document.getElementById('btnBest').addEventListener('click', () => loadStories('best'));
+      loadStories(currentType);
+      route();
+      const feed = type => { backToList(); loadStories(type); };
+      document.getElementById('btnTop').addEventListener('click', () => feed('top'));
+      document.getElementById('btnNew').addEventListener('click', () => feed('new'));
+      document.getElementById('btnBest').addEventListener('click', () => feed('best'));
+      document.getElementById('btnBookmarks').addEventListener('click', () => { window.location.hash = 'bookmarks'; });
       
       document.getElementById('btnToggleSort').addEventListener('click', (e) => {
         isSortByComments = !isSortByComments;
         if (isSortByComments) {
-          e.target.classList.add('active');
+          e.currentTarget.classList.add('active');
         } else {
-          e.target.classList.remove('active');
+          e.currentTarget.classList.remove('active');
         }
         applySortAndRender();
         selectedStoryIndex = -1;
@@ -1131,14 +1179,8 @@
       document.getElementById('navDown').addEventListener('click', () => navigateComments(1));
     });
 
-    // Handle browser back/forward
-    window.addEventListener('popstate', (event) => {
-      if (event.state && event.state.storyId) {
-        showComments(event.state.storyId);
-      } else {
-        backToList();
-      }
-    });
+    // Hash routes work on reload, copied links, and browser back/forward.
+    window.addEventListener('hashchange', route);
   </script>
 </body>
 

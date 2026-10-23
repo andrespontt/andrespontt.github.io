@@ -1,0 +1,48 @@
+[hidden] { display: none !important; }
+.bookmark-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.bookmark-button {
+  display: inline-block; font: inherit; font-size: 12px; line-height: 1.4;
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--card); color: var(--fg); cursor: pointer; text-decoration: none;
+}
+.bookmark-button:hover, .bookmark-button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.bookmarks-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bookmarks-heading h2 { font-size: 20px; }
+.bookmarks-summary { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 18px; margin-bottom: 18px; }
+.bookmarks-summary p { line-height: 1.6; margin-top: 12px; }
+.bookmark-note, .bookmark-kind { color: #999; font-size: 12px; }
+#bookmarkStorage { font-size: 13px; }
+#bookmarkStorageMeter { width: 100%; height: 8px; margin-top: 12px; accent-color: var(--accent); }
+.bookmark-card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 18px; margin-bottom: 12px; overflow-wrap: anywhere; }
+.bookmark-card h3 { font-size: 15px; line-height: 1.5; margin: 8px 0; }
+.bookmark-card h3 a { color: var(--fg); text-decoration: none; }
+.bookmark-card h3 a:hover { color: var(--accent); }
+.bookmark-card summary { color: var(--accent); cursor: pointer; margin: 12px 0; }
+.bookmark-text { white-space: pre-wrap; line-height: 1.6; font-size: 13px; }
+.bookmark-empty { padding: 24px 0; color: var(--muted); line-height: 1.6; }
+.bookmark-status { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; width: max-content; max-width: calc(100vw - 32px); padding: 12px 16px; background: #171717; color: var(--fg); border: 1px solid var(--accent); border-radius: 6px; box-shadow: var(--shadow); font-size: 13px; }
+.bookmark-status.is-error { border-color: #fca5a5; }
+.bookmark-copy-dialog { margin: auto; padding: 24px; width: min(640px, 90vw); max-height: 90vh; background: var(--card); color: var(--fg); border: 1px solid var(--accent); border-radius: 6px; }
+.bookmark-copy-dialog::backdrop { background: #000a; }
+.bookmark-copy-dialog h2 { font-size: 18px; }
+.bookmark-copy-dialog p { margin: 12px 0; line-height: 1.5; }
+.bookmark-copy-dialog textarea { width: 100%; min-height: 220px; padding: 12px; background: var(--bg); color: var(--fg); border: 1px solid var(--border); margin-bottom: 12px; }
+.comment.linked-comment { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 3px; scroll-margin-block: 32px; }
+.linked-comment-label { color: var(--accent); font-size: 12px; margin-bottom: 12px; }
+.comment, .story-header { overflow-wrap: anywhere; min-width: 0; }
+.comment pre { overflow-x: auto; max-width: 100%; }
+.comment-header, .comment-meta { flex-wrap: wrap; }
+.comment-replies { margin-left: min(2vw, 16px); padding-left: min(2vw, 12px); }
+.comment[data-depth="3"] .comment-replies { margin-left: 0; padding-left: 0; border-left: 0; }
+.comment[data-depth="3"] .comment { padding-left: 10px; padding-right: 10px; }
+#mainControls { flex-wrap: wrap; }
+.feed-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.app.split-view #mainControls { gap: 8px; }
+@media (max-width: 600px) {
+  .bookmark-button { min-height: 36px; }
+  .bookmarks-summary, .bookmark-card { padding: 14px; }
+  .nav-controls { top: auto; bottom: 12px; transform: none; flex-direction: row; }
+  .comment.linked-comment { scroll-margin-bottom: 72px; }
+}

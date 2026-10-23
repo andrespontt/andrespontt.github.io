@@ -177,6 +177,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="hnews-bookmarks.css" />
 <!-- Cloudflare Web Analytics -->
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "5d5f9cafacb64867a0d0b21c7e747d44"}'></script>
 <!-- End Cloudflare Web Analytics -->
@@ -185,6 +186,7 @@
   <div class="app">
     <header>
       <a href="hnews.html" class="back-link">← Back to Hacker News</a>
+      <a href="hnews.html#bookmarks" class="bookmark-button">bookmarks (<span data-bookmark-count>0</span>)</a>
       <h1>💬 Comment Thread</h1>
     </header>
 
@@ -193,8 +195,10 @@
     </div>
   </div>
 
+  <script src="hnews-bookmarks.js"></script>
   <script>
     const API_BASE = 'https://hacker-news.firebaseio.com/v0';
+    let storyContext = null;
 
     // Get comment ID from URL
     function getCommentId() {
@@ -246,7 +250,7 @@
     }
 
     // Render comment with all nested levels
-    function renderComment(comment, isMain = false) {
+    function renderComment(comment, isMain = false, depth = 0) {
       if (!comment || comment.deleted || comment.dead) {
         return '<div class="comment comment-deleted">[deleted]</div>';
       }
@@ -255,18 +259,19 @@
       const replies = comment.replies || [];
       
       return `
-        <div class="comment ${isMain ? 'main-comment' : ''}" data-comment-id="${comment.id}">
+        <div class="comment ${isMain ? 'main-comment' : ''}" data-comment-id="${comment.id}" data-depth="${depth}">
           <div class="comment-header">
             <span class="comment-author">${comment.by || 'unknown'}</span>
             <span class="comment-time">${getTimeAgo(comment.time || 0)}</span>
           </div>
           <div class="comment-text">${text}</div>
           <div class="comment-meta">
-            <span>⬆ ${comment.score || 0} points</span>
+            <a class="bookmark-button" href="${HNBookmarks.readerUrl({ id: comment.id, type: 'comment', storyId: storyContext?.id })}">view in post</a>
           </div>
+          ${HNBookmarks.actions(comment, storyContext)}
           ${replies.length > 0 ? `
             <div class="comment-replies">
-              ${replies.map(reply => renderComment(reply, false)).join('')}
+              ${replies.map(reply => renderComment(reply, false, depth + 1)).join('')}
             </div>
           ` : ''}
         </div>
@@ -284,6 +289,11 @@
       }
 
       try {
+        const storyId = Number(new URLSearchParams(window.location.search).get('story'));
+        if (Number.isSafeInteger(storyId) && storyId > 0) {
+          const story = await fetchItem(storyId).catch(() => null);
+          if (story && story.type !== 'comment') storyContext = story;
+        }
         const comment = await fetchCommentTree(commentId);
         
         if (!comment) {
