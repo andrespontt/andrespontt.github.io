@@ -54,13 +54,10 @@
   function actions(item, story = null) {
     const record = remember(item, story);
     const saved = bookmarks.has(record.id);
-    const subject = `Hacker News: ${record.type === 'comment' ? 'Comment — ' : ''}${record.title}`.slice(0, 160);
-    const mail = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${record.title}\n${readerUrl(record)}`)}`;
     return `<div class="bookmark-actions">
       <button type="button" class="bookmark-button" data-bookmark-id="${record.id}" aria-pressed="${saved}" ${available ? '' : 'disabled'}>${saved ? '★ saved' : '☆ save'}</button>
       <button type="button" class="bookmark-button" data-copy-id="${record.id}">copy reader link</button>
       ${record.type === 'story' ? `<button type="button" class="bookmark-button" data-copy-hn-id="${record.id}" title="Copy the original Hacker News post URL">copy HN link</button>` : ''}
-      <a class="bookmark-button" href="${escape(mail)}" title="Open an email draft with this reader link">email link</a>
     </div>`;
   }
 
@@ -227,7 +224,6 @@
         <div class="bookmark-actions">
           <a class="bookmark-button" href="${escape(readerUrl(item))}">${item.type === 'comment' ? 'open at comment' : 'open post'}</a>
           <button type="button" class="bookmark-button" data-copy-id="${item.id}">copy link</button>
-          <a class="bookmark-button" href="mailto:?subject=${encodeURIComponent(`Hacker News: ${item.title}`.slice(0, 160))}&amp;body=${encodeURIComponent(`${item.title}\n${readerUrl(item)}`)}" title="Open an email draft with this reader link">email link</a>
           <button type="button" class="bookmark-button" data-remove-id="${item.id}">remove</button>
         </div>
       </article>`).join('');

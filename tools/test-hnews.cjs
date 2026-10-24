@@ -84,8 +84,6 @@ async function run() {
     assert.match(text, /hnews\.html#comment=501/);
     assert.match(text, /hnews\.html#item=101&comment=201/);
     assert.doesNotMatch(text, /news\.ycombinator\.com/);
-    const mail = new URL(await page.locator('[data-saved-id="501"] a[href^="mailto:"]').getAttribute('href'));
-    assert.match(mail.searchParams.get('body'), /hnews\.html#comment=501/);
     await fs.mkdir(path.join(root, 'artifacts'), { recursive: true });
     await page.screenshot({ path: path.join(root, 'artifacts/hnews-bookmarks-desktop.png'), fullPage: true });
 
@@ -166,7 +164,7 @@ async function run() {
     await blockedPage.waitForFunction(() => document.querySelector('#bookmarksList')?.textContent.includes('storage is unavailable'));
     await blocked.close();
     assert.deepEqual(errors, [], 'No browser script errors');
-    console.log('PASS: persistence, post/comment saves, cross-tab sync, deep links, parent resolution, mobile layout, copy-all, email URLs, clipboard fallback, quota failure, deleted comments, offline API access, removal, and unavailable storage.');
+    console.log('PASS: persistence, post/comment saves, cross-tab sync, deep links, parent resolution, mobile layout, copy-all, clipboard fallback, quota failure, deleted comments, offline API access, removal, and unavailable storage.');
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));
