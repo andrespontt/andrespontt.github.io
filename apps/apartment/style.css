@@ -1,5 +1,7 @@
 :root{color-scheme:dark;--paper:#e8e5d6;--muted:#a4afa8;--lime:#d7e7a5;--line:#e8e5d62b;font-family:Arial,Helvetica,sans-serif;color:var(--paper);background:#101a1c}
 *{box-sizing:border-box}
+/* Keep iOS long presses and finger drags inside the game controls. */
+html,body,body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 body{margin:0;overflow:hidden}
 button,a{-webkit-tap-highlight-color:transparent}
 button{font:inherit;cursor:pointer;color:inherit}
