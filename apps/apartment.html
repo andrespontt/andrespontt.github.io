@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Apartment — An uninvited guest</title>
 <meta name="description" content="A stormy-night first-person horror sandbox. Explore your apartment. Trust your bodyguards. Do not trust the clown.">
-<meta name="theme-color" content="#101a1c"><link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml"><link rel="manifest" href="apartment-manifest.json"><link rel="stylesheet" href="apartment/style.css?v=24">
+<meta name="theme-color" content="#101a1c"><link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml"><link rel="manifest" href="apartment-manifest.json"><link rel="stylesheet" href="apartment/style.css?v=25">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -17,13 +17,15 @@
 <p class="story">A birthday booking. A strange phone call. Now there’s someone across the street, and the circus music won’t stop. Two bodyguards stand between your home and whatever happens next.</p>
 <div class="menu-actions"><button id="start" class="primary" disabled>Preparing the apartment…</button><button id="intro-button" class="text-button" disabled>Intro</button><button id="help-toggle" class="text-button" aria-expanded="false" aria-controls="help">How to play <span>＋</span></button></div>
 <div id="help" hidden><p><kbd>W A S D</kbd> move · mouse / drag to look · <kbd>E</kbd> interact</p><p><kbd>Shift</kbd> run · <kbd>Space</kbd> jump · <kbd>C</kbd> crouch · <kbd>F</kbd> spray · <kbd>Esc</kbd> pause</p><p>On touch screens, use the left stick to move and drag the right side to look. Explore at your own pace. Stay close to a guard for protection. You can outrun their escort; use repellent or retreat behind a closed door.</p></div>
-<p class="content-note">Atmospheric suspense · No gore · Headphones recommended · Tap SOUND READY for cozy rain & music</p>
-<p id="build-version" data-updated="2026-10-24T18:21:49.838Z">Version 24 · Updated today</p>
+<p class="content-note">Atmospheric suspense · No gore · Headphones recommended</p>
+<p id="build-version" data-updated="2026-10-24T23:23:28.679Z">Version 25 · Updated today</p>
 </section><aside class="scene-note"><span>23:48</span><div>HOME, FOR NOW.<small>Rain against the glass. Something in the street.</small></div></aside></main>
-<section id="hud" hidden aria-label="Game status"><div class="location"><span class="eyebrow">YOU ARE HERE</span><strong id="room">Living room</strong><span id="status">Two guards on watch</span></div><button id="pause" aria-label="Pause game">Ⅱ</button><button id="hud-sound" aria-pressed="true" aria-label="Start sound">SOUND READY</button><div id="crosshair" aria-hidden="true"></div><button id="interact" hidden><kbd>E</kbd> <span></span></button><p id="caption" role="status" aria-live="polite"></p><div class="bottom-hud"><span id="objective">Explore your home. Check the front entrance.</span><span id="inventory">NO ITEM EQUIPPED</span></div><div id="touch-controls"><div id="stick" aria-label="Movement joystick"><div id="knob"></div></div><div id="touch-look" aria-label="Drag to look"></div><div class="touch-actions"><button id="spray">SPRAY</button><button id="crouch">CROUCH</button><button id="jump">JUMP</button></div></div></section>
-<footer id="menu-footer"><span>A SMALL WORLD TO GET LOST IN</span><button id="sound" aria-pressed="true">SOUND READY</button><span>THREE.JS / FIRST PERSON</span></footer>
+<section id="hud" hidden aria-label="Game status"><div class="location"><span class="eyebrow">YOU ARE HERE</span><strong id="room">Living room</strong><span id="status">Two guards on watch</span></div><button id="pause" aria-label="Pause game">Ⅱ</button><button id="hud-sound" aria-pressed="true" aria-label="Start sound">Enable sound</button><div id="crosshair" aria-hidden="true"></div><button id="interact" hidden><kbd>E</kbd> <span></span></button><p id="caption" role="status" aria-live="polite"></p><div class="bottom-hud"><span id="objective">Explore your home. Check the front entrance.</span><span id="inventory">NO ITEM EQUIPPED</span></div><div id="touch-controls"><div id="stick" aria-label="Movement joystick"><div id="knob"></div></div><div id="touch-look" aria-label="Drag to look"></div><div class="touch-actions"><button id="spray" hidden>Spray</button><button id="crouch">CROUCH</button><button id="jump" hidden>Jump</button></div></div></section>
+<section id="pause-panel" class="game-panel" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="panel-card"><h2 id="pause-title">Take a breath.</h2><p id="pause-objective"></p><button id="resume" class="primary">Resume</button><button id="pause-sound" aria-pressed="true">Enable sound</button><label for="sensitivity">Look sensitivity</label><input id="sensitivity" type="range" min="0.5" max="2" step="0.1" value="1"><details><summary>Controls</summary><p>Left thumb to move. Drag the right side to look. Tap the action that appears near an object.</p><p>Collect repellent to unlock Spray. Stay close to your escort; one guard always holds the entrance.</p><p class="keyboard-help">WASD move · Shift run · E interact · F spray · C crouch · Space jump · Esc pause.</p></details><button id="restart">Restart night</button><div id="restart-confirm" hidden><p>Restart and lose this night’s progress?</p><button id="restart-yes">Restart</button><button id="restart-no">Keep playing</button></div></div></section>
+<section id="guard-panel" class="game-panel" hidden role="dialog" aria-modal="true" aria-labelledby="guard-title"><div class="panel-card"><h2 id="guard-title">Your orders?</h2><p>One guard stays at the entrance.</p><button id="guard-follow">Follow me</button><button id="guard-hold">Hold position</button><button id="guard-cancel">Cancel</button></div></section>
+<footer id="menu-footer"><span>A SMALL WORLD TO GET LOST IN</span><button id="sound" aria-pressed="true">Enable sound</button><span>THREE.JS / FIRST PERSON</span></footer>
 <section id="intro" hidden role="dialog" aria-modal="true" aria-labelledby="intro-title">
-  <div class="intro-top"><span id="intro-chapter">01 / 06 · THE BOOKING</span><div><button id="intro-sound" aria-pressed="true">SOUND READY</button><button id="intro-skip">Skip intro →</button></div></div>
+  <div class="intro-top"><span id="intro-chapter">01 / 06 · THE BOOKING</span><div><button id="intro-sound" aria-pressed="true">Enable sound</button><button id="intro-skip">Skip intro →</button></div></div>
   <div id="intro-mark" aria-hidden="true"></div>
   <div class="intro-copy"><p class="eyebrow" id="intro-speaker">NARRATOR</p><h2 id="intro-title"></h2><p id="intro-subtitle" aria-live="polite"></p><div class="intro-actions"><button id="intro-next">Next scene →</button></div></div>
   <div id="intro-progress" role="progressbar" aria-label="Intro progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
@@ -34,12 +36,12 @@ const buildBadge = document.getElementById('build-version');
 function updateBuildAge() {
   const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(buildBadge.dataset.updated)) / 1000));
   const [amount, unit] = seconds < 60 ? [seconds, 'second'] : seconds < 3600 ? [Math.floor(seconds / 60), 'minute'] : seconds < 86400 ? [Math.floor(seconds / 3600), 'hour'] : [Math.floor(seconds / 86400), 'day'];
-  buildBadge.textContent = `Version 24 · Updated ${amount} ${unit}${amount === 1 ? '' : 's'} ago`;
+  buildBadge.textContent = `Version 25 · Updated ${amount} ${unit}${amount === 1 ? '' : 's'} ago`;
   buildBadge.title = new Date(buildBadge.dataset.updated).toLocaleString();
 }
 updateBuildAge();
 setInterval(updateBuildAge, 1000);
-import('./apartment/game.js?v=22').catch(error => {
+import('./apartment/game.js?v=25').catch(error => {
   console.error(error);
   document.getElementById('error-message').textContent = location.protocol === 'file:'
     ? 'Open this page through a local HTTP server to load the apartment.'

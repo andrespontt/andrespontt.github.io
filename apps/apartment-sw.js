@@ -1,5 +1,5 @@
-const CACHE_NAME = 'apartment-v24';
-const ASSETS = ['./apartment.html','./apartment/style.css?v=24','./apartment/world.js','./apartment/characters.js','./apartment/game.js?v=22','./apartment/simulation.js','./apartment-manifest.json','../assets/icons/icon.svg','./vendor/three.module.min.js'];
+const CACHE_NAME = 'apartment-v25';
+const ASSETS = ['./apartment.html','./apartment/style.css?v=25','./apartment/world.js','./apartment/characters.js','./apartment/game.js?v=25','./apartment/simulation.js','./apartment-manifest.json','../assets/icons/icon.svg','./vendor/three.module.min.js'];
 ASSETS.push(...['welcome','escort','hold','warning','incoming','waiting','secure'].map(id=>'./apartment/voices/'+id+'.wav'));
 ASSETS.push(...Array.from({length:25},(_,i)=>'./apartment/voices/taunt-'+String(i+1).padStart(2,'0')+'.wav'));
 ASSETS.push(...Array.from({length:6},(_,i)=>'./apartment/voices/story-pushy-'+String(i+1).padStart(2,'0')+'.wav'));

@@ -10,18 +10,34 @@ const canvas=$('scene');
 let renderer,world,camera,scene,moon,aimed=null,last=0,drag=null,stickId=null,lookId=null;
 let touchX=0,touchZ=0,audio=null,soundOn=true,rainGain=null,rainFilter=null,held=null,mist=null;
 const ray=new THREE.Raycaster(),forward=new THREE.Vector3(),delta=new THREE.Vector3();
-let intro=null;
+let intro=null,lookSensitivity=1,objectiveTime=0,lastObjective="",captionParts=[];
+try{lookSensitivity=Math.max(.5,Math.min(2,Number(localStorage.getItem("apartment-sensitivity"))||1));}catch{}
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function fail(message){$('error-message').textContent=message;$('error').hidden=false;}
-function caption(message){$('caption').textContent=message;state.captionTime=5.5;$('caption').classList.add('show');}
+function caption(message){
+  captionParts=[];let phrase='';for(const word of message.split(' ')){if((phrase+' '+word).length>68){captionParts.push(phrase);phrase=word;}else phrase+=(phrase?' ':'')+word;}if(phrase)captionParts.push(phrase);
+  state.captionTime=state.captionDuration=Math.max(5.5,captionParts.length*2.7);$('caption').textContent=captionParts[0]||'';$('caption').classList.add('show');
+}
 function clearInput(){keys.clear();touchX=0;touchZ=0;drag=null;stickId=null;lookId=null;$('knob').style.transform='';}
-function pause(){if(intro?.active){finishIntro();return;}if(!state.playing){stopAudio();return;}state.playing=false;clearInput();document.exitPointerLock?.();document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=false;$('menu-footer').hidden=false;$('start').textContent='Resume the night  →';stopAudio();$('start').focus();}
+function pause(){if(intro?.active){finishIntro();return;}if(!state.playing){stopAudio();return;}state.playing=false;clearInput();document.exitPointerLock?.();document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=true;$('menu-footer').hidden=true;$('pause-panel').hidden=false;$('pause-objective').textContent=$('objective').textContent;stopAudio();$('resume').focus();}
+function giveOrder(escort){state.escort=escort;start();say(escort?'escort':'hold');}
 function endRun(){
   state.playing=false;clearInput();stopAudio();document.exitPointerLock?.();
   document.body.classList.remove('playing');$('hud').hidden=true;$('menu').hidden=true;$('menu-footer').hidden=true;
   $('caught').hidden=false;$('retry').focus();
 }
-function start(){if(state.caught)return;state.playing=true;state.started=true;$('menu').hidden=true;$('hud').hidden=false;$('menu-footer').hidden=true;document.body.classList.add('playing');last=performance.now();if(soundOn)ensureAudio();if(!matchMedia('(pointer: coarse)').matches){try{const request=canvas.requestPointerLock?.();request?.catch(()=>caption('Drag to look. WASD to move. E to interact.'));}catch{caption('Drag to look. WASD to move. E to interact.');}}caption('You’re home. The guards are at the front door.');}
+function start(){
+  if(state.caught)return;
+  const firstStart=!state.started;
+  $('pause-panel').hidden=true;$('guard-panel').hidden=true;$('restart-confirm').hidden=true;
+  state.playing=true;state.started=true;$('menu').hidden=true;$('hud').hidden=false;$('menu-footer').hidden=true;
+  document.body.classList.add('playing');last=performance.now();if(soundOn)ensureAudio();
+  if(!matchMedia('(pointer: coarse), (max-width:900px)').matches){
+    try{const request=canvas.requestPointerLock?.();request?.catch(()=>caption('Drag to look. WASD to move. E to interact.'));}
+    catch{caption('Drag to look. WASD to move. E to interact.');}
+  }
+  if(firstStart)caption('You’re home. The guards are at the front door.');
+}
 // AUDIO START: prepared samples need no network or decoding during the Enter tap.
 const rainSamples=new Float32Array(22050*2);
 for(let i=0;i<rainSamples.length;i++)rainSamples[i]=Math.random()*2-1;
@@ -32,12 +48,12 @@ let masterGain=null,audioWanted=false,audioPending=false,audioFailed=false,audio
 try{soundOn=localStorage.getItem('apartment-sound')!=='off';}catch{}
 function updateSoundUI(){
   const running=audio?.state==='running'&&audioWanted&&!audioFailed;
-  const label=!soundOn?'SOUND OFF':audioPending?'STARTING SOUND':running?'SOUND ON':audioFailed||audioWanted?'TAP FOR SOUND':'SOUND READY';
-  for(const id of ['sound','hud-sound','intro-sound']){
+  const label=audioPending?'Starting…':running?'🔊':audioFailed?'Retry sound':'Enable sound';
+  for(const id of ['sound','hud-sound','intro-sound','pause-sound']){
     const button=$(id);if(!button)continue;
-    button.textContent=label;
+    button.textContent=id==='pause-sound'?(soundOn?'Sound: on':'Sound: off'):label;
     button.setAttribute('aria-pressed',String(soundOn));
-    button.setAttribute('aria-label',!soundOn?'Enable sound':running?'Mute sound':'Start or retry sound');
+    button.setAttribute('aria-label',id==='pause-sound'?(soundOn?'Mute sound':'Enable sound'):!soundOn?'Enable sound':running?'Mute sound':'Enable sound');
   }
 }
 function stopAudio(){
@@ -336,7 +352,7 @@ function playDialogue(id){
     tauntWait=Math.max(tauntWait,5);
     const next=dialogueQueue.shift();if(next)say(next);
   };
-  state.captionTime=Math.max(state.captionTime,buffer.duration/source.playbackRate.value+.5);source.start();
+  state.captionTime=state.captionDuration=Math.max(state.captionTime,buffer.duration/source.playbackRate.value+.5);source.start();
 }
 function say(id){
   if(pendingDialogue?.expires<Date.now())pendingDialogue=null;
@@ -458,14 +474,15 @@ function updateCinema(active,ending=false){
 // AUDIO END
 function spray(){if(!state.playing)return;if(!state.spray){caption('Clown repellent is on the entry console, beside the phone.');return;}if(state.sprayCooldown>0)return;state.sprayCooldown=1.5;const c=state.clown;const distance=Math.hypot(c.x-state.player.x,c.z-state.player.z);camera.getWorldDirection(forward);const facing=((c.x-state.player.x)*forward.x+(c.z-state.player.z)*forward.z)/Math.max(distance,.01);if(distance<6 && facing>.6 && c.mode!=='gone' && hasClearPath(state.player,c,world.colliders,state.doorOpen)){c.mode='flee';c.timer=12;caption('The clown recoils and retreats.');}else caption('A cloud of repellent. Aim at the clown with a clear line of sight.');tone(170,.5,.025,'sawtooth');$('inventory').textContent='REPELLENT · SPRAYING';}
 function interact(){if(!state.playing)return;if(state.seated){state.seated=null;caption('Back on your feet.');return;}if(!aimed)return;const a=aimed;
+  if(!reducedMotion)$("interact").animate([{background:"#d7e7a5",color:"#142127"},{background:"#142127cc",color:"#e8e5d6"}],{duration:350});
   switch(a.action){
     case 'door':if(state.doorOpen&&Math.abs(state.player.z-6)<.5&&state.player.x>-.3&&state.player.x<2.3){caption('Step clear of the doorway before closing it.');break;}state.doorOpen=!state.doorOpen;tone(state.doorOpen?150:110,.2);break;
-    case 'pickup':state.spray=true;world.views.get('spray').visible=false;caption('Repellent equipped. Press F or SPRAY to use it. Unlimited refills.');break;
-    case 'guard':state.escort=!state.escort;say(state.escort?'escort':'hold');break;
+    case 'pickup':state.spray=true;world.views.get('spray').visible=false;caption('Repellent equipped. Use Spray when the clown gets close. Unlimited refills.');break;
+    case 'guard':pause();$('pause-panel').hidden=true;$('guard-panel').hidden=false;$('guard-follow').focus();break;
     case 'phone':if(state.backup==='idle'){state.backup='called';state.backupTime=0;tone(660,.12);say('incoming');}else say(state.backup==='arrived'?'secure':'waiting');break;
     case 'tv':state.tv=!state.tv;world.screen.material.emissiveIntensity=state.tv?.65:0;world.screen.material.color.set(state.tv?'#80a29e':'#142325');break;
-    case 'sit':state.seated='sofa';caption('A moment of quiet. Press E to stand up.');break;
-    case 'rest':state.seated='bed';caption('You close your eyes, but the rain keeps you awake. Press E to get up.');break;
+    case 'sit':state.seated='sofa';caption('A moment of quiet. Choose Stand up when you’re ready.');break;
+    case 'rest':state.seated='bed';caption('You close your eyes, but the rain keeps you awake. Choose Stand up to get up.');break;
     case 'coffee':caption('Cold coffee. It’s going to be a long night.');break;
     case 'card':caption('“Happy birthday, kiddo. We’ll find a better clown next year.”');break;
   }
@@ -485,13 +502,15 @@ function aim(){
   }
   $('interact').hidden=!aimed&&!state.seated;
   let label=aimed?.label;
-  if(aimed?.id==='door')label=state.doorOpen?'Close front door':'Open front door';
-  if(aimed?.id==='tv')label=state.tv?'Switch off the television':'Switch on the television';
+  if(aimed?.action==='guard')label='Talk';
+  if(aimed?.action==='pickup')label='Pick up';
+  if(aimed?.id==='door')label=state.doorOpen?'Close door':'Open door';
+  if(aimed?.id==='tv')label=state.tv?'Turn TV off':'Turn TV on';
   if(state.seated)label='Stand up';
   $('interact').querySelector('span').textContent=label||'';
 }
 function jump(){if(state.playing && state.player.y===0 && !state.seated){state.player.velocity=3.6;}}
-function look(dx,dy){state.player.yaw-=dx*.0025;state.player.pitch=THREE.MathUtils.clamp(state.player.pitch-dy*.0025,-1.3,1.3);}
+function look(dx,dy){state.player.yaw-=dx*.0025*lookSensitivity;state.player.pitch=THREE.MathUtils.clamp(state.player.pitch-dy*.0025*lookSensitivity,-1.3,1.3);}
 // Optional cinematic: it only changes the view, never the live simulation state.
 function startIntro(){
   if(!world||intro?.active)return;
@@ -554,6 +573,18 @@ function updateIntro(dt){
   if(intro.elapsed>=duration&&!activeVoice)nextIntroBeat();
 }
 function bindInput(){
+  $('resume').onclick=start;$('pause-sound').onclick=()=>{
+    soundOn=!soundOn;if(!soundOn)stopAudio();
+    try{localStorage.setItem('apartment-sound',soundOn?'on':'off');}catch{}
+    updateSoundUI();
+  };
+  $('guard-follow').onclick=()=>giveOrder(true);$('guard-hold').onclick=()=>giveOrder(false);$('guard-cancel').onclick=start;
+  $('sensitivity').value=lookSensitivity;$('sensitivity').oninput=e=>{lookSensitivity=Number(e.target.value);try{localStorage.setItem('apartment-sensitivity',String(lookSensitivity));}catch{}};
+  $('restart').onclick=()=>{$('restart-confirm').hidden=false;$('restart-no').focus();};$('restart-no').onclick=()=>{$('restart-confirm').hidden=true;$('restart').focus();};$('restart-yes').onclick=()=>location.reload();
+  for(const id of ['pause-panel','guard-panel'])$(id).addEventListener('keydown',e=>{
+    if(e.code==='Escape'){e.preventDefault();e.stopPropagation();start();return;}
+    if(e.code==='Tab'){const items=[...$(id).querySelectorAll('button,input,summary')].filter(el=>!el.closest('[hidden]'));const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
+  });
   $('intro-button').onclick=startIntro;
   $('intro-skip').onclick=finishIntro;
   $('intro-next').onclick=nextIntroBeat;
@@ -585,9 +616,9 @@ function bindInput(){
   canvas.addEventListener('pointerdown',e=>{if(!state.playing||document.pointerLockElement)return;drag={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
   canvas.addEventListener('pointermove',e=>{if(!drag||!state.playing)return;look(e.clientX-drag.x,e.clientY-drag.y);drag={x:e.clientX,y:e.clientY};});
   for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,()=>drag=null);
-  const stick=$('stick');stick.onpointerdown=e=>{if(stickId!==null)return;stickId=e.pointerId;stick.setPointerCapture(e.pointerId);};stick.onpointermove=e=>{if(e.pointerId!==stickId)return;const r=stick.getBoundingClientRect();let x=e.clientX-r.left-r.width/2,z=e.clientY-r.top-r.height/2;const length=Math.hypot(x,z);if(length>35){x*=35/length;z*=35/length;}touchX=x/35;touchZ=z/35;$('knob').style.transform=`translate(${x}px,${z}px)`;};
+  const stick=$('stick');stick.onpointerdown=e=>{if(!state.playing||stickId!==null)return;stickId=e.pointerId;stick.setPointerCapture(e.pointerId);};stick.onpointermove=e=>{if(e.pointerId!==stickId)return;const r=stick.getBoundingClientRect();let x=e.clientX-r.left-r.width/2,z=e.clientY-r.top-r.height/2;const length=Math.hypot(x,z);if(length>35){x*=35/length;z*=35/length;}touchX=x/35;touchZ=z/35;$('knob').style.transform=`translate(${x}px,${z}px)`;};
   for(const type of ['pointerup','pointercancel','lostpointercapture'])stick.addEventListener(type,e=>{if(e.pointerId!==stickId)return;stickId=null;touchX=0;touchZ=0;$('knob').style.transform='';});
-  const pad=$('touch-look');let lx=0,ly=0;pad.onpointerdown=e=>{if(lookId!==null)return;lookId=e.pointerId;lx=e.clientX;ly=e.clientY;pad.setPointerCapture(e.pointerId);};pad.onpointermove=e=>{if(e.pointerId!==lookId)return;look((e.clientX-lx)*1.5,(e.clientY-ly)*1.5);lx=e.clientX;ly=e.clientY;};for(const type of ['pointerup','pointercancel','lostpointercapture'])pad.addEventListener(type,e=>{if(e.pointerId===lookId)lookId=null;});
+  const pad=$('touch-look');let lx=0,ly=0;pad.onpointerdown=e=>{if(!state.playing||lookId!==null)return;lookId=e.pointerId;lx=e.clientX;ly=e.clientY;pad.setPointerCapture(e.pointerId);};pad.onpointermove=e=>{if(e.pointerId!==lookId)return;look((e.clientX-lx)*1.5,(e.clientY-ly)*1.5);lx=e.clientX;ly=e.clientY;};for(const type of ['pointerup','pointercancel','lostpointercapture'])pad.addEventListener(type,e=>{if(e.pointerId===lookId)lookId=null;});
 }
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 function update(dt){
@@ -608,13 +639,18 @@ function update(dt){
     const encounter=updateClown(state,dt,world.colliders);
     if(encounter==='guard'){tone(85,.16,.12,'triangle');say('warning');}
     if(encounter==='caught'){endRun();return;}
-    state.captionTime-=dt;if(state.captionTime<=0)$('caption').classList.remove('show');state.sprayCooldown=Math.max(0,state.sprayCooldown-dt);
+    state.captionTime-=dt;if(captionParts.length&&state.captionTime>0)$('caption').textContent=captionParts[Math.min(captionParts.length-1,Math.floor((1-state.captionTime/state.captionDuration)*captionParts.length))];if(state.captionTime<=0)$('caption').classList.remove('show');state.sprayCooldown=Math.max(0,state.sprayCooldown-dt);
     held.visible=state.spray;
     mist.visible=state.sprayCooldown>.8;
     mist.material.opacity=Math.max(0,(state.sprayCooldown-.8)*.45);
     mist.scale.setScalar(1+(1.5-state.sprayCooldown)*2);
     $('room').textContent=roomAt(p.x,p.z);$('status').textContent=state.backup==='arrived'?'The street is secure':isProtected(state,world.colliders)?'Guard nearby · stay close':!isIndoors(p)?'Exposed · stay near a guard':'Sheltered · watch the entrance';
-    $('objective').textContent=state.backup==='arrived'?'You’re safe. Make yourself at home.':state.backup==='called'?'Backup is approaching. Stay near the guards.':!isIndoors(p)?'The phone inside can call security backup.':'Explore your home. Check the front entrance.';
+    const objective=state.backup==='arrived'?'You’re safe. Make yourself at home.':state.backup==='called'?'Backup is approaching. Stay near the guards.':!isIndoors(p)?'The phone inside can call security backup.':'Explore your home. Check the front entrance.';
+    if(objective!==lastObjective){lastObjective=objective;objectiveTime=5;$('objective').textContent=objective;}
+    if(state.captionTime<=0)objectiveTime=Math.max(0,objectiveTime-dt);
+    $('objective').hidden=objectiveTime===0||state.captionTime>0;
+    $('status').hidden=isIndoors(p)&&!isProtected(state,world.colliders)&&state.backup!=='arrived';
+    $('spray').hidden=!state.spray;$('crouch').textContent=state.crouched?'Stand':'Crouch';
     $('inventory').textContent=state.spray?(state.sprayCooldown>0?'REPELLENT · SPRAYING':'REPELLENT READY · F'):'NO ITEM EQUIPPED';
     updateMusic(p,state.doorOpen,state.clown.mode!=='gone');
     if(!hasGreeted&&Math.hypot(p.x-1,p.z-6)<2.4){hasGreeted=true;say('welcome');}
