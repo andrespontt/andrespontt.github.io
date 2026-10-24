@@ -103,7 +103,7 @@ export function buildWorld(scene) {
   // Entry console: security phone and reusable repellent.
   solid(3.5,.5,4.9,2.1,.92,.75,wood);box(3.5,1,4.9,2.2,.1,.85,'#b3a481');
   const phone=box(3.2,1.13,4.9,.48,.17,.3,'#28332f');box(3.2,1.24,4.9,.58,.1,.14,'#1b2925');target('phone','Call security backup',3.2,1.2,4.7,phone,'phone');
-  const spray=box(4,1.27,4.9,.17,.43,.17,'#a5b983');box(4,1.51,4.9,.1,.06,.1,dark);target('spray','Take clown repellent',4,1.3,4.7,spray,'pickup');
+  const spray=new THREE.Group();scene.add(spray);box(4,1.27,4.9,.17,.43,.17,'#a5b983',spray);box(4,1.51,4.9,.1,.06,.1,dark,spray);target('spray','Take clown repellent',4,1.3,4.7,spray,'pickup');
   art(4.4,2.2,5.83,1.2,1.1);
   // Bookshelf and reading nook.
   solid(7.45,1.15,3.7,.8,2.3,2.7,wood);

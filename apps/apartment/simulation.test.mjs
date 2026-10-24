@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createState,canStand,movePlayer,roomAt,updateClown,updateGuards,isProtected,rainSettings} from './simulation.js';
+import {createState,canStand,movePlayer,roomAt,updateClown,updateGuards,isProtected,rainSettings,hasClearPath} from './simulation.js';
 import * as THREE from '../vendor/three.module.min.js';
 const vendor=new URL('../vendor/three.module.min.js',import.meta.url).href;
 const characters=(await readFile(new URL('./characters.js',import.meta.url),'utf8')).replace("from 'three'",`from '${vendor}'`);
@@ -44,7 +44,7 @@ const escort=createState();escort.escort=true;escort.player.z=15;
 const guardStart={...escort.guards[1]};updateGuards(escort,.1);
 assert(Math.hypot(escort.guards[1].x-guardStart.x,escort.guards[1].z-guardStart.z)<=.261,'Escorts have a finite speed');
 assert.equal(isProtected(escort),false,'Requesting escort does not grant distant protection');
-const sealed=createState();sealed.player={...sealed.player,x:1,z:5};sealed.clown.x=1;sealed.clown.z=6.6;
+const sealed=createState();sealed.player={...sealed.player,x:1,z:5};sealed.clown.x=1;sealed.clown.z=6.6;sealed.guards=[];
 for(let i=0;i<120;i++)updateClown(sealed,1/60,world.colliders);
 assert(!sealed.caught,'A closed door separates player and clown');
 const intruder=createState();intruder.doorOpen=true;intruder.player.x=1;intruder.player.z=3.8;intruder.clown.x=1;intruder.clown.z=7;intruder.guards=[{x:9,z:14},{x:10,z:14}];
@@ -118,3 +118,51 @@ for(const dt of [1/60,1/30,.04]){
   assert(chase.caught,'Unprotected street player can be caught at every frame interval');
 }
 console.log(`${scenarios} extended doorway scenarios, posted-guard lure regression and unprotected captures passed.`);
+
+// The pursuit must work across the real floor plan, not just down the empty
+// foyer: dining chairs and the exterior side alleys used to trap it forever.
+let pursuits=0;
+for(let x=-11;x<=11;x+=2)for(let z=-5;z<=17;z+=2){
+  if(!canStand(x,z,world.colliders,true))continue;
+  const s=createState();s.doorOpen=true;s.guards=[];s.player.x=x;s.player.z=z;
+  for(let frame=0;frame<1800&&!s.caught;frame++){
+    s.time+=1/60;updateClown(s,1/60,world.colliders);
+    assert(canStand(s.clown.x,s.clown.z,world.colliders,true),'Pursuit never cuts through furniture or walls');
+  }
+  assert(s.caught,`Unguarded player at (${x},${z}) can be reached`);pursuits++;
+}
+for(const dt of [1/60,1/30,.04])for(const [x,z] of [[3,-3],[5,-3],[-11,-5],[11,-5]]){
+  const s=createState();s.doorOpen=true;s.guards=[];s.player.x=x;s.player.z=z;
+  for(let time=0;time<25&&!s.caught;time+=dt)updateClown(s,dt,world.colliders);
+  assert(s.caught,`Obstructed pursuit works at dt=${dt}`);
+}
+for(const x of [-10,10]){
+  const s=createState();s.guards=[];s.player.x=x;s.player.z=-4;
+  for(let frame=0;frame<1200&&!s.caught;frame++)updateClown(s,1/60,world.colliders);
+  assert(s.caught,'Closing the front door does not make the exterior side alleys safe');
+}
+const changingDoor=createState();changingDoor.guards=[];changingDoor.doorOpen=true;changingDoor.player.x=3;changingDoor.player.z=-3;changingDoor.clown.x=1;changingDoor.clown.z=7.5;
+for(let frame=0;frame<5;frame++)updateClown(changingDoor,1/60,world.colliders);
+changingDoor.doorOpen=false;
+for(let frame=0;frame<120;frame++){
+  updateClown(changingDoor,1/60,world.colliders);
+  assert(changingDoor.clown.z>6.3&&!changingDoor.caught,'Closing the door invalidates the open entrance route');
+}
+changingDoor.doorOpen=true;
+for(let frame=0;frame<900&&!changingDoor.caught;frame++)updateClown(changingDoor,1/60,world.colliders);
+assert(changingDoor.caught,'Pursuit resumes around the furniture after reopening the door');
+const retreat=createState();retreat.guards=[];retreat.clown={x:3,z:-3,mode:'flee',timer:100};
+for(let frame=0;frame<120;frame++){
+  updateClown(retreat,1/60,world.colliders);
+  assert(retreat.clown.z<5.7,'Retreat cannot cross a closed door');
+}
+retreat.doorOpen=true;
+for(let frame=0;frame<900;frame++){
+  updateClown(retreat,1/60,world.colliders);
+  assert(canStand(retreat.clown.x,retreat.clown.z,world.colliders,true),'Retreat respects body clearance');
+}
+assert(Math.hypot(retreat.clown.x-11,retreat.clown.z-17.3)<.2,'A retreat routes out of the furnished apartment when the door opens');
+assert(!hasClearPath({x:1,z:5.4},{x:1,z:6.6},world.colliders,false),'The closed door blocks attacks and spray');
+assert(hasClearPath({x:1,z:5.4},{x:1,z:6.6},world.colliders,true),'The open door permits attacks and spray');
+assert(!hasClearPath({x:-4,z:5.4},{x:-4,z:6.6},world.colliders,true),'Glass continues to block attacks and spray');
+console.log(`${pursuits} whole-floor-plan pursuits, furniture routes, side alleys, door transitions and indoor retreat passed.`);

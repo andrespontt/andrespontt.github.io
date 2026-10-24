@@ -134,3 +134,22 @@ The intro has its own original cinematic score: a slow major/minor progression,
 piano-like harmonic tones and warm sustained swells. It ducks beneath narration,
 softens for the final circus-music reveal, and stops scheduling on exit or mute.
 The landing-page melody remains separate.
+
+### Behavior audit — October 24, 2026
+
+Fixed clown pursuit stalls behind furniture and in side alleys with cached,
+collision-aware routes. The doorway guard still intercepts and punches outside;
+proximity alone is described as “Guard nearby” rather than guaranteed protection.
+Repellent now works on indoor intruders and respects walls, windows and doors.
+Guard interaction ignores the guard's own model, and door targeting follows the
+swinging leaf. Resting keeps the camera above the bed; both Shift keys sprint;
+the full repellent bottle disappears on pickup. Backup arrival resolves before
+an attack on the same frame, and exterior alleys no longer read as sheltered.
+
+Run `node --test apps/apartment/*.test.mjs`. Coverage includes 121 actual-floor-plan
+pursuits, 30 doorway-defense scenarios, multiple frame rates, closed/reopened
+doors, retreat, and runtime commands with real Three.js interaction rays.
+The browser pass verified startup, movement, door opening/closing, guard targeting,
+guard warning and clown retreat, crouch, spray hint and pause, with no console
+errors. Physical iPhone/touch hardware and low-end-device routing performance
+were not verified in this pass.

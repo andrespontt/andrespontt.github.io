@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {buildWorld} from './world.js';
 import {animateCharacter} from './characters.js';
 import {createState,movePlayer,roomAt} from './simulation.js';
-import {updateClown,updateGuards,isProtected,rainSettings} from './simulation.js';
+import {updateClown,updateGuards,isProtected,rainSettings,hasClearPath,isIndoors} from './simulation.js';
 
 const $=id=>document.getElementById(id);
 const state=createState(), keys=new Set();
@@ -456,7 +456,7 @@ function updateCinema(active,ending=false){
   }
 }
 // AUDIO END
-function spray(){if(!state.playing)return;if(!state.spray){caption('Clown repellent is on the entry console, beside the phone.');return;}if(state.sprayCooldown>0)return;state.sprayCooldown=1.5;const c=state.clown;const distance=Math.hypot(c.x-state.player.x,c.z-state.player.z);camera.getWorldDirection(forward);const facing=((c.x-state.player.x)*forward.x+(c.z-state.player.z)*forward.z)/Math.max(distance,.01);if(distance<6 && facing>.6 && state.player.z>6 && c.mode!=='gone'){c.mode='flee';c.timer=12;caption('The clown recoils and retreats into the rain.');}else caption('A cloud of repellent. Keep it ready for the street.');tone(170,.5,.025,'sawtooth');$('inventory').textContent='REPELLENT · SPRAYING';}
+function spray(){if(!state.playing)return;if(!state.spray){caption('Clown repellent is on the entry console, beside the phone.');return;}if(state.sprayCooldown>0)return;state.sprayCooldown=1.5;const c=state.clown;const distance=Math.hypot(c.x-state.player.x,c.z-state.player.z);camera.getWorldDirection(forward);const facing=((c.x-state.player.x)*forward.x+(c.z-state.player.z)*forward.z)/Math.max(distance,.01);if(distance<6 && facing>.6 && c.mode!=='gone' && hasClearPath(state.player,c,world.colliders,state.doorOpen)){c.mode='flee';c.timer=12;caption('The clown recoils and retreats.');}else caption('A cloud of repellent. Aim at the clown with a clear line of sight.');tone(170,.5,.025,'sawtooth');$('inventory').textContent='REPELLENT · SPRAYING';}
 function interact(){if(!state.playing)return;if(state.seated){state.seated=null;caption('Back on your feet.');return;}if(!aimed)return;const a=aimed;
   switch(a.action){
     case 'door':if(state.doorOpen&&Math.abs(state.player.z-6)<.5&&state.player.x>-.3&&state.player.x<2.3){caption('Step clear of the doorway before closing it.');break;}state.doorOpen=!state.doorOpen;tone(state.doorOpen?150:110,.2);break;
@@ -470,11 +470,17 @@ function interact(){if(!state.playing)return;if(state.seated){state.seated=null;
     case 'card':caption('“Happy birthday, kiddo. We’ll find a better clown next year.”');break;
   }
 }
+function blocksInteraction(object,target){
+  for(let parent=object;parent;parent=parent.parent){
+    if(!parent.visible||parent===target||parent===held)return false;
+  }
+  return object.isMesh&&object.material.opacity>=1;
+}
 function aim(){
   aimed=null;camera.getWorldDirection(forward);let best=.87;
   for(const t of world.targets){if(t.id==='spray'&&state.spray)continue;delta.copy(t.position).sub(camera.position);const distance=delta.length();if(distance>2.65)continue;const alignment=delta.normalize().dot(forward);if(alignment<best)continue;
     // The ray must reach the target before crossing static walls or furniture.
-    ray.set(camera.position,delta);ray.far=Math.max(0,distance-.45);const hits=ray.intersectObjects(scene.children,true);if(hits.some(h=>h.object!==world.views.get(t.id)&&h.object.parent!==held&&h.object.type==='Mesh'&&h.object.material.opacity>=1))continue;
+    ray.set(camera.position,delta);ray.far=Math.max(0,distance-.45);const hits=ray.intersectObjects(scene.children,true);if(hits.some(h=>blocksInteraction(h.object,world.views.get(t.id))))continue;
     best=alignment;aimed=t;
   }
   $('interact').hidden=!aimed&&!state.seated;
@@ -592,24 +598,24 @@ function update(dt){
     let x=touchX+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
     let z=touchZ+Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp'));
     const length=Math.hypot(x,z);if(length>1){x/=length;z/=length;}
-    const speed=state.crouched?1.35:keys.has('ShiftLeft')?4.1:2.5;
+    const speed=state.crouched?1.35:(keys.has('ShiftLeft')||keys.has('ShiftRight'))?4.1:2.5;
     if(!state.seated)movePlayer(p,(x*Math.cos(p.yaw)+z*Math.sin(p.yaw))*speed*dt,(-x*Math.sin(p.yaw)+z*Math.cos(p.yaw))*speed*dt,world.colliders,state.doorOpen);
     p.velocity-=9.8*dt;p.y=Math.max(0,p.y+p.velocity*dt);if(p.y===0)p.velocity=0;
-    const eye=state.seated?(state.seated==='bed'?.95:1.18):state.crouched?1.04:1.68;
+    const eye=state.seated?(state.seated==='bed'?1.25:1.18):state.crouched?1.04:1.68;
     const seat=state.seated==='sofa'?[-5.4,1.45]:state.seated==='bed'?[-5.8,-4.3]:[p.x,p.z];camera.position.set(seat[0],THREE.MathUtils.lerp(camera.position.y,eye+p.y,1-Math.exp(-14*dt)),seat[1]);camera.rotation.set(p.pitch,p.yaw,0,'YXZ');
+    if(state.backup==='called'){state.backupTime+=dt;world.van.visible=true;world.van.position.set(16-Math.min(18,state.backupTime*2),0,11);if(state.backupTime>=9){state.backup='arrived';say('secure');}}
     updateGuards(state,dt,world.colliders);
     const encounter=updateClown(state,dt,world.colliders);
     if(encounter==='guard'){tone(85,.16,.12,'triangle');say('warning');}
     if(encounter==='caught'){endRun();return;}
-    if(state.backup==='called'){state.backupTime+=dt;world.van.visible=true;world.van.position.set(16-Math.min(18,state.backupTime*2),0,11);if(state.backupTime>=9){state.backup='arrived';say('secure');}}
     state.captionTime-=dt;if(state.captionTime<=0)$('caption').classList.remove('show');state.sprayCooldown=Math.max(0,state.sprayCooldown-dt);
     held.visible=state.spray;
     mist.visible=state.sprayCooldown>.8;
     mist.material.opacity=Math.max(0,(state.sprayCooldown-.8)*.45);
     mist.scale.setScalar(1+(1.5-state.sprayCooldown)*2);
-    $('room').textContent=roomAt(p.x,p.z);$('status').textContent=state.backup==='arrived'?'The street is secure':isProtected(state,world.colliders)?'Protected · guard nearby':p.z>6?'Exposed · stay near a guard':'Sheltered · watch the entrance';
-    $('objective').textContent=state.backup==='arrived'?'You’re safe. Make yourself at home.':state.backup==='called'?'Backup is approaching. Stay near the guards.':p.z>6?'The phone inside can call security backup.':'Explore your home. Check the front entrance.';
-    $('inventory').textContent=state.spray?(state.sprayCooldown>0?'REPELLENT · SPRAYING':'REPELLENT READY · F'):'NO ITEM EQUIPPED';aim();
+    $('room').textContent=roomAt(p.x,p.z);$('status').textContent=state.backup==='arrived'?'The street is secure':isProtected(state,world.colliders)?'Guard nearby · stay close':!isIndoors(p)?'Exposed · stay near a guard':'Sheltered · watch the entrance';
+    $('objective').textContent=state.backup==='arrived'?'You’re safe. Make yourself at home.':state.backup==='called'?'Backup is approaching. Stay near the guards.':!isIndoors(p)?'The phone inside can call security backup.':'Explore your home. Check the front entrance.';
+    $('inventory').textContent=state.spray?(state.sprayCooldown>0?'REPELLENT · SPRAYING':'REPELLENT READY · F'):'NO ITEM EQUIPPED';
     updateMusic(p,state.doorOpen,state.clown.mode!=='gone');
     if(!hasGreeted&&Math.hypot(p.x-1,p.z-6)<2.4){hasGreeted=true;say('welcome');}
     updateTaunts(dt);
@@ -619,6 +625,11 @@ function update(dt){
   animateCharacter(world.clown,state.time,state.playing?dt:0,c.mode);
   world.guards.forEach((g,i)=>{const guard=state.guards[i];g.position.set(guard.x,0,guard.z);g.rotation.y=Math.atan2(c.x-guard.x,c.z-guard.z);world.targets.find(t=>t.id==='guard'+i).position.set(guard.x,1.5,guard.z);});
   world.guards.forEach((g,i)=>animateCharacter(g,state.time,state.playing?dt:0,'watch',state.guards[i].punch||0));
+  if(state.playing){
+    scene.updateMatrixWorld(true);
+    world.targets.find(t=>t.id==='door').position.copy(world.door.localToWorld(new THREE.Vector3(1,1.35,-.15)));
+    aim();
+  }
   const positions=world.positions;for(let i=0;i<positions.length;i+=6){positions[i+1]-=dt*9;positions[i+4]-=dt*9;if(positions[i+1]<0){positions[i+1]=15;positions[i+4]=14.7;}}world.rain.geometry.attributes.position.needsUpdate=true;
   const flash=!reducedMotion&&state.time%19>.1&&state.time%19<.23;moon.intensity=flash?3.5:.8;
   if(rainGain&&audio?.state==='running'){
