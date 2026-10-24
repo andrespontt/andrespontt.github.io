@@ -106,3 +106,5 @@ footer{bottom:12px;padding-top:10px}
 @media(max-width:650px){.menu-actions{gap:16px;flex-wrap:wrap}.intro-top{font-size:8px;letter-spacing:1px;align-items:flex-start}.intro-top>div{flex-direction:column;align-items:flex-end}#intro button{font-size:10px;padding:9px 12px}.intro-copy{left:7vw;right:7vw;bottom:12vh}#intro-title{font-size:36px}#intro-subtitle{font-size:14px}.intro-copy .eyebrow{margin-bottom:8px}}
 @media(max-height:500px){.intro-copy{bottom:11vh}#intro-title{font-size:28px;margin:8px 0}#intro-subtitle{font-size:12px;min-height:0;margin:8px 0}.intro-actions{margin-top:8px}.intro-top{top:12px}#intro-mark{top:24%}}
 @media(prefers-reduced-motion:reduce){.intro-copy,#intro-mark{animation:none!important}}
+
+#build-version{font-size:11px;line-height:1.5;color:var(--lime);margin:12px 0 0;letter-spacing:.4px}
