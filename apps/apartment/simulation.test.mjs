@@ -44,6 +44,46 @@ const escort=createState();escort.escort=true;escort.player.z=15;
 const guardStart={...escort.guards[1]};updateGuards(escort,.1);
 assert(Math.hypot(escort.guards[1].x-guardStart.x,escort.guards[1].z-guardStart.z)<=.261,'Escorts have a finite speed');
 assert.equal(isProtected(escort),false,'Requesting escort does not grant distant protection');
+function settledEscort(yaw=Math.PI){
+  const s=createState();s.escort=true;s.player={...s.player,x:0,z:12,yaw};s.clown.mode='gone';
+  for(let frame=0;frame<300;frame++)updateGuards(s,1/60,world.colliders);
+  return s;
+}
+for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2]){
+  const s=settledEscort(yaw),g=s.guards[1],dx=g.x-s.player.x,dz=g.z-s.player.z;
+  assert(Math.hypot(dx,dz)>1.5&&Math.hypot(dx,dz)<2.6,'Escort settles nearby with breathing room');
+  assert(Math.abs(dx*Math.cos(yaw)-dz*Math.sin(yaw))>1.2,'Escort stands off the shoulder');
+  assert(dx*-Math.sin(yaw)+dz*-Math.cos(yaw)<-.3,'Resting formation is behind the viewing direction');
+  const resting={x:g.x,z:g.z};
+  for(let frame=0;frame<180;frame++){s.player.yaw+=.03;updateGuards(s,1/60,world.colliders);}
+  assert(Math.hypot(g.x-resting.x,g.z-resting.z)<.001,'Looking around does not make the escort orbit');
+  s.player.x+=.08;for(let frame=0;frame<60;frame++)updateGuards(s,1/60,world.colliders);
+  assert(Math.hypot(g.x-resting.x,g.z-resting.z)<.3,'Small adjustments do not drag the guard along');
+}
+const walkingEscort=settledEscort();
+for(let frame=0;frame<120;frame++){
+  walkingEscort.player.z+=2/60;updateGuards(walkingEscort,1/60,world.colliders);
+  assert(isProtected(walkingEscort,world.colliders),'A settled escort keeps pace with an ordinary walk');
+  assert(Math.hypot(walkingEscort.guards[1].x-walkingEscort.player.x,walkingEscort.guards[1].z-walkingEscort.player.z)>1.35,'Walking retains personal space');
+}
+for(let direction=0;direction<8;direction++){
+  const s=settledEscort(),angle=direction*Math.PI/4;s.clown={x:Math.sin(angle)*5,z:12+Math.cos(angle)*5,mode:'approach',timer:10};
+  let blocked=false;
+  for(let frame=0;frame<240&&!s.caught;frame++){
+    updateGuards(s,1/60,world.colliders);if(updateClown(s,1/60,world.colliders)==='block')blocked=true;
+  }
+  assert(!s.caught&&blocked,`Nearby escort intercepts approach direction ${direction}`);
+}
+console.log('Loose diagonal escort, camera independence, walking space and eight threat approaches passed.');
+const personalSpace=settledEscort();personalSpace.player.x=personalSpace.guards[1].x-.1;personalSpace.player.z=personalSpace.guards[1].z;
+for(let frame=0;frame<120;frame++)updateGuards(personalSpace,1/60,world.colliders);
+assert(Math.hypot(personalSpace.guards[1].x-personalSpace.player.x,personalSpace.guards[1].z-personalSpace.player.z)>1.3,'Walking into the escort makes him give way');
+for(const x of [-10.8,10.8]){
+  const s=createState();s.escort=true;s.clown.mode='gone';s.player={...s.player,x,z:16.5,yaw:0};s.guards[1]={x,z:14};
+  for(let frame=0;frame<300;frame++)updateGuards(s,1/60,world.colliders);
+  assert(canStand(s.guards[1].x,s.guards[1].z,world.colliders,true));
+  assert(Math.hypot(s.guards[1].x-x,s.guards[1].z-16.5)>1.5,'Escort chooses the roomy shoulder near the street boundary');
+}
 const sealed=createState();sealed.player={...sealed.player,x:1,z:5};sealed.clown.x=1;sealed.clown.z=6.6;sealed.guards=[];
 for(let i=0;i<120;i++)updateClown(sealed,1/60,world.colliders);
 assert(!sealed.caught,'A closed door separates player and clown');

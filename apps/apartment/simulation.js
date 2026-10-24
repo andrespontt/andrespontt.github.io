@@ -33,6 +33,25 @@ export function hasClearPath(a,b,colliders,doorOpen){
 export function isProtected(state,colliders=[]){
   return state.guards.some(g=>distance(g,state.player)<=GUARD_RADIUS&&hasClearPath(g,state.player,colliders,state.doorOpen));
 }
+function escortPosition(state,g,dt,colliders){
+  const p=state.player;
+  // Follow the walk direction, not every camera turn. Keep the chosen shoulder
+  // until it becomes obstructed so the guard does not keep crossing the view.
+  const formation=g.formation??={x:p.x,z:p.z,yaw:p.yaw,side:0};
+  const dx=p.x-formation.x,dz=p.z-formation.z;
+  if(Math.hypot(dx,dz)>.015){
+    const heading=Math.atan2(-dx,-dz),angle=Math.atan2(Math.sin(heading-formation.yaw),Math.cos(heading-formation.yaw));
+    formation.yaw+=angle*(1-Math.exp(-4*dt));formation.x=p.x;formation.z=p.z;
+  }
+  const flank=side=>({x:Math.max(-11,Math.min(11,p.x+Math.sin(formation.yaw)*.85+Math.cos(formation.yaw)*1.8*side)),z:Math.max(6.6,Math.min(17.3,p.z+Math.cos(formation.yaw)*.85-Math.sin(formation.yaw)*1.8*side))});
+  if(!formation.side)formation.side=distance(g,flank(1))<=distance(g,flank(-1))?1:-1;
+  let target=flank(formation.side);
+  const alternate=flank(-formation.side);
+  if((distance(target,p)<1.5||!canStand(target.x,target.z,colliders,state.doorOpen))&&distance(alternate,p)>=1.5&&canStand(alternate.x,alternate.z,colliders,state.doorOpen)){
+    formation.side*=-1;target=alternate;
+  }
+  return target;
+}
 export function updateGuards(state,dt,colliders=[]){
   if(state.caught)return;
   const entrance={x:1,z:6.8},c=state.clown;
@@ -42,22 +61,42 @@ export function updateGuards(state,dt,colliders=[]){
     if(g.punch>0)return;
     // Hayes always holds the doorway. Rivera can escort the player outside.
     const following=i===1&&state.escort&&state.player.z>6.3;
-    let target=following?{x:Math.max(-11,Math.min(11,state.player.x+.8)),z:Math.max(6.6,state.player.z-.8)}:{x:i?2.65:-.65,z:7};
+    if(!following)g.formation=null;
+    let target=following?escortPosition(state,g,dt,colliders):{x:i?2.65:-.65,z:7};
     const threat=!['gone','flee','blocked','stunned'].includes(c.mode);
+    const threatDistance=distance(c,state.player);
+    if(following&&threat&&threatDistance<6&&threatDistance>=3.8&&distance(g,state.player)<=GUARD_RADIUS&&hasClearPath(state.player,c,colliders,state.doorOpen)){
+      const tx=(c.x-state.player.x)/threatDistance,tz=(c.z-state.player.z)/threatDistance;
+      // Watch an approaching threat from an offset position before committing
+      // to a block. Keep a stable side rather than weaving across the player.
+      g.coverSide??=((g.x-state.player.x)*tz-(g.z-state.player.z)*tx>=0?1:-1);
+      target={x:state.player.x+tx*1.2+tz*1.5*g.coverSide,z:Math.max(6.6,state.player.z+tz*1.2-tx*1.5*g.coverSide)};
+    }else if(!following||!threat||threatDistance>=6)g.coverSide=null;
     const atDoor=distance(g,entrance)<3.5&&distance(c,entrance)<4.2&&c.z>6.2;
     const nearPlayer=distance(g,state.player)<=GUARD_RADIUS&&distance(c,state.player)<3.8;
-    if(threat&&(atDoor||nearPlayer)&&hasClearPath(g,c,colliders,state.doorOpen)){
+    const intercepting=threat&&(following?nearPlayer:atDoor||nearPlayer)&&hasClearPath(g,c,colliders,state.doorOpen);
+    if(intercepting){
       const d=distance(g,c);
       if(d>1.05)target={x:c.x+(g.x-c.x)/d*.95,z:Math.max(6.6,c.z+(g.z-c.z)/d*.95)};
       else target=g;
+      // An escort reacts to the clown without abandoning the person he covers.
+      const reach=distance(target,state.player);
+      if(following&&reach>2.4)target={x:state.player.x+(target.x-state.player.x)*2.4/reach,z:Math.max(6.6,state.player.z+(target.z-state.player.z)*2.4/reach)};
     }
     // The posted guard may intercept, but cannot be lured away with the player.
     if(i===0){
       const reach=distance(target,entrance);
       if(reach>2.6)target={x:entrance.x+(target.x-entrance.x)*2.6/reach,z:entrance.z+(target.z-entrance.z)*2.6/reach};
     }
-    const d=distance(g,target),step=Math.min(d,2.6*dt);
-    if(d>.001)movePlayer(g,(target.x-g.x)/d*step,(target.z-g.z)/d*step,colliders,state.doorOpen);
+    const d=distance(g,target),step=Math.min(d,2.6*dt),personalSpace=1.35;
+    let dx=d>.001?(target.x-g.x)/d*step:0,dz=d>.001?(target.z-g.z)/d*step:0;
+    const gap=distance(g,state.player);
+    if(following&&distance({x:g.x+dx,z:g.z+dz},state.player)<personalSpace){
+      const rx=gap>.001?(g.x-state.player.x)/gap:Math.cos(g.formation.yaw),rz=gap>.001?(g.z-state.player.z)/gap:-Math.sin(g.formation.yaw);
+      if(gap<personalSpace){dx=rx*2.6*dt;dz=rz*2.6*dt;}
+      else{const side=rx*(target.z-g.z)-rz*(target.x-g.x)>=0?1:-1;dx=-rz*side*step;dz=rx*side*step;}
+    }else if(following&&!intercepting&&d<.45){dx=dz=0;}
+    if(dx||dz)movePlayer(g,dx,dz,colliders,state.doorOpen);
     g.z=Math.max(6.6,g.z); // Guards stay outside; their bodies never block player movement.
   });
 }

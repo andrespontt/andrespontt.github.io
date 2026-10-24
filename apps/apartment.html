@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Apartment — An uninvited guest</title>
 <meta name="description" content="A stormy-night first-person horror sandbox. Explore your apartment. Trust your bodyguards. Do not trust the clown.">
-<meta name="theme-color" content="#101a1c"><link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml"><link rel="manifest" href="apartment-manifest.json"><link rel="stylesheet" href="apartment/style.css?v=25">
+<meta name="theme-color" content="#101a1c"><link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml"><link rel="manifest" href="apartment-manifest.json"><link rel="stylesheet" href="apartment/style.css?v=26">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -18,7 +18,7 @@
 <div class="menu-actions"><button id="start" class="primary" disabled>Preparing the apartment…</button><button id="intro-button" class="text-button" disabled>Intro</button><button id="help-toggle" class="text-button" aria-expanded="false" aria-controls="help">How to play <span>＋</span></button></div>
 <div id="help" hidden><p><kbd>W A S D</kbd> move · mouse / drag to look · <kbd>E</kbd> interact</p><p><kbd>Shift</kbd> run · <kbd>Space</kbd> jump · <kbd>C</kbd> crouch · <kbd>F</kbd> spray · <kbd>Esc</kbd> pause</p><p>On touch screens, use the left stick to move and drag the right side to look. Explore at your own pace. Stay close to a guard for protection. You can outrun their escort; use repellent or retreat behind a closed door.</p></div>
 <p class="content-note">Atmospheric suspense · No gore · Headphones recommended</p>
-<p id="build-version" data-updated="2026-10-24T23:23:28.679Z">Version 25 · Updated today</p>
+<p id="build-version" data-updated="2026-10-24T23:29:22.047Z">Version 26 · Updated today</p>
 </section><aside class="scene-note"><span>23:48</span><div>HOME, FOR NOW.<small>Rain against the glass. Something in the street.</small></div></aside></main>
 <section id="hud" hidden aria-label="Game status"><div class="location"><span class="eyebrow">YOU ARE HERE</span><strong id="room">Living room</strong><span id="status">Two guards on watch</span></div><button id="pause" aria-label="Pause game">Ⅱ</button><button id="hud-sound" aria-pressed="true" aria-label="Start sound">Enable sound</button><div id="crosshair" aria-hidden="true"></div><button id="interact" hidden><kbd>E</kbd> <span></span></button><p id="caption" role="status" aria-live="polite"></p><div class="bottom-hud"><span id="objective">Explore your home. Check the front entrance.</span><span id="inventory">NO ITEM EQUIPPED</span></div><div id="touch-controls"><div id="stick" aria-label="Movement joystick"><div id="knob"></div></div><div id="touch-look" aria-label="Drag to look"></div><div class="touch-actions"><button id="spray" hidden>Spray</button><button id="crouch">CROUCH</button><button id="jump" hidden>Jump</button></div></div></section>
 <section id="pause-panel" class="game-panel" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="panel-card"><h2 id="pause-title">Take a breath.</h2><p id="pause-objective"></p><button id="resume" class="primary">Resume</button><button id="pause-sound" aria-pressed="true">Enable sound</button><label for="sensitivity">Look sensitivity</label><input id="sensitivity" type="range" min="0.5" max="2" step="0.1" value="1"><details><summary>Controls</summary><p>Left thumb to move. Drag the right side to look. Tap the action that appears near an object.</p><p>Collect repellent to unlock Spray. Stay close to your escort; one guard always holds the entrance.</p><p class="keyboard-help">WASD move · Shift run · E interact · F spray · C crouch · Space jump · Esc pause.</p></details><button id="restart">Restart night</button><div id="restart-confirm" hidden><p>Restart and lose this night’s progress?</p><button id="restart-yes">Restart</button><button id="restart-no">Keep playing</button></div></div></section>
@@ -36,12 +36,12 @@ const buildBadge = document.getElementById('build-version');
 function updateBuildAge() {
   const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(buildBadge.dataset.updated)) / 1000));
   const [amount, unit] = seconds < 60 ? [seconds, 'second'] : seconds < 3600 ? [Math.floor(seconds / 60), 'minute'] : seconds < 86400 ? [Math.floor(seconds / 3600), 'hour'] : [Math.floor(seconds / 86400), 'day'];
-  buildBadge.textContent = `Version 25 · Updated ${amount} ${unit}${amount === 1 ? '' : 's'} ago`;
+  buildBadge.textContent = `Version 26 · Updated ${amount} ${unit}${amount === 1 ? '' : 's'} ago`;
   buildBadge.title = new Date(buildBadge.dataset.updated).toLocaleString();
 }
 updateBuildAge();
 setInterval(updateBuildAge, 1000);
-import('./apartment/game.js?v=25').catch(error => {
+import('./apartment/game.js?v=26').catch(error => {
   console.error(error);
   document.getElementById('error-message').textContent = location.protocol === 'file:'
     ? 'Open this page through a local HTTP server to load the apartment.'
