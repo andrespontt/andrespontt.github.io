@@ -47,7 +47,8 @@ test('the command: 500 personnel, supplies run down, fights cost ammunition and 
   assert.ok(op.supplies.rations < start.rations && op.supplies.fuel < start.fuel);
   assert.ok(op.supplies.rifleAmmo < start.rifleAmmo, 'ammunition spent in contact');
   assert.equal(op.forces.wounded, op.soldiersWounded);
-  assert.equal(op.forces.atOutpost, 495 - op.forces.wounded, 'each wounded soldier is replaced from the outpost');
+  assert.equal(op.forces.atOutpost, 495 - op.forces.wounded - op.forces.killed, 'each casualty is replaced from the outpost');
+  assert.equal(op.forces.total, 500 - op.forces.killed);
 });
 
 test('the drone feed charges rounds it fired, once', () => {
@@ -96,4 +97,15 @@ test('same session renewing an expired lease does not charge old counters twice'
  assert.equal(op.supplies.rifleAmmo,ammo-40);assert.equal(op.forces.wounded,1);
  op=applyLive(op,{...live,rounds:45,wounded:2},t0+22000);
  assert.equal(op.supplies.rifleAmmo,ammo-45);assert.equal(op.forces.wounded,2);
+});
+
+test('the live feed reports killed soldiers and a killed VIP, and the VIP stays dead', () => {
+  let op = advance(createOperation(t0, 3), t0 + 2 * MINUTE);
+  op = applyLive(op, { session: 'a', wave: 1, contact: true, active: 8, down: 4, vip: 'sheltering', rounds: 0, wounded: 1, killed: 2 }, t0 + 2 * MINUTE);
+  assert.equal(op.forces.killed, 2); assert.equal(op.forces.wounded, 1); assert.equal(op.forces.total, 498);
+  op = applyLive(op, { session: 'a', wave: 1, contact: true, active: 6, down: 6, vip: 'killed', rounds: 0, wounded: 1, killed: 2 }, t0 + 2 * MINUTE + 2000);
+  assert.equal(op.vip, 'killed'); assert.equal(op.forces.killed, 2, 'repeat reports are not counted twice');
+  op = applyLive(op, { session: 'a', wave: 1, contact: false, active: 0, down: 12, vip: 'safe', rounds: 0, wounded: 1, killed: 2 }, t0 + 2 * MINUTE + 4000);
+  assert.equal(op.vip, 'killed');
+  assert.ok(op.log.some(e => /VIP has been killed/.test(e.text)));
 });

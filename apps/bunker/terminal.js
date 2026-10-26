@@ -7,6 +7,9 @@ export function createTerminal(root,{onClose,onState,onDrone}) {
   let state={selected:'shelter',route:null,scanned:false,weather:'blizzard'},active=false,renderer,scene,camera,terrain,routeMesh,storm;
   let zoom=1,tilted=true,weatherVisible=false,target=new THREE.Vector3(),width=1,height=1,scanTimer=null;
   const pointers=new Map(),ray=new THREE.Raycaster(),ground=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  // Living map: effects built in init() and moved by animate() while the terminal is open (≤30 fps).
+  // With reduced motion the map draws them once, still.
+  let fx={},routeCurve=null,raf=0,lastFrame=0;const still=matchMedia('(prefers-reduced-motion: reduce)');
   root.innerHTML=`<div class="ops-shell">
     <div class="ops-top"><div class="ops-title"><span class="ops-live"></span><div><small>OUTPOST 07 / OPERATIONS</small><h2 id="terminal-title">Black Ridge / Kestrel Valley</h2></div></div><div class="ops-weather" id="ops-weather"></div><button id="terminal-close" class="ops-close" aria-label="Return to situation room">Return to room <b>×</b></button></div>
     <div id="ops-viewport"><canvas id="ops-map" tabindex="0" aria-label="Sector map. Drag to move, pinch or scroll to zoom. Arrow keys pan, plus and minus zoom, Home fits the sector."></canvas><div id="ops-markers"></div><div class="ops-coordinate">62°14′ N &nbsp; 148°33′ W<br><span>SECTOR 07-K · OFFLINE SURVEY</span></div><div class="ops-north">N<span>↑</span></div>
@@ -41,7 +44,54 @@ export function createTerminal(root,{onClose,onState,onDrone}) {
     const ring=new THREE.Mesh(new THREE.RingGeometry(3.4,3.7,48),new THREE.MeshBasicMaterial({color:'#ff926c',side:THREE.DoubleSide,depthTest:false}));ring.rotation.x=-Math.PI/2;ring.position.set(SITES.city.x,elevation(SITES.city.x,SITES.city.z)+2,SITES.city.z);ring.renderOrder=3;ring.name='conflict-ring';scene.add(ring);
     const wc=document.createElement('canvas');wc.width=600;wc.height=450;const ctx=wc.getContext('2d');ctx.fillStyle='#d4e8ee10';ctx.fillRect(0,0,600,450);ctx.strokeStyle='#d5e8ef66';ctx.lineWidth=2;for(let x=-400;x<800;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+230,450);ctx.stroke();}ctx.fillStyle='#d5e8ef';ctx.font='22px monospace';for(let y=70;y<450;y+=110)for(let x=60;x<600;x+=120)ctx.fillText('↘',x,y);
     storm=new THREE.Mesh(geo.clone().translate(0,.8,0),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(wc),transparent:true,depthWrite:false,opacity:.6}));storm.visible=false;scene.add(storm);
+    storm.material.map.wrapS=storm.material.map.wrapT=THREE.RepeatWrapping; // so the wind can drift it
+    // Soft round glow shared by every light on the map.
+    const glowCanvas=document.createElement('canvas');glowCanvas.width=glowCanvas.height=64;
+    const gc=glowCanvas.getContext('2d'),gg=gc.createRadialGradient(32,32,0,32,32,32);
+    gg.addColorStop(0,'rgba(255,255,255,1)');gg.addColorStop(.35,'rgba(255,255,255,.45)');gg.addColorStop(1,'rgba(255,255,255,0)');gc.fillStyle=gg;gc.fillRect(0,0,64,64);
+    const glowMap=new THREE.CanvasTexture(glowCanvas);
+    const glow=(color,size,blending=THREE.AdditiveBlending)=>{const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:glowMap,color,transparent:true,blending,depthWrite:false,depthTest:false}));sprite.scale.setScalar(size);sprite.renderOrder=4;scene.add(sprite);return sprite;};
+    const cityY=elevation(SITES.city.x,SITES.city.z),bunkerTop=bunker.position.y+.9;
+    // Kestrel Falls: a warm halo that breathes, turning red and pulsing during contact.
+    fx.cityGlow=glow('#ffb35a',15);fx.cityGlow.position.set(SITES.city.x,cityY+2.5,SITES.city.z);
+    // Contact pings: rings that spread out from the city and fade, only while it is under attack.
+    fx.pings=[0,1].map(()=>{const m=new THREE.Mesh(new THREE.RingGeometry(.92,1,64),new THREE.MeshBasicMaterial({color:'#ff694c',transparent:true,side:THREE.DoubleSide,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending}));m.rotation.x=-Math.PI/2;m.position.set(SITES.city.x,cityY+2.1,SITES.city.z);m.renderOrder=3;m.visible=false;scene.add(m);return m;});
+    // Outpost 07: a blinking beacon on the bunker (normal blending so it reads against the snow)
+    // and a faint radar wedge sweeping round it.
+    fx.beacon=glow('#ffb347',3.2,THREE.NormalBlending);fx.beacon.position.set(SITES.shelter.x,bunkerTop+.5,SITES.shelter.z);
+    fx.sweep=new THREE.Mesh(new THREE.CircleGeometry(30,48,0,.42),new THREE.MeshBasicMaterial({color:'#7fe3c4',transparent:true,opacity:.06,side:THREE.DoubleSide,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending}));
+    fx.sweep.rotation.x=-Math.PI/2;fx.sweep.position.set(SITES.shelter.x,bunkerTop+3,SITES.shelter.z);fx.sweep.renderOrder=2;scene.add(fx.sweep);
+    // The drone on station: a bright dot circling the block on a dashed orbit.
+    fx.droneHeight=cityY+7;fx.drone=glow('#bff7ff',2.4);
+    const orbit=[];for(let i=0;i<=64;i++){const a=i/64*Math.PI*2;orbit.push(new THREE.Vector3(SITES.city.x+Math.cos(a)*6,fx.droneHeight,SITES.city.z+Math.sin(a)*6));}
+    fx.orbit=new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbit),new THREE.LineDashedMaterial({color:'#bff7ff',transparent:true,opacity:.4,dashSize:.6,gapSize:.5,depthTest:false}));
+    fx.orbit.computeLineDistances();fx.orbit.renderOrder=3;scene.add(fx.orbit);
+    // City windows glow and flicker a little.
+    cityMaterial.emissive=new THREE.Color('#3b2c14');fx.cityMaterial=cityMaterial;
+    // Lights that run along a plotted route.
+    fx.routeDots=[0,1,2,3].map(()=>{const dot=glow('#ffd68a',1.5);dot.visible=false;return dot;});
   }
+  function animate(t){
+    if(!fx.cityGlow)return;
+    const s=t/1000,contact=cityOp?.phase==='contact',beat=Math.abs(Math.sin(s*3.2));
+    fx.cityGlow.material.color.set(contact?'#ff6a3c':'#ffb35a');
+    fx.cityGlow.material.opacity=contact?.5+.4*beat:.32+.08*Math.sin(s*1.3);
+    fx.cityGlow.scale.setScalar(contact?16+beat*4:15+Math.sin(s*1.3)*.6);
+    fx.pings.forEach((ring,i)=>{const k=(s*.5+i*.5)%1;ring.visible=contact;ring.scale.setScalar(3.6+k*10);ring.material.opacity=(1-k)*.85;});
+    fx.beacon.material.opacity=(s*1.1)%1<.14?1:.28;
+    fx.sweep.rotation.z=-s*.6;
+    const a=s*.45;fx.drone.position.set(SITES.city.x+Math.cos(a)*6,fx.droneHeight,SITES.city.z+Math.sin(a)*6);
+    fx.cityMaterial.emissiveIntensity=.85+Math.sin(s*6.7)*.08+Math.sin(s*2.3)*.15;
+    if(storm.visible)storm.material.map.offset.set(-s*.035%1,-s*.02%1);
+    fx.routeDots.forEach((dot,i)=>{dot.visible=!!routeCurve;if(routeCurve){dot.position.copy(routeCurve.getPointAt((s*.1+i/4)%1));dot.position.y+=.3;}});
+  }
+  function tick(t){
+    if(!active){raf=0;return;}
+    raf=requestAnimationFrame(tick);
+    if(t-lastFrame<33)return; // ~30 fps is plenty for a map
+    lastFrame=t;animate(t);draw();
+  }
+  function startLoop(){if(still.matches){animate(performance.now());draw();return;}if(!raf)raf=requestAnimationFrame(tick);}
   function project(x,z){return new THREE.Vector3(x,elevation(x,z)+.5,z).project(camera);}
   function cameraUpdate(){
     const aspect=width/height,span=surveySpan(aspect,tilted)/zoom;camera.left=-span*aspect/2;camera.right=span*aspect/2;camera.top=span/2;camera.bottom=-span/2;
@@ -68,7 +118,7 @@ export function createTerminal(root,{onClose,onState,onDrone}) {
   function fit(){target.set(0,0,0);zoom=1;draw();}
   function notify(text){$('ops-notice').hidden=false;$('ops-notice').textContent=text;clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('ops-notice').hidden=true,3500);}
   let routeKey;
-  function updateRoute(){if(!scene||routeKey===state.route)return;routeKey=state.route;if(routeMesh){scene.remove(routeMesh);routeMesh.geometry.dispose();routeMesh.material.dispose();routeMesh=null;}const points=routeTo(state.route);if(points.length<2)return;const sampled=[];for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];for(let t=0;t<1;t+=.04){const x=THREE.MathUtils.lerp(a[0],b[0],t),z=THREE.MathUtils.lerp(a[1],b[1],t);sampled.push(new THREE.Vector3(x,elevation(x,z)+.35,z));}}const end=points.at(-1);sampled.push(new THREE.Vector3(end[0],elevation(...end)+.35,end[1]));routeMesh=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(sampled),160,.19,5,false),new THREE.MeshBasicMaterial({color:'#ffca6b'}));scene.add(routeMesh);}
+  function updateRoute(){if(!scene||routeKey===state.route)return;routeKey=state.route;routeCurve=null;if(routeMesh){scene.remove(routeMesh);routeMesh.geometry.dispose();routeMesh.material.dispose();routeMesh=null;}const points=routeTo(state.route);if(points.length<2)return;const sampled=[];for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];for(let t=0;t<1;t+=.04){const x=THREE.MathUtils.lerp(a[0],b[0],t),z=THREE.MathUtils.lerp(a[1],b[1],t);sampled.push(new THREE.Vector3(x,elevation(x,z)+.35,z));}}const end=points.at(-1);sampled.push(new THREE.Vector3(end[0],elevation(...end)+.35,end[1]));routeCurve=new THREE.CatmullRomCurve3(sampled);routeMesh=new THREE.Mesh(new THREE.TubeGeometry(routeCurve,160,.19,5,false),new THREE.MeshBasicMaterial({color:'#ffca6b'}));scene.add(routeMesh);}
   // The city's line comes from the running operation (city-ops.mjs), with its last few log entries.
   let cityOp=null;
   // Forces and supplies (from the operation state): personnel, casualties, ammunition, fuel, rations…
@@ -96,9 +146,9 @@ export function createTerminal(root,{onClose,onState,onDrone}) {
   return {
     // Live operation state for the Kestrel Falls card; the marker only pulses during contact.
     setCity(op){cityOp=op;drawForces();markers.city?.classList.toggle('ops-alert',op?.phase==='contact');markers.city.querySelector('span').textContent=op?.phase==='contact'?'Kestrel Falls · CONTACT':'Kestrel Falls · Cordon';const ring=scene?.getObjectByName('conflict-ring');if(ring)ring.material.color.set(op?.phase==='contact'?'#ff694c':'#94bcb2');if(state.selected==='city')update();else draw();},
-    open(next){state={...state,...next};if(!SITES[state.selected])state.selected='shelter';if(state.route&&!SITES[state.route])state.route=null;root.hidden=false;active=true;init();resize();update();canvas.focus({preventScroll:true});},
-    close(){active=false;root.hidden=true;pointers.clear();clearTimeout(scanTimer);scanTimer=null;root.classList.remove('ops-scanning');$('ops-scan').disabled=false;$('ops-scan').textContent=state.scanned?'Rescan sector':'Scan sector';},
+    open(next){state={...state,...next};if(!SITES[state.selected])state.selected='shelter';if(state.route&&!SITES[state.route])state.route=null;root.hidden=false;active=true;init();resize();update();startLoop();canvas.focus({preventScroll:true});},
+    close(){active=false;cancelAnimationFrame(raf);raf=0;root.hidden=true;pointers.clear();clearTimeout(scanTimer);scanTimer=null;root.classList.remove('ops-scanning');$('ops-scan').disabled=false;$('ops-scan').textContent=state.scanned?'Rescan sector':'Scan sector';},
     snapshot(){return {...state};},
-    dispose(){root.removeEventListener('keydown',trapFocus);active=false;clearTimeout(scanTimer);clearTimeout(notify.timer);resizeObserver.disconnect();if(scene)disposeScene(scene);renderer?.dispose();root.replaceChildren();},
+    dispose(){root.removeEventListener('keydown',trapFocus);active=false;cancelAnimationFrame(raf);raf=0;clearTimeout(scanTimer);clearTimeout(notify.timer);resizeObserver.disconnect();if(scene)disposeScene(scene);renderer?.dispose();root.replaceChildren();},
   };
 }

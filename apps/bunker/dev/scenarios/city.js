@@ -391,9 +391,12 @@ export default {
     // City always starts from zero and never touches the stored operation.
     let opsStore = null, waveDownBase = 0, joinedWounded = 0, linkedReady = false, disposed = false, reportBusy = false;
     const feedSession = globalThis.crypto?.randomUUID?.() || String(Date.now())+Math.random();
-    let operation = null, lastHeartbeat = 0, sessionWounded = 0;
+    // Live operation casualties this feed session: soldiers knocked out (wounded) and killed.
+    let operation = null, lastHeartbeat = 0, sessionWounded = 0, sessionKilled = 0;
     function syncOperation(op) {
       operation = op; linkedReady = true;
+      // The VIP was already killed out there: the body lies in the storeroom.
+      if (op.vip === 'killed' && vip.state !== 'down') Object.assign(vip, { x: -3.9, z: -8.9, state: 'down', fall: 1, hp: 0, path: [] });
       if (op.phase === 'contact') joinWave(op);
       else { setMode('Patrol'); wave=op.wave; tally.down=op.down; waveDownBase=0; }
     }
@@ -412,8 +415,8 @@ export default {
         const op=await opsStore.reportLive({session:feedSession,
           wave, contact: mode==='Intruders' && !surprise && intruders.some(alive),
           active:intruders.filter(alive).length,down:tally.down-waveDownBase,
-          vip:vip.state==='shelter'||vip.state==='to-shelter'?'sheltering':'safe',
-          rounds:rounds+playerShots,wounded:sessionWounded,
+          vip:vip.state==='down'?'killed':vip.state==='shelter'||vip.state==='to-shelter'?'sheltering':'safe',
+          rounds:rounds+playerShots,wounded:sessionWounded,killed:sessionKilled,
         });
         if(disposed)return;
         operation=op;
@@ -493,6 +496,23 @@ export default {
       }
     }
     const viewmodel = createViewmodel(group);
+    // Health bars over soldiers and the VIP, shown only in the live operation (drone feed).
+    // Camera-facing sprites; the fill is anchored on its left edge so it shrinks toward it.
+    const barBack = new THREE.SpriteMaterial({ color: '#0b1418', transparent: true, opacity: .75, depthTest: false, depthWrite: false });
+    function healthBar() {
+      const back = new THREE.Sprite(barBack), fill = new THREE.Sprite(new THREE.SpriteMaterial({ color: '#6fd38a', depthTest: false, depthWrite: false }));
+      back.scale.set(1.3, .17, 1); fill.scale.set(1.2, .09, 1); back.renderOrder = 6; fill.renderOrder = 7;
+      back.visible = fill.visible = false; group.add(back, fill);
+      return {
+        set(x, y, z, ratio, show) {
+          back.visible = fill.visible = show;
+          if (!show) return;
+          back.position.set(x, y, z); fill.position.set(x, y, z);
+          const r = Math.max(.02, ratio); fill.scale.x = 1.2 * r; fill.center.x = .5 / r;
+          fill.material.color.set(ratio > .6 ? '#6fd38a' : ratio > .3 ? '#e3b45a' : '#ff5a3c');
+        },
+      };
+    }
 
     // --- Soldiers -----------------------------------------------------------
     // Five soldiers: two inside the store, one at the door, one on each side of the cordon.
@@ -510,11 +530,11 @@ export default {
     ];
     const rifleGeometry = new THREE.BoxGeometry(.06, .09, .82), dark = new THREE.MeshStandardMaterial({ color: '#1d2224', roughness: .6, metalness: .5 });
     const guards = ROUTES.map(r => {
-      const s = soldier(); group.add(s.model);
+      const s = soldier(); group.add(s.model); s.model.rotation.order = 'YXZ';
       const p = r.path.at(0);
       s.actions.Walk.time = random() * 2; s.actions.Idle.time = random() * 2;
       const rifle = new THREE.Mesh(rifleGeometry, dark); rifle.visible = false; group.add(rifle);
-      return { s, r, rifle, dist: 0, speed: 0, wait: random() * 2, scanYaw: 0, state: 'route', path: [], after: null, x: p.x, z: p.z, yaw: facing(p.dx * r.dir, p.dz * r.dir), crouch: 0, aim: 0, spot: null, timer: 0, shots: 0, target: new THREE.Vector3(20, 1, 8), foe: null, underFire: 0, segment: undefined, mag: RIFLE_MAG, reload: 0 };
+      return { s, r, rifle, dist: 0, speed: 0, wait: random() * 2, scanYaw: 0, state: 'route', path: [], after: null, x: p.x, z: p.z, yaw: facing(p.dx * r.dir, p.dz * r.dir), crouch: 0, aim: 0, spot: null, timer: 0, shots: 0, target: new THREE.Vector3(20, 1, 8), foe: null, underFire: 0, segment: undefined, mag: RIFLE_MAG, reload: 0, hp: 100, fall: 0, bar: healthBar() };
     });
 
     // --- Armed civilians ------------------------------------------------------
@@ -564,6 +584,7 @@ export default {
     let epoch = 0;
     function startWave() {
       epoch++; wave++; waveDownBase = tally.down;
+      for (const g of guards) if (g.state === 'down') reviveGuard(g);
       surprise = wave === 1;
       if (!surprise) assignWaveCover();
       const count = Math.min(POOL, 8 + wave * 4);
@@ -586,7 +607,7 @@ export default {
     function checkContact(dt) {
       if (!surprise || (contactCheck -= dt) > 0) return;
       contactCheck = .25;
-      for (const g of guards) for (const it of intruders) {
+      for (const g of guards.filter(g => g.state !== 'down')) for (const it of intruders) {
         if (!exposed(it)) continue;
         const d = Math.hypot(it.x - g.x, it.z - g.z);
         if (d < (it.speed > 2 ? 14 : 9) && sightTo(g, it)) return contact();
@@ -611,6 +632,8 @@ export default {
       // Wounded intruders stay in combat so every wave can be fully cleared.
     }
 
+    globalThis.__cityHit = () => { for (let i = 0; i < 6; i++) hitGuard(guards[3]); return guards[3].state + " killed=" + guards[3].killed; }; globalThis.__cityHunt = () => { const it = intruders.find(alive); Object.assign(it, { x: 0, z: -1.4, y: 0, state: "hunt", path: [], replan: 0, step: it.steps.length, reload: 0, mag: 15 }); it.c.model.visible = true; return "hunting"; }; // TEMPDBG
+    globalThis.__cityDbg = () => { const c = {}; for (const i of intruders) if (i.state !== "wait") c[i.state] = (c[i.state] || 0) + 1; return { g: guards.map(g => g.state + ":" + Math.round(g.hp)).join(" "), vip: vip.state + ":" + Math.round(vip.hp) + "@" + vip.x.toFixed(1) + "," + vip.z.toFixed(1), it: c, sw: sessionWounded, sk: sessionKilled }; }; // TEMPDBG
     const readout = label('', { width: 4.4, lines: 2 }); readout.visible = false; readout.position.set(0, 9.3, 0); group.add(readout);
     let mode = 'Patrol', hostileTimer = 1, rounds = 0, incoming = 0, playerShots = 0, clock = 0;
     let audio = null, listener = { x: 0, z: 0, yaw: 0 };
@@ -626,7 +649,7 @@ export default {
       return best;
     };
     const travel = (g, to, state, after) => { g.path = walkPath([g.x, g.z], to); g.state = state; g.after = after; };
-    const backToRoute = g => { const p = g.r.path.at(g.dist); g.spot = null; g.foe = null; travel(g, [p.x, p.z], 'return', () => { g.state = 'route'; g.wait = 0; }); };
+    const backToRoute = g => { if (g.state === 'down') return; const p = g.r.path.at(g.dist); g.spot = null; g.foe = null; travel(g, [p.x, p.z], 'return', () => { g.state = 'route'; g.wait = 0; }); };
 
     function assignWaveCover() {
       // Cover faces the three street approaches; each soldier owns one position.
@@ -636,6 +659,7 @@ export default {
         {x:2.95,z:3.1,h:.9},{x:-7,z:4,h:1.5},
       ];
       for(const g of guards){
+        if(g.state==='down')continue;
         free.sort((a,b)=>(Math.hypot(a.x-g.x,a.z-g.z)+(inStore(g.x,g.z)!==!!a.window?12:0))-(Math.hypot(b.x-g.x,b.z-g.z)+(inStore(g.x,g.z)!==!!b.window?12:0)));
         const spot=free.shift();g.spot=spot;g.foe=null;g.shots=0;
         travel(g,[spot.x,spot.z],'sprint',()=>{g.state='engage';g.timer=.6;});
@@ -714,9 +738,38 @@ export default {
       rounds++;
     }
 
+    // Live operation only: intruder hits cost a soldier 20-35 health; at zero they go down
+    // (four in ten killed, the rest badly wounded) and stay down until replaced at the next wave.
+    function hitGuard(g) {
+      tally.soldiersHit++;
+      if (!linked || g.state === 'down') return;
+      g.hp -= 20 + random() * 15; g.underFire = 2;
+      if (g.hp <= 0) downGuard(g);
+    }
+    function downGuard(g) {
+      const killed = random() < .4;
+      Object.assign(g, { hp: 0, state: 'down', fall: 0, killed, foe: null, spot: null, path: [], speed: 0, crouch: 0, aim: 0 });
+      g.rifle.visible = false; chooseFall(g);
+      if (killed) sessionKilled++; else sessionWounded++;
+    }
+    // A replacement from Outpost 07 takes the post of a soldier who went down.
+    function reviveGuard(g) {
+      const p = g.r.path.at(g.dist);
+      Object.assign(g, { hp: 100, state: 'route', x: p.x, z: p.z, fall: 0, killed: false, crouch: 0, aim: 0, mag: RIFLE_MAG, reload: 0, path: [], foe: null, spot: null, wait: 0 });
+      g.s.model.rotation.x = 0;
+    }
     function updateGuard(g, dt) {
       tickReload(g, dt, RIFLE_MAG);
       const { s, r } = g;
+      if (g.state === 'down') {
+        g.fall = Math.min(1, g.fall + dt * 2.2);
+        const k = 1 - (1 - g.fall) ** 3;
+        s.model.rotation.y = g.fallYaw; s.model.rotation.x = g.fallSign * Math.PI / 2 * k;
+        s.model.position.set(g.x, groundAt(g.x, g.z) + .13 * k, g.z);
+        if (g.fall < 1) { s.setSpeed(0); s.mixer.update(dt); }
+        g.bar.set(0, 0, 0, 0, false);
+        return;
+      }
       let faceYaw = g.yaw, wantCrouch = 0, wantAim = 0;
       g.underFire = Math.max(0, g.underFire - dt);
       const indoor = inStore(g.x, g.z);
@@ -805,6 +858,7 @@ export default {
       if (g.state === 'route' && g.aim > .02) g.target.set(g.x + Math.sin(g.yaw + Math.PI) * 5, .2, g.z + Math.cos(g.yaw + Math.PI) * 5);
       const hands = g.aim > .02 ? aimRifle(s.model, group.localToWorld(v.copy(g.target)), g.aim) : null;
       g.rifle.visible = !!hands && g.aim > .25;
+      g.bar.set(g.x, groundAt(g.x, g.z) + 2.15 - g.crouch, g.z, g.hp / 100, linked);
       if (hands) {
         group.worldToLocal(hands.right); group.worldToLocal(hands.left);
         g.rifle.position.copy(hands.right).lerp(hands.left, .45);
@@ -847,7 +901,11 @@ export default {
           if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
           if (distance < .1) {
             if (fleeing) { it.step--; if (it.step <= 0) { it.state = 'escaped'; c.model.visible = false; it.pistol.visible = false; tally.escaped++; } }
-            else if (++it.step >= steps.length) { it.state = 'hold'; it.speed = 0; it.shotTimer = .5; if (!it.breached) { it.breached = true; tally.breached++; } }
+            else if (++it.step >= steps.length) {
+              // Inside the store. In the live operation they go after the VIP; otherwise they hold the door.
+              it.state = linked && vip.state !== 'down' ? 'hunt' : 'hold'; it.path = []; it.replan = 0;
+              it.speed = 0; it.shotTimer = .5; if (!it.breached) { it.breached = true; tally.breached++; }
+            }
           }
           // A soldier (or you) in sight: dive into nearby cover if there is any, else stop and shoot.
           it.cooldown -= dt;
@@ -920,6 +978,27 @@ export default {
             else leaveCover(it, false);
           }
         }
+      } else if (it.state === 'hunt') {
+        // Hunting the VIP: re-plan toward them every second; shoot the VIP on sight, or a soldier who is
+        // close and in the way; otherwise keep moving.
+        if (vip.state === 'down') { it.state = 'hold'; it.shotTimer = .4; }
+        else {
+          if ((it.replan -= dt) <= 0 || !it.path.length) { it.replan = 1; it.path = vipPath(it); }
+          const seesVip = Math.hypot(vip.x - it.x, vip.z - it.z) < 14 && clearSight(new THREE.Vector3(it.x, 1.5, it.z), new THREE.Vector3(vip.x, 1.4 - vip.crouch, vip.z));
+          it.foe = seesVip ? vip : nearestTarget(it, 7);
+          if (it.foe) {
+            it.speed = damp(it.speed, 0, 6, dt); faceYaw = facing(it.foe.x - it.x, it.foe.z - it.z); wantAim = 1;
+            it.shotTimer -= dt;
+            if (it.shotTimer <= 0 && it.aim > .8 && it.reload <= 0) { it.shotTimer = .4 + random() * .4; intruderShot(it); }
+          } else if (it.path.length) {
+            const [tx, tz] = it.path[0], dx = tx - it.x, dz = tz - it.z, distance = Math.hypot(dx, dz);
+            it.speed = damp(it.speed, 2.4, 5, dt);
+            const step = Math.min(distance, it.speed * dt);
+            if (distance > 1e-3) { it.x += dx / distance * step; it.z += dz / distance * step; faceYaw = facing(dx, dz); }
+            if (distance < .15) it.path.shift();
+          }
+          if (it.reload > 0) wantCrouch = .4;
+        }
       } else if (it.state === 'climb') {
         // Vault the barrier or fence: short hop along the segment.
         it.timer += dt / .9;
@@ -960,6 +1039,12 @@ export default {
         it.pistol.position.copy(pose.hand);
         it.pistol.lookAt(group.localToWorld(w.copy(pose.hand).addScaledVector(pose.dir, 3)));
       }
+    }
+    // Route inside the store to just beside the VIP, through the storeroom door if they're in back.
+    function vipPath(it) {
+      const inBack = vip.z < -7.7, goal = [vip.x + (vip.x < it.x ? 1.2 : -1.2), vip.z + (inBack ? .3 : 1.2)];
+      if (inBack && it.z > -7.7) return [...plan([it.x, it.z], [0, -7], INTERIOR_BLOCKS), [0, -8.4], goal];
+      return plan([it.x, it.z], goal, INTERIOR_BLOCKS);
     }
     // Nearest soldier in sight, or you if you're on foot, in sight and closer.
     function nearestTarget(it, range) {
@@ -1009,13 +1094,14 @@ export default {
     // One pistol round. Intruders are poor shots: wide misses, and only a few rounds connect.
     function intruderShot(it, moving = false) {
       if (it.mag <= 0 || it.reload > 0) return;
+      if (it.foe?.state === 'down') { it.foe = null; return; }
       if (--it.mag <= 0) startReload(it, RELOAD.intruder);
       const f = it.foe;
       const muzzle = it.pistol.position.clone().addScaledVector(w.set(0, 0, 1).applyQuaternion(it.pistol.quaternion), .14);
       const range = Math.hypot(f.x - it.x, f.z - it.z), spread = 1.2 + range * .15;
       // Firing on the move halves what little accuracy they have.
-      const hit = random() < (f.isPlayer ? .1 : .14) * Math.min(1, 8 / range) * (moving ? .5 : 1);
-      const aim = hit ? new THREE.Vector3(f.x, f.isPlayer ? 1.3 : 1.1, f.z)
+      const hit = random() < (f.isPlayer ? .1 : .14) * Math.min(1, 8 / range) * (moving ? .5 : 1) * (f.isVip ? 2.2 : 1); // a cornered VIP is easy to hit
+      const aim = hit ? new THREE.Vector3(f.x, f.isPlayer ? 1.3 : f.isVip ? 1.15 - f.crouch * .8 : 1.1, f.z)
         : new THREE.Vector3(f.x + (random() - .5) * spread, .2 + random() * 2.2, f.z + (random() - .5) * spread);
       // A miss keeps flying past the target until it meets a wall, cover or the ground.
       const dir = aim.sub(muzzle), toTarget = dir.length(); dir.normalize();
@@ -1029,7 +1115,8 @@ export default {
         if (shotEpoch !== epoch) return;
         if (connects && f.isPlayer) hurtPlayer();
         else { fx.puff(end); impact(audio, listener, end.x, end.z); }
-        if (connects && !f.isPlayer) {tally.soldiersHit++;sessionWounded++;}
+        if (connects && f.isVip) damageVip(25 + random() * 15);
+        else if (connects && !f.isPlayer) hitGuard(f);
       });
       gunshot(audio, listener, it.x, it.z, { pistol: true });
       f.underFire = 2;
@@ -1042,9 +1129,19 @@ export default {
     const vip = (() => {
       const c = character('xbot', { tint(m) { m.color.set(/Joints/i.test(m.name) ? '#b9b1a3' : '#262a33'); m.roughness = .7; m.metalness = 0; } });
       group.add(c.model);
-      return { c, x: 0, z: -2.6, yaw: 0, speed: 0, crouch: 0, state: 'pace', path: [], end: 1, wait: 1.5, calm: 0, hits: 0 };
+      c.model.rotation.order = 'YXZ';
+      return { c, isVip: true, x: 0, z: -2.6, yaw: 0, speed: 0, crouch: 0, state: 'pace', path: [], end: 1, wait: 1.5, calm: 0, hits: 0, hp: 100, fall: 0, bar: healthBar() };
     })();
     function updateVip(dt) {
+      if (vip.state === 'down') {
+        // Killed: fall where they were and lie still.
+        vip.fall = Math.min(1, vip.fall + dt * 2.2);
+        const k = 1 - (1 - vip.fall) ** 3;
+        vip.c.model.rotation.x = Math.PI / 2 * k; vip.c.model.position.set(vip.x, groundAt(vip.x, vip.z) + .13 * k, vip.z);
+        if (vip.fall < 1) { vip.c.setSpeed(0); vip.c.mixer.update(dt); }
+        vip.bar.set(0, 0, 0, 0, false);
+        return;
+      }
       const v = vip, threat = mode === 'Take cover' || mode === 'Firefight' || (!surprise && intruders.some(exposed));
       let top = 0, wantCrouch = 0, faceYaw = v.yaw;
       if (threat && v.state !== 'shelter' && v.state !== 'to-shelter') {
@@ -1079,12 +1176,18 @@ export default {
       v.c.model.position.set(v.x, groundAt(v.x, v.z), v.z); v.c.model.rotation.y = v.yaw;
       v.c.setSpeed(v.speed); v.c.mixer.update(dt);
       crouch(v.c.model, v.crouch);
+      v.bar.set(v.x, groundAt(v.x, v.z) + 2.15 - v.crouch, v.z, v.hp / 100, linked);
+    }
+    function damageVip(amount) {
+      if (vip.state === 'down') return;
+      vip.hp = Math.max(0, vip.hp - amount);
+      if (vip.hp <= 0) Object.assign(vip, { state: 'down', fall: 0, path: [], speed: 0, crouch: 0 });
     }
     // Keep bodies from overlapping: push apart from each other and step off soldiers, never into walls.
     function separateIntruders() {
       const live = intruders.filter(i => exposed(i) && i.state !== 'climb');
       for (const a of live) {
-        for (const b of [...live, ...guards]) {
+        for (const b of [...live, ...guards.filter(g => g.state !== 'down')]) {
           if (a === b) continue;
           const dx = a.x - b.x, dz = a.z - b.z, d = Math.hypot(dx, dz), min = .7;
           if (d >= min) continue;
@@ -1096,7 +1199,7 @@ export default {
     }
     function nearestGuard(it, range) {
       let best = null, bestDistance = range;
-      for (const g of guards) { const d = Math.hypot(g.x - it.x, g.z - it.z); if (d < (g.revealed > 0 ? Math.max(bestDistance, 32) : bestDistance) && exposedTo(g,it)) { best = g; bestDistance = d; } }
+      for (const g of guards) { if (g.state === 'down') continue; const d = Math.hypot(g.x - it.x, g.z - it.z); if (d < (g.revealed > 0 ? Math.max(bestDistance, 32) : bestDistance) && exposedTo(g,it)) { best = g; bestDistance = d; } }
       return best;
     }
 
@@ -1132,7 +1235,7 @@ export default {
       shotFired(player, o, d, best);
       fx.tracer(from, end, () => {
         if (shotEpoch !== epoch) return;
-        if (vipHit) { vip.hits++; fx.puff(end); }
+        if (vipHit) { vip.hits++; if (linked) damageVip(30); fx.puff(end); }
         else if (victim) { hitIntruder(victim, damage); fx.puff(end); }
         else { fx.puff(end); impact(audio, listener, end.x, end.z); }
       });
@@ -1159,7 +1262,7 @@ export default {
       getAmmo: () => firstPerson ? { mag: playerMag, size: RIFLE_MAG, reloading: playerReload > 0 ? 1 - playerReload / playerReloadTotal : null } : null,
       getStatus() {
         const active = intruders.filter(alive).length;
-        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Night patrol. All quiet on the block." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
+        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Night patrol. All quiet on the block." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover${linked ? ` · soldiers ${guards.filter(g => g.state !== 'down').length}/${guards.length} · VIP ${vip.state === 'down' ? 'KILLED' : Math.round(vip.hp) + '%'}` : ''}` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
       },
       beforeRender(camera, dt) {
         updateSleet(camera, dt);

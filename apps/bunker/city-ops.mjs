@@ -35,7 +35,8 @@ const waveSize = wave => Math.min(24, 8 + wave * 4);
 function note(op, at, text) { op.log.push({ at, text }); if (op.log.length > LOG_SIZE) op.log.splice(0, op.log.length - LOG_SIZE); }
 
 function startWave(op, at) {
-  op.wave++; op.active = waveSize(op.wave); op.down = 0; op.vip = 'sheltering'; op.phase = 'contact';
+  op.wave++; op.active = waveSize(op.wave); op.down = 0; op.phase = 'contact';
+  if (op.vip !== 'killed') op.vip = 'sheltering';
   note(op, at, op.wave === 1
     ? `Ambush! ${op.active} armed civilians hit the cordon from three streets. VIP sheltering in the storeroom.`
     : `Wave ${op.wave}: ${op.active} intruders moving on the store.`);
@@ -48,6 +49,12 @@ function wound(op, at) {
   op.supplies.medKits = Math.max(0, op.supplies.medKits - 2);
   if (op.forces.atOutpost > 0) { op.forces.atOutpost--; note(op, at, 'Soldier wounded at the cordon; a replacement leaves Outpost 07.'); }
   else note(op, at, 'Soldier wounded at the cordon; no replacements left.');
+}
+// Killed soldier: one less in the command, and a replacement leaves the outpost.
+function kill(op, at) {
+  op.forces.killed++; op.forces.total = Math.max(0, op.forces.total - 1);
+  if (op.forces.atOutpost > 0) { op.forces.atOutpost--; note(op, at, 'Soldier killed at the cordon; a replacement leaves Outpost 07.'); }
+  else note(op, at, 'Soldier killed at the cordon; no replacements left.');
 }
 function consume(op, random) {
   const s = op.supplies, share = TICK / DAY;
@@ -66,10 +73,15 @@ function step(op, at, random) {
   let downed = 0;
   for (let i = 0; i < op.active; i++) if (random() < .045) downed++;
   op.active -= downed; op.down += downed; op.totalDown += downed;
-  if (random() < .015 * Math.min(2, op.active / 12)) wound(op, at);
-  if (random() < .004 * op.active) { op.breaches++; note(op, at, 'An intruder reached the store door before being stopped.'); }
+  if (random() < .015 * Math.min(2, op.active / 12)) (random() < .3 ? kill : wound)(op, at);
+  if (random() < .004 * op.active) {
+    op.breaches++;
+    // Intruders who get inside go for the VIP sheltering in the storeroom.
+    if (op.vip !== 'killed' && random() < .2) { op.vip = 'killed'; note(op, at, 'Intruders reached the storeroom. The VIP has been killed.'); }
+    else note(op, at, 'An intruder reached the store door before being stopped.');
+  }
   if (op.active <= 0) {
-    op.active = 0; op.phase = 'lull'; op.vip = 'safe';
+    op.active = 0; op.phase = 'lull'; if (op.vip !== 'killed') op.vip = 'safe';
     op.phaseEnds = at + (3 + random() * 5) * MINUTE;
     note(op, at, `Wave ${op.wave} cleared: ${op.down} down. Soldiers back on patrol.`);
   }
@@ -94,7 +106,7 @@ export function advance(state, now) {
 export function applyLive(state, live, now) {
   const op = structuredClone(state);
   if (live.wave < op.wave) return op; // Ignore late reports from a previous wave.
-  if (live.session ? live.session !== op.liveSession : now > op.liveUntil) op.liveRounds = op.liveWounded = 0;
+  if (live.session ? live.session !== op.liveSession : now > op.liveUntil) op.liveRounds = op.liveWounded = op.liveKilled = 0;
   if (live.session) op.liveSession = live.session;
   op.liveUntil = now + 15_000; op.updatedAt = Math.max(op.updatedAt, now);
   if (live.wave > op.wave && live.contact) note(op, now, `Drone: wave ${live.wave} engaging, ${live.active} intruders active.`);
@@ -104,12 +116,14 @@ export function applyLive(state, live, now) {
   }
   if (live.rounds != null) { op.supplies.rifleAmmo = Math.max(0, op.supplies.rifleAmmo - Math.max(0, live.rounds - op.liveRounds)); op.liveRounds = live.rounds; }
   if (live.wounded != null) { for (let i = op.liveWounded || 0; i < live.wounded; i++) wound(op, now); op.liveWounded = Math.max(op.liveWounded || 0, live.wounded); }
+  if (live.killed != null) { for (let i = op.liveKilled || 0; i < live.killed; i++) kill(op, now); op.liveKilled = Math.max(op.liveKilled || 0, live.killed); }
+  if (live.vip === 'killed' && op.vip !== 'killed') note(op, now, 'Drone: intruders reached the storeroom. The VIP has been killed.');
   if (live.wave > op.wave) op.down = 0;
   op.totalDown += Math.max(0, live.down - op.down);
   op.active = Math.max(0, live.active); op.down = Math.max(0, live.down);
   op.wave = Math.max(op.wave, live.wave);
   op.phase = live.contact ? 'contact' : op.wave ? 'lull' : 'quiet';
-  op.vip = live.vip;
+  op.vip = op.vip === 'killed' ? 'killed' : live.vip; // a dead VIP stays dead
   return op;
 }
 
