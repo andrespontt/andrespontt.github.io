@@ -28,14 +28,14 @@ export async function createArea(saved = {}, { variant } = {}) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#1a252c');
-  // Optional mood: scenario.lighting = 'night', scenario.fog = [color, density].
+  // Optional mood: scenario.lighting = 'night'; scenario.fog = [color, density] (exponential) or [color, near, far] (linear).
   const night = scenario.lighting === 'night';
-  scene.add(new THREE.HemisphereLight(night ? '#8fa6c2' : '#d8e6ec', '#2a2d2c', night ? .7 : 2));
-  const sun = new THREE.DirectionalLight(night ? '#9fb6d6' : '#fff1dc', night ? .45 : 2.2); sun.position.set(12, 20, 8); scene.add(sun);
-  if (scenario.fog) { scene.fog = new THREE.FogExp2(scenario.fog[0], scenario.fog[1]); scene.background = new THREE.Color(scenario.fog[0]); }
+  scene.add(new THREE.HemisphereLight(night ? '#8fa6c2' : '#d8e6ec', '#2a2d2c', scenario.ambientIntensity ?? (night ? .7 : 2)));
+  const sun = new THREE.DirectionalLight(night ? '#9fb6d6' : '#fff1dc', scenario.keyIntensity ?? (night ? .45 : 2.2)); sun.position.set(12, 20, 8); scene.add(sun);
+  if (scenario.fog) { scene.fog = scenario.fog.length > 2 ? new THREE.Fog(...scenario.fog) : new THREE.FogExp2(scenario.fog[0], scenario.fog[1]); scene.background = new THREE.Color(scenario.fog[0]); }
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: '#33424a', roughness: 1 }));
   floor.rotation.x = -Math.PI / 2; scene.add(floor);
-  const grid = new THREE.GridHelper(200, 200, '#4f6670', '#40525a'); grid.position.y = .005; scene.add(grid);
+  if(!scenario.noPad){const grid = new THREE.GridHelper(200, 200, '#4f6670', '#40525a'); grid.position.y = .005; scene.add(grid);}
   if (!scenario.noPad) {
     const pad = new THREE.Mesh(new THREE.CircleGeometry(PAD, 48), new THREE.MeshStandardMaterial({ color: '#26343a', roughness: 1 }));
     pad.rotation.x = -Math.PI / 2; pad.position.y = .004; scene.add(pad);
@@ -62,22 +62,26 @@ export async function createArea(saved = {}, { variant } = {}) {
 
   let timeScale = saved.timeScale ?? 1, frozen = false;
   const world = new THREE.Vector3();
-  // Scenarios may list camera views: [{ label, x, z, yaw, pitch, eye }]. The first is the spawn.
+  // Scenarios may list camera views: [{ label, x, z, yaw, pitch, eye }]. defaultView selects the spawn; otherwise the first view is used.
   const views = scenario.views || [];
-  const home = () => views[0] || { ...viewPose(scenario), eye: scenario.eyeHeight || 1.7 };
-  const goTo = (view, setPose) => { area.eyeHeight = view.eye ?? 1.7; area.walkSpeed = area.eyeHeight > 4 ? 9 : 4; setPose(view); };
+  const home = () => views.find(view => view.label === scenario.defaultView) || views[0] || { ...viewPose(scenario), eye: scenario.eyeHeight || 1.7 };
+  let currentView = home().label || 'Free camera';
+  let selectedView = home(), orbitAngle = 0, orbitPaused = false;
+  const goTo = (view, setPose) => { selectedView = view; orbitAngle = 0; currentView = view.label || 'Free camera'; area.eyeHeight = view.eye ?? 1.7; area.walkSpeed = area.eyeHeight > 4 ? 9 : 4; setPose(view); };
   const area = {
     scene, title: 'Dev / ' + scenario.title, eyeHeight: home().eye ?? 1.7, walkSpeed: (home().eye ?? 1.7) > 4 ? 9 : 4,
     spawn: home(),
     tools: [
-      ...views.map(view => ({ label: 'View: ' + view.label, action: ({ setPose }) => goTo(view, setPose) })),
+      ...views.map(view => ({ label: 'View: ' + view.label, isActive: () => currentView === view.label, action: ({ setPose }) => goTo(view, setPose) })),
       { label: 'Restart scenario', action: ({ setPose }) => { build(); goTo(home(), setPose); } },
-      { label: 'Slow motion on/off', action() { timeScale = timeScale === 1 ? .25 : 1; } },
-      { label: 'Freeze on/off', action() { frozen = !frozen; } },
+      { label: 'Slow motion on/off', isActive: () => timeScale !== 1, action() { timeScale = timeScale === 1 ? .25 : 1; } },
+      { label: 'Freeze on/off', isActive: () => frozen, action() { frozen = !frozen; } },
       // Scenarios can declare named modes; each gets its own button.
-      ...(scenario.modes || []).map(mode => ({ label: mode, action() { instance?.setMode?.(mode); } })),
+      ...(scenario.modes || []).map(mode => ({ label: mode, isActive: () => instance?.getStatus?.().mode === mode, action() { instance?.setMode?.(mode); } })),
+      ...(views.some(view=>view.orbit) ? [{label:'Hold drone orbit',isActive:()=>orbitPaused,action(){orbitPaused=!orbitPaused;}}] : []),
     ],
-    move(p, dx, dz) { p.x = THREE.MathUtils.clamp(p.x + dx, -90, 90); p.z = THREE.MathUtils.clamp(p.z + dz, -90, 90); },
+    resetView(setPose) { goTo(home(),setPose); },
+    move(p, dx, dz) { if(selectedView.orbit)return; if(instance?.move && area.eyeHeight < 4){instance.move(p,dx,dz);return;} p.x = THREE.MathUtils.clamp(p.x + dx, -90, 90); p.z = THREE.MathUtils.clamp(p.z + dz, -90, 90); },
     update(dt, env = {}) {
       if (instance) {
         try { instance.update?.(frozen ? 0 : dt * timeScale, env); }
@@ -95,8 +99,22 @@ export async function createArea(saved = {}, { variant } = {}) {
       return action && { label: action.label + (timeScale !== 1 ? ' (slow-mo)' : ''), action: action.action };
     },
     // First-person weapon: the shell calls fire() with the camera ray; beforeRender() places the viewmodel.
-    fire: scenario.weapon ? shot => instance?.fire?.(shot) ?? null : undefined,
-    beforeRender: camera => instance?.beforeRender?.(camera),
+    canFire: () => !!scenario.weapon && !frozen && area.eyeHeight < 4,
+    fire: scenario.weapon ? shot => !frozen && area.eyeHeight < 4 ? instance?.fire?.(shot) ?? null : null : undefined,
+    getStatus() { const status=instance?.getStatus?.();return status && {...status, stats: `${currentView}${frozen ? ' · FROZEN' : timeScale !== 1 ? ' · 0.25×' : ''} · ${status.stats}`}; },
+    beforeRender(camera,dt) {
+      const step=frozen ? 0 : dt*timeScale, orbit=selectedView.orbit;
+      // Raised cameras push linear fog back by their height so the block stays clear from above.
+      if(scene.fog?.isFog){const lift=Math.max(0,camera.position.y-2);scene.fog.near=scenario.fog[1]+lift;scene.fog.far=scenario.fog[2]+lift*1.4;}
+      else if(scene.fog && scenario.fog)scene.fog.density=orbit ? scenario.fog[1]*.45 : scenario.fog[1];
+      if(orbit){
+        if(!orbitPaused)orbitAngle+=step*orbit.speed;
+        camera.position.set(Math.sin(orbitAngle)*orbit.radius,selectedView.eye,orbit.centerZ+Math.cos(orbitAngle)*orbit.radius);
+        camera.lookAt(0,orbit.targetY,orbit.centerZ);
+        camera.updateMatrixWorld();
+      }
+      instance?.beforeRender?.(camera,step);
+    },
     snapshot() { return { timeScale }; },
     dispose() { instance?.dispose?.(); },
   };

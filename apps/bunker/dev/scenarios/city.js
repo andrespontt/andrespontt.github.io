@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { facing } from '../kit.js';
 import { angleDelta, damp } from '../easing.js';
 import { aimPistol, aimRifle, crouch } from '../../rig.js';
-import { gunshot, impact } from '../sound.js';
+import { glass, gunshot, impact } from '../sound.js';
 import { createEffects, plan, route, seeded } from '../combat.js';
+import { firstObstruction, sphereEntry, moveThroughCity, STORE_FRONT, FIRE_BARRELS, WINDOWS } from '../city-space.js';
 
 // City operation: soldiers hold a corner store on one block of a city street.
 // Only this block is built; fog hides where the city would continue.
@@ -11,6 +12,7 @@ import { createEffects, plan, route, seeded } from '../combat.js';
 const STORE = [-7, -10, 7, 1.5];
 const BLOCKS = [STORE, [-27, -12, -7.4, 1.5], [9.6, -12, 27, 1.5], [-27, 16.5, -3, 30], [3, 16.5, 27, 30]];
 const OUTSIDE_BLOCKS = BLOCKS.slice(1);
+const INTERIOR_BLOCKS = [[-3.9,-6.2,-3.1,-2.4],[3.1,-6.2,3.9,-2.4],[3.2,-.95,6.2,-.35]];
 const inStore = (x, z) => x > STORE[0] && x < STORE[2] && z > STORE[1] && z < STORE[3];
 const DOOR_OUT = [0, 2.7], DOOR_IN = [0, -.7];
 const HOSTILES = [[24, 6], [26, 10.5], [23, 13]];
@@ -19,9 +21,9 @@ const MODES = ['Patrol', 'Alert', 'Take cover', 'Firefight', 'Intruders'];
 // Walking routes that respect the store walls: in or out through the front door.
 function walkPath(from, to) {
   const a = inStore(...from), b = inStore(...to);
-  if (a && b) return [to];
-  if (a) return [DOOR_IN, DOOR_OUT, ...plan(DOOR_OUT, to, OUTSIDE_BLOCKS)];
-  if (b) return [...plan(from, DOOR_OUT, OUTSIDE_BLOCKS), DOOR_IN, to];
+  if (a && b) return plan(from,to,INTERIOR_BLOCKS);
+  if (a) return [...plan(from,DOOR_IN,INTERIOR_BLOCKS), DOOR_OUT, ...plan(DOOR_OUT, to, OUTSIDE_BLOCKS)];
+  if (b) return [...plan(from, DOOR_OUT, OUTSIDE_BLOCKS), DOOR_IN, ...plan(DOOR_IN,to,INTERIOR_BLOCKS)];
   return plan(from, to, BLOCKS);
 }
 
@@ -81,14 +83,28 @@ function buildCity(group) {
   const brick = mat('#6e5146'), plaster = mat('#8b867b'), trim = mat('#2d3436', .6, .4), dark = new THREE.MeshBasicMaterial({ color: '#0e1316' });
   const store = new THREE.Group(); group.add(store);
   const T = .3, H1 = 4.4, H2 = 7.6;
-  // Front wall (z 1.2..1.5): two display windows and a central door.
-  box(store, -7, 0, 1.2, -6, H1, 1.5, brick); box(store, 6, 0, 1.2, 7, H1, 1.5, brick);
-  for (const [x0, x1] of [[-6, -1.8], [1.8, 6]]) { box(store, x0, 0, 1.2, x1, .9, 1.5, brick); box(store, x0, 3.2, 1.2, x1, H1, 1.5, brick); box(store, x0, .86, 1.1, x1, .92, 1.6, trim); }
-  box(store, -1.8, 0, 1.2, -1, H1, 1.5, brick); box(store, 1, 0, 1.2, 1.8, H1, 1.5, brick); box(store, -1, 2.6, 1.2, 1, H1, 1.5, brick);
-  const glass = new THREE.MeshStandardMaterial({ color: '#9cc3cf', transparent: true, opacity: .22, roughness: .1, metalness: .2, depthWrite: false });
-  box(store, -6, .92, 1.33, -4.3, 3.2, 1.37, glass); box(store, 4.8, 2.1, 1.33, 6, 3.2, 1.37, glass); // what's left of the glass
-  for (let i = 0; i < 18; i++) { const s = box(store, 0, 0, 0, .25 + random() * .3, .01, .2 + random() * .3, glass); s.position.set(-6 + random() * 12, .16, 1.9 + random() * 1.6); s.rotation.y = random() * 3; } // shards on the pavement
-  box(store, -7, H1, 1.2, 7, H2, 1.5, brick);
+  // Compact shop windows: geometry and collision use the same wall segments.
+  for (const bounds of STORE_FRONT) box(store, ...bounds, brick);
+  const glass = new THREE.MeshStandardMaterial({ color: '#9cc3cf', transparent: true, opacity: .26, roughness: .08, metalness: .4, depthWrite: false });
+  // Each display window holds two intact panes; a bullet through one shatters it (see breakPane).
+  const panes = [];
+  for (const [a,b] of WINDOWS) {
+    box(store,a-.06,1.19,1.12,b+.06,1.29,1.6,trim);
+    box(store,a-.06,2.41,1.15,b+.06,2.51,1.55,trim);
+    for(const x of [a,b]) box(store,x-.04,1.25,1.15,x+.04,2.45,1.55,trim);
+    for (const [x0, x1] of [[a + .04, (a + b) / 2], [(a + b) / 2, b - .04]]) {
+      const bounds = [x0, 1.29, 1.32, x1, 2.41, 1.36];
+      panes.push({ bounds, mesh: box(store, ...bounds, glass), intact: true });
+    }
+  }
+  // Seat the frame inside the opening; no faces overlap the brick reveal.
+  for (const x of [-.96,.96]) box(store,x-.04,.03,1.08,x+.04,2.52,1.57,trim);
+  box(store,-1,2.52,1.08,1,2.6,1.57,trim);
+  // Deep fascia, shallow canopy and a durable painted plinth.
+  box(store,-7.1,2.85,1.08,7.1,3.08,2.05,trim);
+  box(store,-7.05,.12,1.5,-1.1,.38,1.56,trim);
+  box(store,1.1,.12,1.5,7.05,.38,1.56,trim);
+  const upperFacade = box(store, -7, H1, 1.2, 7, H2, 1.5, brick);
   for (const x of [-5, -1.7, 1.7, 5]) box(store, x - .7, 5.2, 1.5, x + .7, 6.9, 1.52, dark);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(8, 1), new THREE.MeshBasicMaterial({ map: signTexture('CORNER MARKET 24') }));
   sign.position.set(0, 3.8, 1.52); store.add(sign);
@@ -96,15 +112,28 @@ function buildCity(group) {
   box(store, -7, 0, -10, -6.7, H2, 1.2, brick);
   box(store, 6.7, 0, -10, 7, H2, -7.8, brick); box(store, 6.7, 0, -6.2, 7, H2, 1.2, brick); box(store, 6.7, 2.4, -7.8, 7, H2, -6.2, brick);
   box(store, -7, 0, -10, 7, H2, -9.7, brick);
-  box(store, -7.2, H2, -10.2, 7.2, H2 + .5, 1.7, mat('#3f3a36')); // roof + parapet
+  const roof = box(store, -7.2, H2, -10.2, 7.2, H2 + .5, 1.7, mat('#3f3a36')); // roof + parapet
   // Interior: tiled floor, ceiling, storeroom partition, aisles, counter, lights.
-  box(store, -6.7, 0, -9.7, 6.7, .03, 1.2, mat('#585b56'));
-  box(store, -6.7, H1 - .1, -9.7, 6.7, H1, 1.2, plaster);
+  const floorCanvas=document.createElement('canvas');floorCanvas.width=floorCanvas.height=128;
+  const fg=floorCanvas.getContext('2d');fg.fillStyle='#686b62';fg.fillRect(0,0,128,128);
+  fg.fillStyle='#74766c';fg.fillRect(0,0,64,64);fg.fillRect(64,64,64,64);
+  fg.strokeStyle='#424943';fg.lineWidth=2;for(const v of [0,64,128]){fg.beginPath();fg.moveTo(v,0);fg.lineTo(v,128);fg.moveTo(0,v);fg.lineTo(128,v);fg.stroke();}
+  const floorMap=new THREE.CanvasTexture(floorCanvas);floorMap.colorSpace=THREE.SRGBColorSpace;floorMap.wrapS=floorMap.wrapT=THREE.RepeatWrapping;floorMap.repeat.set(11,9);
+  box(store,-6.7,0,-9.7,6.7,.03,1.2,new THREE.MeshStandardMaterial({map:floorMap,roughness:.85}));
+  // Interior skirting and aisle identification keep the room readable at eye level.
+  for(const x of [-6.65,6.65]) box(store,x-.035,.03,-9.65,x+.035,.24,1.1,trim);
+  for(const [x,text] of [[-3.5,'01 / SUPPLIES'],[3.5,'02 / PROVISIONS']]){
+    const marker=new THREE.Mesh(new THREE.PlaneGeometry(2.4,.3),new THREE.MeshBasicMaterial({map:signTexture(text),side:THREE.DoubleSide}));marker.position.set(x,2.3,-2.35);marker.rotation.y=Math.PI;store.add(marker);
+  }
+  const ceiling = box(store, -6.7, H1 - .1, -9.7, 6.7, H1, 1.2, plaster);
   box(store, -6.7, 0, -7.9, -1, H1, -7.7, plaster); box(store, 1, 0, -7.9, 6.7, H1, -7.7, plaster); box(store, -1, 2.5, -7.9, 1, H1, -7.7, plaster);
   const shelf = mat('#3b474b', .7, .3), goods = ['#a8533f', '#d0b25e', '#5d8a6a', '#c8c6bb', '#4f6d8e'].map(c => mat(c, .8));
   for (const x of [-3.5, 3.5]) {
-    box(store, x - .4, 0, -6.2, x + .4, 1.9, -2.4, shelf);
-    for (const y of [.45, 1.05, 1.65]) for (let i = 0; i < 9; i++) {
+    // Low gondolas (1.45 m) so you can see across the store at eye level.
+    box(store,x-.04,0,-6.2,x+.04,1.45,-2.4,shelf);
+    for(const y of [.05,.5,.95,1.4]) box(store,x-.4,y,-6.2,x+.4,y+.045,-2.4,shelf);
+    for(const z of [-6.16,-2.44]) for(const side of [-1,1]) box(store,x+side*.36-.025,0,z-.025,x+side*.36+.025,1.48,z+.025,shelf);
+    for (const y of [.55, 1]) for (let i = 0; i < 9; i++) {
       if (random() < .3) continue; // looted gaps
       const side = random() < .5 ? -1 : 1, z = -6 + i * .42;
       box(store, x + side * .2 - .12, y, z, x + side * .2 + .12, y + .22 + random() * .12, z + .3, goods[Math.floor(random() * goods.length)]);
@@ -113,11 +142,41 @@ function buildCity(group) {
   const tipped = box(store, -6.6, 0, -6, -5.8, 1.9, -3, shelf); tipped.rotation.z = -1.1; tipped.position.set(-5.2, .5, -4.5);
   for (let i = 0; i < 14; i++) { const p = box(store, 0, 0, 0, .25, .2, .3, goods[i % goods.length]); p.position.set(-5.4 + random() * 2, .1, -6 + random() * 3); p.rotation.y = random() * 3; }
   box(store, 3.2, 0, -.95, 6.2, 1.05, -.35, mat('#4a3c33')); box(store, 4.8, 1.05, -.85, 5.4, 1.35, -.45, trim);
+  // Cooler bank on the storeroom partition: lit glass doors with rows of stock behind them.
+  const coolerBody = mat('#c9cdc8', .5, .2), coolerGlow = new THREE.MeshBasicMaterial({ color: '#8fb4c0' }), stock = new THREE.MeshBasicMaterial({ color: '#3b4a52' });
+  for (const [a, b] of [[-6.5, -1.2], [1.2, 5.6]]) {
+    box(store, a, 0, -7.7, b, 2.3, -7.12, coolerBody); box(store, a, 2.3, -7.7, b, 2.6, -7.05, trim);
+    const doors = Math.round((b - a) / .9), wide = (b - a) / doors;
+    for (let i = 0; i < doors; i++) {
+      const x0 = a + wide * i;
+      box(store, x0 + .06, .25, -7.12, x0 + wide - .06, 2.05, -7.1, coolerGlow);
+      for (const y of [.75, 1.3, 1.85]) box(store, x0 + .1, y, -7.1, x0 + wide - .1, y + .05, -7.09, stock);
+      box(store, x0 + wide - .03, .25, -7.13, x0 + wide + .03, 2.05, -7.06, trim);
+    }
+  }
+  // Behind the counter: a cigarette and lottery rack on the east wall.
+  box(store, 6.35, 0, -2.5, 6.7, 2.3, -.4, trim);
+  for (let i = 0; i < 6; i++) box(store, 6.3, .6 + i * .27, -2.4, 6.36, .8 + i * .27, -.5, goods[i % goods.length]);
+  // Entrance mat, wall posters, and boards across the top of each window: soldiers fire through the slit below.
+  box(store, -1, .03, -.4, 1, .05, 1.1, mat('#1c2124'));
+  for (const [z, text] of [[-1.6, 'OPEN 24/7'], [-5.2, 'HOT COFFEE']]) {
+    const poster = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .3), new THREE.MeshBasicMaterial({ map: signTexture(text) }));
+    poster.position.set(-6.68, 2.6, z); poster.rotation.y = Math.PI / 2; store.add(poster);
+  }
+  const plank = mat('#5e4a35', .95);
+  for (const [a, b] of WINDOWS) for (const [y, tilt] of [[2.05, .04], [2.3, -.03]]) {
+    const board = box(store, a - .1, y - .08, 1.08, b + .1, y + .08, 1.13, plank); board.rotation.z = tilt;
+  }
+  const staff = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .3), new THREE.MeshBasicMaterial({ map: signTexture('STAFF ONLY') }));
+  staff.position.set(0, 2.75, -7.66); store.add(staff);
+  // Storeroom: stacked crates the VIP shelters behind, and a manager's desk.
+  const crateWood = mat('#5b4a32');
+  box(store, -5.6, 0, -9.6, -4.4, .9, -8.4, crateWood); box(store, -5.4, .9, -9.5, -4.6, 1.6, -8.7, crateWood);
+  box(store, 2, 0, -9.6, 3.6, .8, -8.9, mat('#4a3c33')); box(store, 2.6, .8, -9.5, 3.1, 1.15, -9.3, trim);
   const tube = new THREE.MeshBasicMaterial({ color: '#dfe9e4' });
-  const fixtures = [];
   for (const [x, z] of [[-3.5, -4.3], [3.5, -4.3], [0, -.5]]) {
     box(store, x - .1, H1 - .18, z - 1.2, x + .1, H1 - .1, z + 1.2, tube);
-    const light = new THREE.PointLight('#dbe7ff', 10, 12, 1.5); light.position.set(x, H1 - .4, z); store.add(light); fixtures.push(light);
+    const light = new THREE.PointLight('#dbe7ff', 10, 12, 1.5); light.position.set(x, H1 - .4, z); store.add(light);
   }
 
   // Street furniture and the military cordon.
@@ -143,6 +202,11 @@ function buildCity(group) {
     for (const sx of [-1, 1]) for (const sz of [-1.3, 1.3]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.33, .33, .25, 12), tyre); w.rotation.z = Math.PI / 2; w.position.set(sx * .9, .33, sz); c.add(w); }
   };
   car(6.3, 10.9, Math.PI / 2 + .15, '#6b2f2a', false); car(-7, 5.6, Math.PI / 2 - .1, '#2f4b63', false); car(24.5, 9, .4, '', true); car(23, 13.3, -.3, '#7f7a6e', false); car(25.5, 5.5, 1.3, '', true);
+  car(-24.5, 9.5, -.4, '', true); car(-22.5, 4.6, .2, '', true);
+  // Intruder cover outside the cordon (matching boxes live in COVER_PROPS).
+  const rust = mat('#4a3a2c'), crate = mat('#5b4a32');
+  box(group, -21.6, 0, 13.6, -20.2, 1.3, 15, rust); box(group, 1.4, 0, 21.5, 2.9, 1.4, 23.3, mat('#2f4a3a'));
+  box(group, -2.9, 0, 20, -1.7, .6, 21, crate); box(group, -2.75, .6, 20.15, -1.85, 1.1, 20.85, crate);
   // Sandbags beside the store door.
   const bag = new THREE.BoxGeometry(.4, .3, .7), sand = mat('#8a7b5c');
   for (let row = 0; row < 3; row++) for (let i = 0; i < 3 - row; i++) { const b = new THREE.Mesh(bag, sand); b.position.set(3.6, .3 + row * .3, 2.4 + (i + row / 2) * .72); group.add(b); }
@@ -151,20 +215,46 @@ function buildCity(group) {
     box(group, x - .08, 0, z - .08, x + .08, 5.5, z + .08, trim); box(group, x - .25, 5.4, z - .4, x + .25, 5.55, z + .4, new THREE.MeshBasicMaterial({ color: lit ? '#ffd9a0' : '#3b3d3a' }));
     if (lit) { const l = new THREE.PointLight('#ffcf8a', 14, 16, 1.4); l.position.set(x, 5.2, z); group.add(l); }
   }
-  box(group, -19.4, 0, 14.6, -18.8, .9, 15.2, mat('#3c2a20'));
-  const fire = new THREE.PointLight('#ff8a3c', 5, 9, 1.5); fire.position.set(-19.1, 1.4, 14.9); group.add(fire);
-  const flame = new THREE.Mesh(new THREE.ConeGeometry(.28, .7, 8), new THREE.MeshBasicMaterial({ color: '#ffb35a', transparent: true, opacity: .85 })); flame.position.set(-19.1, 1.2, 14.9); group.add(flame);
+  // Burning barrels along the street; only some cast light, to keep the light count low on phones.
+  const barrelMetal = mat('#3c2a20'), flameGeometry = new THREE.ConeGeometry(.28, .7, 8);
+  const flameMaterial = new THREE.MeshBasicMaterial({ color: '#ffb35a', transparent: true, opacity: .85 });
+  const fires = FIRE_BARRELS.map(([x, z, lit], i) => {
+    box(group, x - .3, 0, z - .3, x + .3, .9, z + .3, barrelMetal);
+    const flame = new THREE.Mesh(flameGeometry, flameMaterial); flame.position.set(x, 1.2, z); group.add(flame);
+    let light = null;
+    if (lit) { light = new THREE.PointLight('#ff8a3c', 5, 9, 1.5); light.position.set(x, 1.4, z); group.add(light); }
+    return { flame, light, phase: i * 2.3 };
+  });
+  // Fog banks at the street ends, beyond the intruder spawns, swaying slowly.
+  const fogCanvas = document.createElement('canvas'); fogCanvas.width = fogCanvas.height = 128;
+  const fogContext = fogCanvas.getContext('2d'), fogGradient = fogContext.createRadialGradient(64, 64, 0, 64, 64, 64);
+  fogGradient.addColorStop(0, 'rgba(255,255,255,.9)'); fogGradient.addColorStop(1, 'rgba(255,255,255,0)');
+  fogContext.fillStyle = fogGradient; fogContext.fillRect(0, 0, 128, 128);
+  const fogMaterial = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(fogCanvas), color: '#55636c', transparent: true, opacity: .35, depthWrite: false, fog: false });
+  const fogPatches = Array.from({ length: 28 }, (_, i) => {
+    const sprite = new THREE.Sprite(fogMaterial), size = 10 + random() * 8;
+    sprite.scale.set(size, size * .45, 1); group.add(sprite);
+    const end = i % 4, across = random();
+    // East and west street ends, the south side street, and the back alley.
+    const [x, z] = end === 0 ? [33 + random() * 8, 1 + across * 15] : end === 1 ? [-33 - random() * 8, 1 + across * 15] : end === 2 ? [-3 + across * 6, 35 + random() * 8] : [6 + across * 5, -20 - random() * 6];
+    return { sprite, x, y: .6 + random() * 1.6, z, phase: random() * 6 };
+  });
   // Back alley: dumpster and a chain-link fence the intruders climb.
   box(group, 7.6, 0, -9, 9.2, 1.3, -7.2, mat('#2f4a3a'));
   for (let x = 7.1; x <= 9.6; x += .5) box(group, x - .03, 0, -12.1, x + .03, 2.2, -12, trim);
   const mesh = new THREE.MeshBasicMaterial({ color: '#6c746f', transparent: true, opacity: .35 }); box(group, 7, .1, -12.07, 9.6, 2.1, -12.03, mesh);
 
   return {
+    setOverview(enabled) { roof.visible = ceiling.visible = upperFacade.visible = !enabled; },
+    panes,
     update(time) {
-      // A failing tube in the store and a flickering barrel fire.
-      fixtures[1].intensity = Math.sin(time * 23) > .7 || Math.sin(time * 3.1) > .95 ? 1.5 : 10;
-      fire.intensity = 4 + Math.sin(time * 17) * .8 + Math.sin(time * 7.3) * .6;
-      flame.scale.y = 1 + Math.sin(time * 13) * .15;
+      // Store lighting stays steady; the barrel fires flicker and the fog drifts east.
+      for (const f of fires) {
+        const t = time + f.phase;
+        if (f.light) f.light.intensity = 4 + Math.sin(t * 17) * .8 + Math.sin(t * 7.3) * .6;
+        f.flame.scale.y = 1 + Math.sin(t * 13) * .15;
+      }
+      for (const p of fogPatches) p.sprite.position.set(p.x + Math.sin(time * .15 + p.phase) * 1.5, p.y, p.z + Math.cos(time * .11 + p.phase) * 1.2);
     },
   };
 }
@@ -183,10 +273,10 @@ function createViewmodel(group) {
     rifle,
     fired() { kick = 1; },
     // Returns the muzzle position in group space (for tracers and flashes).
-    place(camera, visible) {
+    place(camera, visible, dt = 0) {
       rifle.visible = visible;
       if (!visible) return null;
-      kick = Math.max(0, kick - .18);
+      kick = Math.max(0, kick - dt * 10.8);
       offset.set(.2, -.19 + kick * .02, -.42 + kick * .06).applyQuaternion(camera.quaternion);
       rifle.position.copy(camera.position).add(offset);
       rifle.quaternion.copy(camera.quaternion);
@@ -204,20 +294,67 @@ export default {
   summary: 'Soldiers hold a corner store on a city street; armed civilians try to get in. Watch from inside, the street or above, and shoot.',
   noPad: true,
   lighting: 'night',
-  fog: ['#141b21', .028],
+  ambientIntensity: 1.05, keyIntensity: .7,
+  // Clear across the block; the fog closes in just past the intruder spawns so the city seems to go on.
+  fog: ['#141b21', 24, 46],
   models: ['xbot'],
   modes: MODES,
   weapon: true,
+  defaultView: 'Inside store',
   views: [
     { label: 'Overhead', x: 0, z: 15, yaw: Math.PI, pitch: -.95, eye: 21 },
     { label: 'Street', x: -6, z: 15.2, yaw: 2.77, pitch: -.04, eye: 1.7 },
     { label: 'Inside store', x: 0, z: -7.3, yaw: 0, pitch: -.05, eye: 1.7 },
     { label: 'Alley', x: 8.3, z: -10.5, yaw: 0, pitch: -.04, eye: 1.7 },
+    { label: 'Drone', x: 0, z: 34, yaw: Math.PI, pitch: -.85, eye: 36, orbit: { radius: 29, centerZ: 5, targetY: 1, speed: .085 } },
   ],
   create({ group, soldier, character, label }) {
     const random = seeded(99);
     const city = buildCity(group);
     const fx = createEffects(group);
+    // One shared light for muzzle flashes: it stays in the scene (intensity 0) so shaders never recompile.
+    const muzzleLight = new THREE.PointLight('#ffc070', 0, 11, 1.6); group.add(muzzleLight);
+    let muzzleGlow = 0;
+    // Shards from broken panes fall, bounce once and stay on the floor.
+    const shardGeometry = new THREE.BoxGeometry(1, 1, .008);
+    const shardMaterial = new THREE.MeshStandardMaterial({ color: '#b6d4dc', transparent: true, opacity: .45, roughness: .1, metalness: .4, depthWrite: false });
+    const shards = [];
+    function breakPane(pane, dir) {
+      if (!pane.intact) return;
+      pane.intact = false; pane.mesh.visible = false;
+      const [x0, y0, z0, x1, y1, z1] = pane.bounds;
+      for (let i = 0; i < 18; i++) {
+        const m = new THREE.Mesh(shardGeometry, shardMaterial);
+        m.scale.set(.05 + random() * .14, .05 + random() * .16, 1);
+        m.position.set(x0 + random() * (x1 - x0), y0 + random() * (y1 - y0), (z0 + z1) / 2);
+        m.rotation.set(random() * 3, random() * 3, random() * 3); group.add(m);
+        const push = 1 + random() * 2;
+        shards.push({ m, v: new THREE.Vector3(dir.x * push + (random() - .5), random() * 1.2, dir.z * push + (random() - .5)), spin: (random() - .5) * 14, bounced: false, resting: false });
+      }
+      glass(audio, listener, (x0 + x1) / 2, (z0 + z1) / 2);
+    }
+    function updateShards(dt) {
+      for (const s of shards) {
+        if (s.resting) continue;
+        s.v.y -= 9.8 * dt; s.m.position.addScaledVector(s.v, dt);
+        s.m.rotation.x += s.spin * dt; s.m.rotation.y += s.spin * .6 * dt;
+        if (s.m.position.y <= .012) {
+          s.m.position.y = .012;
+          if (!s.bounced && s.v.y < -1.5) { s.bounced = true; s.v.y *= -.25; s.v.x *= .4; s.v.z *= .4; }
+          else { s.resting = true; s.m.rotation.set(-Math.PI / 2, 0, random() * 6); }
+        }
+      }
+    }
+    // Every shot: flash the light, reveal the shooter, and break any intact pane along its path.
+    function shotFired(shooter, from, dir, reach) {
+      muzzleLight.position.copy(from); muzzleGlow = 1;
+      if (shooter) shooter.revealed = 2.5;
+      for (const pane of city.panes) {
+        if (!pane.intact) continue;
+        const t = firstObstruction(from, dir, reach, [pane.bounds]);
+        if (t < reach) { const shotEpoch = epoch; pending.push({ at: clock + t / 170, fire: () => { if (shotEpoch === epoch) breakPane(pane, dir); } }); }
+      }
+    }
     const viewmodel = createViewmodel(group);
 
     // --- Soldiers -----------------------------------------------------------
@@ -250,27 +387,55 @@ export default {
     // --- Armed civilians ------------------------------------------------------
     const JACKETS = ['#3d4c5c', '#5c3d33', '#4c5338', '#3a3a42'];
     const ENTRIES = [
-      { steps: [[31, 6], [16, 5.8], [14.1, 5.8, 'climb'], [6, 6], [1, 2.7], [0, -1.4]] },
-      { steps: [[-31, 12.6], [-16, 12.6], [-14.1, 12.6, 'climb'], [-6, 7], [-1, 2.7], [0, -1.2]] },
-      { steps: [[0, 34], [0, 18.5], [0, 16.6, 'climb'], [0, 6], [.5, 2.7], [.3, -1.6]] },
-      { steps: [[8.3, -22], [8.3, -12.8], [8.3, -11.2, 'climb'], [8.3, -7], [6.1, -7], [4.4, -5]] },
+      { zone: 'east', lane: [0, 1], steps: [[31, 2.6], [19, 2.8], [16, 5.8], [14.1, 5.8, 'climb'], [6, 6], [1, 2.7], [0, -1.4]] },
+      { zone: 'west', lane: [0, 1], steps: [[-31, 12.6], [-16, 12.6], [-14.1, 12.6, 'climb'], [-6, 7], [-1, 2.7], [0, -1.2]] },
+      { zone: 'south', lane: [1, 0], steps: [[0, 34], [0, 18.5], [0, 16.6, 'climb'], [0, 6], [.5, 2.7], [.3, -1.6]] },
     ];
+    // They have the numbers: a pool of 12, spread over the three streets in side-by-side lanes.
+    const POOL = 12, LANES = [0, .8, -.8, .4];
     const pistolGeometry = new THREE.BoxGeometry(.04, .11, .2);
-    const intruders = ENTRIES.map((entry, i) => {
-      const c = character('xbot', { tint(m, name) { m.color.set(/Joints/i.test(m.name) ? '#1d1d1f' : JACKETS[i]); m.roughness = .9; m.metalness = 0; } });
+    const intruders = Array.from({ length: POOL }, (_, i) => {
+      const entry = ENTRIES[i % ENTRIES.length], lane = LANES[Math.floor(i / ENTRIES.length) % LANES.length];
+      // Each lane offsets the route sideways; the door step only slightly, so they still fit through.
+      const steps = entry.steps.map(([x, z, kind], n) => { const k = n === entry.steps.length - 2 ? lane * .4 : lane; return [x + entry.lane[0] * k, z + entry.lane[1] * k, kind]; });
+      const c = character('xbot', { tint(m, name) { m.color.set(/Joints/i.test(m.name) ? '#1d1d1f' : JACKETS[i % JACKETS.length]); m.roughness = .9; m.metalness = 0; } });
       c.model.rotation.order = 'YXZ'; c.model.visible = false; group.add(c.model);
       const pistol = new THREE.Mesh(pistolGeometry, dark); pistol.visible = false; group.add(pistol);
-      return { c, entry, pistol, state: 'wait', x: 0, z: 0, y: 0, yaw: 0, hp: 3, step: 0, speed: 0, timer: 0, aim: 0, foe: null, cooldown: 0, spotted: false, fall: 0, climbFrom: null };
+      return { c, entry, steps, climbAt: steps.findIndex(p => p[2] === 'climb'), pistol, state: 'wait', x: 0, z: 0, y: 0, yaw: 0, hp: 3, step: 0, speed: 0, timer: 0, aim: 0, foe: null, cooldown: 0, spotted: false, fall: 0, climbFrom: null };
     });
-    let wave = 0, waveTimer = 0;
-    const tally = { down: 0, escaped: 0, breached: 0 };
+    let wave = 0, waveTimer = 0, startupRemaining = 5;
+    const tally = { down: 0, escaped: 0, breached: 0, soldiersHit: 0 };
     const alive = i => i.state !== 'wait' && i.state !== 'down' && i.state !== 'escaped';
+    // Intruders still waiting off-screen at their start point can't be targeted yet.
+    const exposed = i => alive(i) && i.c.model.visible;
+    // Where intruders crouch on the way in: behind wrecks outside the cordon, then the parked cars inside it.
+    // Zones keep them from cutting across the cordon: 'in' spots are only used after climbing in.
+    const INTRUDER_COVER = [
+      ...[[28.2, 5.4], [26.6, 9.4], [25, 13.3]].map(p => [...p, 'east']),
+      ...[[-26.6, 9.8], [-22.1, 14.3], [-24.3, 4.6]].map(p => [...p, 'west']),
+      ...[[2.15, 23.8], [-2.3, 21.5], [-1.3, 18.4], [1.3, 18.4]].map(p => [...p, 'south']),
+      [-7, 7.25, 'in'], [-8.4, 7.25, 'in'], [5.5, 12.4, 'in'], [7.1, 12.4, 'in'],
+    ].map(([x, z, zone]) => ({ x, z, zone, by: null }));
+    const zoneOf = it => it.step > it.climbAt ? 'in' : it.entry.zone;
+    const doorDistance = p => Math.hypot(p.x - DOOR_OUT[0], p.z - DOOR_OUT[1]);
+    // You, as something the intruders can shoot at while you're on foot.
+    const player = { isPlayer: true, x: 0, z: 0, active: false, underFire: 0, hits: 0, revealed: 0 };
+    let hurtTimer = 0;
+    function hurtPlayer() {
+      player.hits++;
+      document.body.classList.add('hurt'); clearTimeout(hurtTimer);
+      hurtTimer = setTimeout(() => document.body.classList.remove('hurt'), 260);
+    }
+    let epoch = 0;
     function startWave() {
-      wave++;
+      epoch++; wave++;
+      assignWaveCover();
+      const count = Math.min(POOL, 4 + wave * 2);
       intruders.forEach((it, n) => {
-        const [x, z] = it.entry.steps[0];
-        Object.assign(it, { state: 'sneak', x, z, y: 0, hp: 3, step: 1, speed: 0, timer: 1.5 * n + random() * 2, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5 });
-        it.c.model.visible = true; it.c.model.rotation.x = 0;
+        if (n >= count) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; return; }
+        const [x, z] = it.steps[0];
+        Object.assign(it, { state: 'sneak', x, z, y: 0, hp: 3, step: 1, speed: 0, timer: 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5, suppressed: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
+        it.c.model.visible = false; it.c.model.rotation.x = 0;
       });
     }
     function hideIntruders() { for (const it of intruders) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; } }
@@ -278,10 +443,12 @@ export default {
       if (!alive(it)) return;
       it.hp -= damage; it.spotted = true;
       if (it.hp <= 0) { it.state = 'down'; it.fall = 0; it.pistol.visible = false; tally.down++; }
-      else if (it.hp === 1 && it.state !== 'hold') { it.state = 'flee'; it.step = Math.max(1, it.step - 1); }
+      // Hit while peeking: duck back behind cover.
+      else if (it.state === 'peek') { it.state = 'cover'; it.timer = .8 + random() * .8; }
+      // Wounded intruders stay in combat so every wave can be fully cleared.
     }
 
-    const readout = label('', { width: 4.4, lines: 2 }); readout.position.set(0, 9.3, 0); group.add(readout);
+    const readout = label('', { width: 4.4, lines: 2 }); readout.visible = false; readout.position.set(0, 9.3, 0); group.add(readout);
     let mode = 'Patrol', hostileTimer = 1, rounds = 0, incoming = 0, playerShots = 0, clock = 0;
     let audio = null, listener = { x: 0, z: 0, yaw: 0 };
     const pending = [];
@@ -298,13 +465,28 @@ export default {
     const travel = (g, to, state, after) => { g.path = walkPath([g.x, g.z], to); g.state = state; g.after = after; };
     const backToRoute = g => { const p = g.r.path.at(g.dist); g.spot = null; g.foe = null; travel(g, [p.x, p.z], 'return', () => { g.state = 'route'; g.wait = 0; }); };
 
+    function assignWaveCover() {
+      // Cover faces the three street approaches; each soldier owns one position.
+      const free = [
+        ...[-14.25,14.25].flatMap(x=>[5.2,7.6,12.6].map(z=>({x,z,h:1.05}))),
+        ...[-4.5,-3.4,3.4,4.5].map(x=>({x,z:.6,h:1.25,window:true})),
+        {x:2.95,z:3.1,h:.9},{x:-7,z:4,h:1.5},
+      ];
+      for(const g of guards){
+        free.sort((a,b)=>(Math.hypot(a.x-g.x,a.z-g.z)+(inStore(g.x,g.z)!==!!a.window?12:0))-(Math.hypot(b.x-g.x,b.z-g.z)+(inStore(g.x,g.z)!==!!b.window?12:0)));
+        const spot=free.shift();g.spot=spot;g.foe=null;g.shots=0;
+        travel(g,[spot.x,spot.z],'sprint',()=>{g.state='engage';g.timer=.6;});
+      }
+    }
     function setMode(next) {
+      if (!MODES.includes(next)) return;
+      epoch++; waveTimer = 0; hostileTimer = 1; startupRemaining = 0;
       mode = next;
       pending.length = 0;
       if (mode !== 'Intruders') hideIntruders();
       if (mode === 'Patrol' || mode === 'Alert' || mode === 'Intruders') {
         for (const g of guards) if (g.state !== 'route') backToRoute(g);
-        if (mode === 'Intruders') { wave = 0; tally.down = tally.escaped = tally.breached = 0; startWave(); }
+        if (mode === 'Intruders') { wave = 0; tally.down = tally.escaped = tally.breached = tally.soldiersHit = 0; player.hits = 0; startWave(); }
         return;
       }
       // Take cover / Firefight: hostiles at the east end of the street. Nearest free cover wins.
@@ -344,10 +526,19 @@ export default {
     }
 
     // A soldier fires one round at a world point; `hit` decides if it connects.
+    function clearSight(a, b) {
+      const dir = new THREE.Vector3().subVectors(b,a), length = dir.length();
+      return length < .01 || firstObstruction(a,dir.normalize(),length) >= length - .1;
+    }
+    // A crouched intruder's head drops below barriers and car bodies.
+    const sightTo = (g,it) => clearSight(new THREE.Vector3(g.x,1.5,g.z),new THREE.Vector3(it.x,1.55+it.y-(it.crouch||0),it.z));
     function guardShot(g, target, onHit) {
       const muzzle = g.rifle.position.clone().addScaledVector(w.set(0, 0, 1).applyQuaternion(g.rifle.quaternion), .45);
+      const dir = target.clone().sub(muzzle), distance = dir.length(), obstruction = firstObstruction(muzzle,dir.normalize(),distance);
+      const end = muzzle.clone().addScaledVector(dir,obstruction), shotEpoch = epoch;
       fx.flash(muzzle, .55);
-      fx.tracer(muzzle, target, onHit);
+      shotFired(g, muzzle, dir, obstruction);
+      fx.tracer(muzzle, end, () => { if (shotEpoch !== epoch) return; if(obstruction >= distance-.1) onHit?.(); else fx.puff(end); });
       gunshot(audio, listener, g.x, g.z);
       rounds++;
     }
@@ -357,12 +548,6 @@ export default {
       let faceYaw = g.yaw, wantCrouch = 0, wantAim = 0;
       g.underFire = Math.max(0, g.underFire - dt);
       const indoor = inStore(g.x, g.z);
-      // Intruders: notice armed civilians nearby on the same side of the store walls.
-      if (mode === 'Intruders' && (g.state === 'route' || g.state === 'return')) {
-        let best = null, bestDistance = 15;
-        for (const it of intruders) if (alive(it) && inStore(it.x, it.z) === indoor) { const d = Math.hypot(it.x - g.x, it.z - g.z); if (d < bestDistance) { best = it; bestDistance = d; } }
-        if (best && guards.filter(o => o.state === 'engage').length < 7) { g.state = 'engage'; g.foe = best; g.timer = .8 + random() * .6; best.spotted = true; }
-      }
       if (g.state === 'route') {
         const alert = mode === 'Alert' || mode === 'Intruders';
         let targetSpeed = mode === 'Alert' ? 2.6 : r.speed;
@@ -378,6 +563,7 @@ export default {
         faceYaw = g.wait > 0 ? facing(p.dx * r.dir, p.dz * r.dir) + Math.PI / 2 * Math.sign(g.scanYaw || 1) + g.scanYaw * Math.sin(g.wait * 1.3) : facing(p.dx * r.dir, p.dz * r.dir);
         wantAim = mode === 'Intruders' ? .35 : 0;
       } else if (g.state === 'sprint' || g.state === 'return') {
+        if (!g.path.length) { backToRoute(g); }
         const [tx, tz] = g.path[0], dx = tx - g.x, dz = tz - g.z, distance = Math.hypot(dx, dz);
         const top = g.state === 'sprint' ? 4.2 : 1.6;
         g.speed = damp(g.speed, g.path.length === 1 ? Math.min(top, distance * 2.5 + .3) : top, 4, dt);
@@ -386,17 +572,19 @@ export default {
         if (distance < .08) { g.path.shift(); if (!g.path.length) { g.speed = 0; g.after?.(); } }
       } else if (g.state === 'engage') {
         g.speed = damp(g.speed, 0, 6, dt);
-        if (!g.foe || !alive(g.foe)) {
+        wantCrouch = .55;
+        if (!g.foe || !exposed(g.foe) || !sightTo(g,g.foe)) {
           // Next armed civilian in range, otherwise back to the route.
           let next = null, nd = 18;
-          for (const it of intruders) if (alive(it)) { const d = Math.hypot(it.x - g.x, it.z - g.z); if (d < nd) { next = it; nd = d; } }
-          if (next) g.foe = next; else { backToRoute(g); }
+          for (const it of intruders) if (exposed(it) && sightTo(g,it)) { const d = Math.hypot(it.x - g.x, it.z - g.z); if (d < nd) { next = it; nd = d; } }
+          if (next) {g.foe = next;next.spotted=true;} else {g.foe=null;}
         }
         if (g.foe) {
           const f = g.foe;
           faceYaw = facing(f.x - g.x, f.z - g.z);
           g.target.set(f.x, 1.2 + f.y, f.z);
-          wantAim = 1; wantCrouch = g.underFire > 0 ? .45 : 0;
+          // Fire in bursts, ducking below the sill (or barrier) between them.
+          wantAim = 1; wantCrouch = g.underFire > 0 || (g.shots <= 0 && g.timer > .35) ? .55 : .12;
           g.timer -= dt;
           if (g.timer <= 0 && g.aim > .9) {
             if (g.shots <= 0) g.shots = 2 + Math.floor(random() * 2);
@@ -404,7 +592,7 @@ export default {
             g.timer = g.shots > 0 ? .14 : .6 + random() * .8;
             const hit = random() < .3;
             const target = hit ? g.target.clone() : g.target.clone().add(v.set((random() - .5) * 1.6, (random() - .5) * .8 - .4, (random() - .5) * 1.6));
-            guardShot(g, target, () => { if (hit) { hitIntruder(f, 1); fx.puff(target, '#7a2a24'); } else { fx.puff(target); impact(audio, listener, target.x, target.z); } });
+            guardShot(g, target, () => { if (hit) { hitIntruder(f, 1); fx.puff(target); } else { fx.puff(target); impact(audio, listener, target.x, target.z); if (Math.hypot(target.x - f.x, target.z - f.z) < 2.5) f.suppressed = 1.5; } });
           }
         }
       } else {
@@ -450,8 +638,8 @@ export default {
     function updateIntruder(it, dt) {
       const { c } = it;
       if (it.state === 'wait' || it.state === 'escaped') return;
-      let faceYaw = it.yaw, wantAim = 0;
-      const steps = it.entry.steps;
+      let faceYaw = it.yaw, wantAim = 0, wantCrouch = 0;
+      const steps = it.steps;
       if (it.state === 'down') {
         // Fall backwards over half a second, then lie still.
         it.fall = Math.min(1, it.fall + dt * 2.2);
@@ -460,6 +648,7 @@ export default {
         if (it.fall < 1) { c.setSpeed(0); c.mixer.update(dt); }
         return;
       }
+      it.suppressed = Math.max(0, (it.suppressed || 0) - dt);
       if (it.timer > 0 && it.state === 'sneak' && it.step === 1 && it.speed === 0) { it.timer -= dt; c.model.visible = it.timer < 1; }
       else if (it.state === 'sneak' || it.state === 'flee') {
         const fleeing = it.state === 'flee';
@@ -475,11 +664,50 @@ export default {
             if (fleeing) { it.step--; if (it.step <= 0) { it.state = 'escaped'; c.model.visible = false; it.pistol.visible = false; tally.escaped++; } }
             else if (++it.step >= steps.length) { it.state = 'hold'; it.speed = 0; it.shotTimer = .5; if (!it.breached) { it.breached = true; tally.breached++; } }
           }
-          // Spotted and a soldier is close: stop and shoot for a moment.
+          // A soldier (or you) in sight: dive into nearby cover if there is any, else stop and shoot.
           it.cooldown -= dt;
-          if (!fleeing && it.spotted && it.cooldown <= 0) {
-            const g = nearestGuard(it, 12);
-            if (g) { it.state = 'shoot'; it.foe = g; it.timer = 1 + random(); it.shotTimer = .3; }
+          // Rounds landing close (suppressed) send them to cover straight away. Near the door they just rush it.
+          if (!fleeing && it.state === 'sneak' && (it.cooldown <= 0 || it.suppressed > 0) && it.step < steps.length - 2) {
+            const target = nearestTarget(it, 18);
+            if (!target) it.cooldown = .3;
+            else {
+              it.foe = target;
+              const spot = freeCover(it, it.suppressed > 0 ? 9 : 7);
+              if (spot) { spot.by = it; it.cover = spot; it.state = 'tocover'; }
+              else { it.state = 'shoot'; it.timer = 1 + random(); it.shotTimer = .3; }
+            }
+          }
+        }
+      } else if (it.state === 'tocover') {
+        const dx = it.cover.x - it.x, dz = it.cover.z - it.z, distance = Math.hypot(dx, dz);
+        it.speed = damp(it.speed, Math.min(3.6, distance * 3 + .4), 5, dt);
+        const step = Math.min(distance, it.speed * dt);
+        if (distance > 1e-3) { it.x += dx / distance * step; it.z += dz / distance * step; faceYaw = facing(dx, dz); }
+        if (distance < .1) { it.state = 'cover'; it.timer = .8 + random(); it.peeks = 2 + Math.floor(random() * 2); }
+      } else if (it.state === 'cover' || it.state === 'peek') {
+        // Crouch behind cover, rise to fire a few rounds, duck again; after a few peeks move on.
+        it.speed = damp(it.speed, 0, 8, dt);
+        if (it.foe) faceYaw = facing(it.foe.x - it.x, it.foe.z - it.z);
+        it.timer -= dt;
+        if (it.state === 'cover') {
+          wantCrouch = .55;
+          if (it.timer <= 0) { it.foe = nearestTarget(it, 18) || it.foe; it.state = 'peek'; it.timer = 1.3 + random() * .9; it.shotTimer = .35 + random() * .3; }
+        } else {
+          wantCrouch = .08; wantAim = 1;
+          if (it.foe && !sightTo(it.foe, it)) it.foe = nearestTarget(it, 18);
+          it.shotTimer -= dt;
+          if (it.foe && it.shotTimer <= 0 && it.aim > .85) { it.shotTimer = .45 + random() * .55; intruderShot(it); }
+          // Rounds snapping past: get down early.
+          if (it.suppressed > 1.2 && it.timer > .4) { it.state = 'cover'; it.timer = .7 + random() * .8; }
+          if (it.timer <= 0) {
+            if (--it.peeks > 0 && it.foe) { it.state = 'cover'; it.timer = .9 + random() * 1.3; }
+            else {
+              // Bound forward to the next free cover closer to the store, or break out and push on.
+              const from = it.cover; from.by = null; it.cover = null;
+              const next = freeCover(it, 10, doorDistance(from) - 2);
+              if (next) { next.by = it; it.cover = next; it.state = 'tocover'; }
+              else { it.state = 'sneak'; it.timer = 0; it.spotted = true; it.cooldown = 4 + random() * 3; }
+            }
           }
         }
       } else if (it.state === 'climb') {
@@ -492,20 +720,11 @@ export default {
         if (t >= 1) { it.y = 0; it.step++; it.state = 'sneak'; }
       } else if (it.state === 'shoot' || it.state === 'hold') {
         it.speed = damp(it.speed, 0, 6, dt);
-        if (!it.foe || it.state === 'hold') it.foe = nearestGuard(it, 16) || it.foe;
+        if (!it.foe || it.state === 'hold' || !sightTo(it.foe,it)) it.foe = nearestTarget(it, 16);
         if (it.foe) {
           faceYaw = facing(it.foe.x - it.x, it.foe.z - it.z); wantAim = 1;
           it.shotTimer -= dt;
-          if (it.shotTimer <= 0 && it.aim > .85) {
-            it.shotTimer = .45 + random() * .5;
-            const muzzle = it.pistol.position.clone().addScaledVector(w.set(0, 0, 1).applyQuaternion(it.pistol.quaternion), .14);
-            const target = new THREE.Vector3(it.foe.x + (random() - .5) * 1.4, .4 + random() * 1.2, it.foe.z + (random() - .5) * 1.4);
-            fx.flash(muzzle, .35);
-            fx.tracer(muzzle, target, () => { fx.puff(target); impact(audio, listener, target.x, target.z); });
-            gunshot(audio, listener, it.x, it.z, { pistol: true });
-            it.foe.underFire = 2;
-            incoming++;
-          }
+          if (it.shotTimer <= 0 && it.aim > .85) { it.shotTimer = .45 + random() * .5; intruderShot(it); }
         }
         if (it.state === 'shoot') { it.timer -= dt; if (it.timer <= 0) { it.state = 'sneak'; it.cooldown = 2 + random() * 2.5; } }
       }
@@ -515,6 +734,8 @@ export default {
       c.model.rotation.y = it.yaw;
       c.setSpeed(it.state === 'climb' ? .6 : it.speed);
       c.mixer.update(dt);
+      it.crouch = damp(it.crouch || 0, wantCrouch, 7, dt);
+      crouch(c.model, it.crouch);
       const pose = it.aim > .02 && it.foe ? aimPistol(c.model, group.localToWorld(v.set(it.foe.x, 1.3, it.foe.z)), it.aim) : null;
       it.pistol.visible = !!pose && it.aim > .3;
       if (pose) {
@@ -523,31 +744,142 @@ export default {
         it.pistol.lookAt(group.localToWorld(w.copy(pose.hand).addScaledVector(pose.dir, 3)));
       }
     }
+    // Nearest soldier in sight, or you if you're on foot, in sight and closer.
+    function nearestTarget(it, range) {
+      const guard = nearestGuard(it, range);
+      if (!player.active) return guard;
+      const d = Math.hypot(player.x - it.x, player.z - it.z);
+      const closer = d < (guard ? Math.hypot(guard.x - it.x, guard.z - it.z) : player.revealed > 0 ? Math.max(range, 32) : range);
+      return closer && clearSight(new THREE.Vector3(it.x, 1.5 + it.y, it.z), new THREE.Vector3(player.x, 1.5, player.z)) ? player : guard;
+    }
+    // Nearest free cover on the intruder's side of the cordon; `closerThan` keeps only spots nearer the store door.
+    function freeCover(it, range, closerThan = Infinity) {
+      let best = null, bestDistance = range;
+      const zone = zoneOf(it);
+      for (const s of INTRUDER_COVER) {
+        if (s.zone !== zone || doorDistance(s) >= closerThan) continue;
+        if (s.by && s.by.cover === s && alive(s.by)) continue;
+        const d = Math.hypot(s.x - it.x, s.z - it.z);
+        if (d < bestDistance) { best = s; bestDistance = d; }
+      }
+      return best;
+    }
+    // One pistol round. Intruders are poor shots: wide misses, and only a few rounds connect.
+    function intruderShot(it) {
+      const f = it.foe;
+      const muzzle = it.pistol.position.clone().addScaledVector(w.set(0, 0, 1).applyQuaternion(it.pistol.quaternion), .14);
+      const range = Math.hypot(f.x - it.x, f.z - it.z), spread = 1.2 + range * .15;
+      const hit = random() < (f.isPlayer ? .1 : .14) * Math.min(1, 8 / range);
+      const aim = hit ? new THREE.Vector3(f.x, f.isPlayer ? 1.3 : 1.1, f.z)
+        : new THREE.Vector3(f.x + (random() - .5) * spread, .2 + random() * 2.2, f.z + (random() - .5) * spread);
+      // A miss keeps flying past the target until it meets a wall, cover or the ground.
+      const dir = aim.sub(muzzle), toTarget = dir.length(); dir.normalize();
+      let reach = hit ? toTarget : 40;
+      if (!hit && dir.y < -1e-3) reach = Math.min(reach, -muzzle.y / dir.y);
+      const blocked = firstObstruction(muzzle, dir, reach), end = muzzle.clone().addScaledVector(dir, blocked);
+      const connects = hit && blocked >= toTarget - .1, shotEpoch = epoch;
+      fx.flash(muzzle, .35);
+      shotFired(null, muzzle, dir, blocked);
+      fx.tracer(muzzle, end, () => {
+        if (shotEpoch !== epoch) return;
+        if (connects && f.isPlayer) hurtPlayer();
+        else { fx.puff(end); impact(audio, listener, end.x, end.z); }
+        if (connects && !f.isPlayer) tally.soldiersHit++;
+      });
+      gunshot(audio, listener, it.x, it.z, { pistol: true });
+      f.underFire = 2;
+      incoming++;
+    }
+    // --- VIP ---------------------------------------------------------------------
+    // Unarmed, inside the store. Paces the centre aisle; at the first sign of shooting runs to the
+    // storeroom and crouches behind the crates until it has been quiet for a few seconds.
+    const VIP_PACE = [[0, -2.6], [0, -6.3]], VIP_SHELTER = [[0, -6.9], [0, -8.5], [-3.9, -8.9]];
+    const vip = (() => {
+      const c = character('xbot', { tint(m) { m.color.set(/Joints/i.test(m.name) ? '#b9b1a3' : '#262a33'); m.roughness = .7; m.metalness = 0; } });
+      group.add(c.model);
+      return { c, x: 0, z: -2.6, yaw: 0, speed: 0, crouch: 0, state: 'pace', path: [], end: 1, wait: 1.5, calm: 0, hits: 0 };
+    })();
+    function updateVip(dt) {
+      const v = vip, threat = mode === 'Take cover' || mode === 'Firefight' || intruders.some(exposed);
+      let top = 0, wantCrouch = 0, faceYaw = v.yaw;
+      if (threat && v.state !== 'shelter' && v.state !== 'to-shelter') {
+        v.state = 'to-shelter'; v.path = v.z > -7.3 ? VIP_SHELTER.map(p => [...p]) : [VIP_SHELTER[2]];
+      }
+      if (v.state === 'shelter') {
+        wantCrouch = .6; faceYaw = 0;
+        v.calm = threat ? 0 : v.calm + dt;
+        if (v.calm > 3) { v.state = 'return'; v.path = [[0, -8.5], [0, -6.9], [...VIP_PACE[0]]]; }
+      } else if (v.state === 'pace' && !v.path.length) {
+        // Pause at each end of the aisle, glancing side to side, then walk to the other end.
+        v.wait -= dt; faceYaw = v.yaw + Math.sin(v.wait * 2) * .02;
+        if (v.wait <= 0) { v.end = 1 - v.end; v.path = [[...VIP_PACE[v.end]]]; }
+      }
+      if (v.path.length) {
+        top = v.state === 'to-shelter' ? 3.8 : .9;
+        const [tx, tz] = v.path[0], dx = tx - v.x, dz = tz - v.z, distance = Math.hypot(dx, dz);
+        v.speed = damp(v.speed, Math.min(top, distance * 3 + .3), 5, dt);
+        const step = Math.min(distance, v.speed * dt);
+        if (distance > 1e-3) { v.x += dx / distance * step; v.z += dz / distance * step; faceYaw = facing(dx, dz); }
+        if (distance < .06) {
+          v.path.shift();
+          if (!v.path.length) {
+            v.speed = 0;
+            if (v.state === 'to-shelter') { v.state = 'shelter'; v.calm = 0; }
+            else { v.state = 'pace'; v.wait = 2 + random() * 2; }
+          }
+        }
+      } else v.speed = damp(v.speed, 0, 8, dt);
+      v.yaw += angleDelta(v.yaw, faceYaw) * (1 - Math.exp(-dt * 6));
+      v.crouch = damp(v.crouch, wantCrouch, 6, dt);
+      v.c.model.position.set(v.x, 0, v.z); v.c.model.rotation.y = v.yaw;
+      v.c.setSpeed(v.speed); v.c.mixer.update(dt);
+      crouch(v.c.model, v.crouch);
+    }
+    // Keep bodies from overlapping: push apart from each other and step off soldiers, never into walls.
+    function separateIntruders() {
+      const live = intruders.filter(i => exposed(i) && i.state !== 'climb');
+      for (const a of live) {
+        for (const b of [...live, ...guards]) {
+          if (a === b) continue;
+          const dx = a.x - b.x, dz = a.z - b.z, d = Math.hypot(dx, dz), min = .7;
+          if (d >= min) continue;
+          // Exactly overlapping: pick a sideways direction.
+          const nx = d > 1e-4 ? dx / d : 1, nz = d > 1e-4 ? dz / d : 0, push = (min - d) * (guards.includes(b) ? 1 : .5);
+          moveThroughCity(a, nx * push, nz * push);
+        }
+      }
+    }
     function nearestGuard(it, range) {
       let best = null, bestDistance = range;
-      for (const g of guards) { const d = Math.hypot(g.x - it.x, g.z - it.z); if (d < bestDistance && inStore(g.x, g.z) === inStore(it.x, it.z)) { best = g; bestDistance = d; } }
+      for (const g of guards) { const d = Math.hypot(g.x - it.x, g.z - it.z); if (d < (g.revealed > 0 ? Math.max(bestDistance, 32) : bestDistance) && sightTo(g,it)) { best = g; bestDistance = d; } }
       return best;
     }
 
     // --- Player weapon ----------------------------------------------------------
     let muzzle = null, firstPerson = false;
     function fire({ origin, dir }) {
-      const o = group.worldToLocal(origin.clone()), d = dir.clone().normalize();
+      if (origin.y >= 4) return null;
+      const o = group.worldToLocal(origin.clone()), d = dir.clone().transformDirection(new THREE.Matrix4().copy(group.matrixWorld).invert());
       // Nearest hit among intruder heads (one-shot) and torsos, else the ground or far away.
-      let best = Infinity, victim = null, damage = 0;
-      for (const it of intruders) if (alive(it)) for (const [y, radius, dmg] of [[1.62 + it.y, .14, 3], [1.15 + it.y, .32, 2]]) {
-        v.set(it.x, y, it.z).sub(o);
-        const along = v.dot(d); if (along < 0) continue;
-        const miss = v.lengthSq() - along * along;
-        if (miss < radius * radius && along < best) { best = along; victim = it; damage = dmg; }
+      let best = firstObstruction(o,d,60), victim = null, damage = 0;
+      if(d.y < -1e-3)best=Math.min(best,Math.max(0,-o.y/d.y));
+      for (const it of intruders) if (alive(it)) for (const [y, radius, dmg] of [[1.62 + it.y - it.crouch, .14, 3], [1.15 + it.y - it.crouch, .32, 2]]) {
+        const distance = sphereEntry(o,d,{x:it.x,y,z:it.z},radius);
+        if(distance < best){best=distance;victim=it;damage=dmg;}
       }
-      let end;
-      if (victim) end = o.clone().addScaledVector(d, best);
-      else { const t = d.y < -1e-3 ? -o.y / d.y : 60; end = o.clone().addScaledVector(d, Math.min(t, 60)); }
+      let vipHit = false;
+      for (const [y, radius] of [[1.62 - vip.crouch, .14], [1.15 - vip.crouch, .32]]) {
+        const distance = sphereEntry(o,d,{x:vip.x,y,z:vip.z},radius);
+        if (distance < best) { best = distance; victim = null; vipHit = true; }
+      }
+      const end = o.clone().addScaledVector(d,best), shotEpoch = epoch;
       const from = muzzle ? muzzle.clone() : o.clone();
       fx.flash(from, .45);
+      shotFired(player, o, d, best);
       fx.tracer(from, end, () => {
-        if (victim) { hitIntruder(victim, damage); fx.puff(end, '#7a2a24'); }
+        if (shotEpoch !== epoch) return;
+        if (vipHit) { vip.hits++; fx.puff(end); }
+        else if (victim) { hitIntruder(victim, damage); fx.puff(end); }
         else { fx.puff(end); impact(audio, listener, end.x, end.z); }
       });
       gunshot(audio, listener, listener.x, listener.z);
@@ -559,22 +891,36 @@ export default {
     return {
       setMode,
       fire,
-      beforeRender(camera) {
+      move: moveThroughCity,
+      getStatus() {
+        const active = intruders.filter(alive).length;
+        return { mode, title: mode === "Intruders" ? "Defend the market" : "City operation", detail: startupRemaining > 0 ? `Intruders incoming in ${Math.ceil(startupRemaining)}s. Prepare to defend the store.` : mode === "Intruders" ? `Wave ${wave} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
+      },
+      beforeRender(camera, dt) {
         // Show the rifle only in first-person (low) views.
         firstPerson = camera.position.y < 4;
-        muzzle = viewmodel.place(camera, firstPerson);
+        city.setOverview(!firstPerson);
+        muzzle = viewmodel.place(camera, firstPerson, dt);
       },
       update(dt, env = {}) {
         audio = env.audio || null;
         if (env.listener) listener = env.listener;
+        player.x = listener.x; player.z = listener.z; player.active = firstPerson && !!env.listener;
         if (dt <= 0) return;
         clock += dt;
+        if (startupRemaining > 0) { startupRemaining = Math.max(0,startupRemaining-dt); if (startupRemaining === 0) setMode('Intruders'); }
         city.update(clock);
+        muzzleGlow = Math.max(0, muzzleGlow - dt * 16); muzzleLight.intensity = muzzleGlow * 14;
+        player.revealed = Math.max(0, player.revealed - dt);
+        for (const g of guards) g.revealed = Math.max(0, (g.revealed || 0) - dt);
+        updateShards(dt);
+        updateVip(dt);
         for (let i = pending.length - 1; i >= 0; i--) if (pending[i].at <= clock) { pending[i].fire(); pending.splice(i, 1); }
         for (const g of guards) updateGuard(g, dt);
         for (const it of intruders) updateIntruder(it, dt);
+        separateIntruders();
         hostileFire(dt);
-        if (mode === 'Intruders' && !intruders.some(alive)) { waveTimer += dt; if (waveTimer > 6) { waveTimer = 0; startWave(); } } else waveTimer = 0;
+        if (mode === 'Intruders' && wave > 0 && startupRemaining === 0 && !intruders.some(alive)) { if(waveTimer===0)for(const g of guards)backToRoute(g); waveTimer += dt; if (waveTimer > 6) { waveTimer = 0; startWave(); } } else waveTimer = 0;
         fx.update(dt);
         const counts = guards.reduce((c, g) => (c[g.state] = (c[g.state] || 0) + 1, c), {});
         const line = mode === 'Intruders'
@@ -584,6 +930,7 @@ export default {
             : `${counts.sprint || 0} moving · ${counts.cover || 0} in cover · ${counts.peek || 0} firing`;
         readout.userData.set(`${mode.toUpperCase()}${audio ? '' : ' · tap Sound for audio'}\n${line} · you fired ${playerShots}`);
       },
+      dispose() { clearTimeout(hurtTimer); document.body.classList.remove('hurt'); },
       interaction: () => { const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; return { label: 'Mode → ' + next, action() { setMode(next); } }; },
     };
   },

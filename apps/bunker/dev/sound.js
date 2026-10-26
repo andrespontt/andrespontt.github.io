@@ -70,3 +70,14 @@ export function impact(audio, listener, x, z) {
   burst(audio, panner, t, { frequency: 2400, q: 2, gain: .5 * loudness, decay: .05 });
   burst(audio, panner, t, { filter: 'lowpass', frequency: 500, gain: .35 * loudness, decay: .12 });
 }
+
+// A pane shattering: a bright crack, then scattered tinkles as shards land.
+export function glass(audio, listener, x, z) {
+  if (!audio) return;
+  const { panner, delay, loudness } = place(audio, listener, x, z);
+  const t = audio.context.currentTime + delay;
+  burst(audio, panner, t, { filter: 'highpass', frequency: 3000, gain: .9 * loudness, decay: .08 });
+  for (let i = 0; i < 9; i++) {
+    burst(audio, panner, t + .05 + Math.random() * .5, { frequency: 4500 + Math.random() * 3500, q: 6, gain: (.15 + Math.random() * .2) * loudness, attack: .001, decay: .03 + Math.random() * .05 });
+  }
+}

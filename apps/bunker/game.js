@@ -12,7 +12,7 @@ const names={outside:'Snowfield / Outpost 07',vehicle:'Nomad / Crew compartment'
 let overview=true,paused=false,transitioning=false,terminalOpen=false,weather='blizzard',yaw=0,pitch=0,distance=38,drag=null,fallbackLook=false,last=performance.now(),diagnosticTime=0;
 const walker={x:0,z:0},keys=new Set(),fine=matchMedia('(pointer:fine)');
 let touchMoveX=0,touchMoveY=0,stickPointer=null;
-let currentInteraction=null;
+let currentInteraction=null,controlsOpen=false;
 // First-person weapon (areas that provide fire()): held trigger fires at ~9 rounds/s.
 let triggerHeld=false,fireCooldown=0;
 const devParam=new URLSearchParams(location.search).get('dev');
@@ -50,7 +50,7 @@ function syncCursor(){
 function clearStick(){touchMoveX=0;touchMoveY=0;stickPointer=null;$('movement-knob').style.transform='';}
 function releaseLook(){triggerHeld=false;fallbackLook=false;keys.clear();clearStick();if(document.pointerLockElement===canvas)document.exitPointerLock();syncCursor();}
 async function lockLook(){
- if(overview||paused||transitioning||terminalOpen||!fine.matches)return;
+ if(overview||paused||transitioning||terminalOpen||devMenuOpen||controlsOpen||!fine.matches)return;
  if(typeof canvas.requestPointerLock!=='function'){fallbackLook=true;syncCursor();return;}
  try{await canvas.requestPointerLock();}catch{fallbackLook=true;syncCursor();}
 }
@@ -68,7 +68,7 @@ function updateUI(){
  $('enter-vehicle').hidden=!overview;$('enter-bunker').hidden=!overview;
  $('walk-outside').hidden=!overview;$('leave-area').hidden=outside;
  $('overview').hidden=!outside||overview;
- const armed=!overview&&!!manager.current?.fire;$('fire').hidden=!armed;document.body.classList.toggle('has-weapon',armed);
+ const armed=!overview&&!!manager.current?.fire&&(manager.current.canFire?.()??true);$('fire').hidden=!armed;document.body.classList.toggle('has-weapon',armed);
  $('use-terminal').hidden=manager.id!=='bunker';$('weather-cycle').hidden=overview;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
  $('weather-panel').hidden=!overview;$('scene-caption').hidden=!overview;
  $('pause').textContent=paused?'Resume':'Pause';$('pause').setAttribute('aria-pressed',String(paused));
@@ -93,7 +93,7 @@ $('walk-outside').onclick=()=>{overview=false;setPose(manager.current.spawn);upd
 $('overview').onclick=()=>{releaseLook();overview=true;yaw=0;pitch=0;distance=38;updateUI();};
 $('cursor-toggle').onclick=()=>locked()?releaseLook():lockLook();
 $('cabin-view').onclick=()=>{yaw=Math.cos(yaw)>0?Math.PI:0;pitch=-.1;};
-$('reset').onclick=()=>{if(manager.current)setPose(manager.current.spawn);if(overview){yaw=0;pitch=0;distance=38;}};
+$('reset').onclick=()=>{if(manager.current){if(manager.current.resetView)manager.current.resetView(setPose);else setPose(manager.current.spawn);updateUI();}if(overview){yaw=0;pitch=0;distance=38;}};
 $('pause').onclick=()=>{paused=!paused;if(paused)releaseLook();$('pause').textContent=paused?'Resume':'Pause';$('pause').setAttribute('aria-pressed',String(paused));};
 $('dismiss-error').onclick=()=>$('error').hidden=true;
 let tacticalTerminal=null;
@@ -115,6 +115,7 @@ function interact(){if(paused||transitioning||terminalOpen||!currentInteraction)
 $('interact').onclick=interact;
 const movementCodes=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
 addEventListener('keydown',e=>{
+ if(controlsOpen){if(e.code==='Escape'){e.preventDefault();closeQuickMenu();}return;}
  if(devMenuOpen){if(e.code==='Escape'){e.preventDefault();closeDevMenu();}return;}
  if(e.target instanceof HTMLInputElement)return;
  if(terminalOpen){if(e.code==='Escape'){e.preventDefault();closeSituationTerminal();}return;}
@@ -133,6 +134,9 @@ const fireButton=$('fire');
 fireButton.addEventListener('pointerdown',e=>{e.preventDefault();fireButton.setPointerCapture(e.pointerId);triggerHeld=true;});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])fireButton.addEventListener(event,()=>triggerHeld=false);addEventListener('blur',releaseLook);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseLook();last=performance.now();});
+// Safari gesture zoom must not compete with two-thumb game controls.
+for(const event of ['gesturestart','gesturechange','gestureend']) document.addEventListener(event,e=>e.preventDefault(),{passive:false});
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
 const stick=$('movement-stick'),knob=$('movement-knob');
 function updateStick(e){const rect=stick.getBoundingClientRect(),radius=44;let x=e.clientX-rect.left-rect.width/2,y=e.clientY-rect.top-rect.height/2;const length=Math.hypot(x,y);if(length>radius){x*=radius/length;y*=radius/length;}touchMoveX=x/radius;touchMoveY=y/radius;knob.style.transform=`translate(${x}px,${y}px)`;}
 stick.addEventListener('pointerdown',e=>{if(overview||paused||transitioning||stickPointer!==null)return;e.preventDefault();stickPointer=e.pointerId;stick.setPointerCapture(e.pointerId);updateStick(e);});
@@ -157,20 +161,66 @@ $('weather-cycle').onclick=()=>setWeather(weatherOrder[(weatherOrder.indexOf(wea
 function renderTools(){
  const nav=$('area-tools'),tools=overview?[]:manager.current?.tools||[];
  if(nav.dataset.owner===manager.id+':'+overview&&nav.childElementCount===tools.length)return;
- nav.dataset.owner=manager.id+':'+overview;nav.replaceChildren(...tools.map((tool,i)=>{const b=document.createElement('button');b.textContent=(i<9?(i+1)+' · ':'')+tool.label;b.onclick=()=>runTool(tool);return b;}));nav.hidden=!tools.length;
+ nav.dataset.owner=manager.id+':'+overview;nav.replaceChildren(...tools.map((tool,i)=>{const b=document.createElement('button');b.textContent=(i<9?(i+1)+' · ':'')+tool.label;b.onclick=()=>runTool(tool);return b;}));nav.hidden=!tools.length;$('area-toolbox').hidden=!tools.length;
 }
-function runTool(tool){if(transitioning||terminalOpen)return;tool.action({setPose,walker,yaw,pitch});}
+function runTool(tool){if(transitioning||terminalOpen)return;triggerHeld=false;tool.action({setPose,walker,yaw,pitch});$('area-toolbox').open=false;updateUI();}
+// Debug panel: position, heading and frame stats. Remembered per browser; closes with ✕ or the toggle.
+let debugOpen=false;try{debugOpen=localStorage.getItem('bunker-debug')==='1';}catch{}
+function setDebug(open){debugOpen=open;$('debug-panel').hidden=!open;$('debug-toggle').setAttribute('aria-pressed',String(open));try{localStorage.setItem('bunker-debug',open?'1':'0');}catch{}}
+$('debug-toggle').onclick=()=>setDebug(!debugOpen);$('debug-close').onclick=()=>setDebug(false);setDebug(debugOpen);
+// Compass: north is -Z, east is +X. yaw 0 looks along +Z (south).
+function heading(){const deg=((Math.atan2(Math.sin(yaw),-Math.cos(yaw))*180/Math.PI)+360)%360;return Math.round(deg)+'° '+['N','NE','E','SE','S','SW','W','NW'][Math.round(deg/45)%8];}
 let audio=null,audioGain=null,audioFilter=null,audioSfx=null,soundOn=false;
 $('sound').onclick=async()=>{try{if(!audio){audio=new AudioContext();const buffer=audio.createBuffer(1,audio.sampleRate*4,audio.sampleRate),data=buffer.getChannelData(0);let v=0;for(let i=0;i<data.length;i++){v=(v+Math.random()*.04-.02)/1.02;data[i]=v*5;}const source=audio.createBufferSource();source.buffer=buffer;source.loop=true;audioFilter=audio.createBiquadFilter();audioFilter.type='lowpass';audioGain=audio.createGain();audioGain.gain.value=0;source.connect(audioFilter).connect(audioGain).connect(audio.destination);source.start();
  // Separate bus for area sound effects (gunfire etc.), muted with the Sound toggle.
  audioSfx=audio.createGain();audioSfx.gain.value=0;audioSfx.connect(audio.destination);}await audio.resume();soundOn=!soundOn;$('sound').textContent=soundOn?'Sound on':'Sound off';$('sound').setAttribute('aria-pressed',String(soundOn));}catch{$('sound').textContent='Retry sound';}};
+// One touch-friendly command surface; existing desktop controls share the same actions.
+let quickSection='views';
+const quickMenu=$('quick-menu');
+function closeQuickMenu(){controlsOpen=false;quickMenu.close();keys.clear();clearStick();triggerHeld=false;$('quick-menu-open').focus({preventScroll:true});}
+function renderQuickMenu(){
+ const content=$('quick-menu-content');content.replaceChildren();
+ for(const tab of document.querySelectorAll('[data-section]'))tab.setAttribute('aria-pressed',String(tab.dataset.section===quickSection));
+ const heading=text=>{const h=document.createElement('h3');h.textContent=text;content.append(h);};
+ const grid=()=>{const d=document.createElement('div');d.className='quick-grid';content.append(d);return d;};
+ const add=(parent,label,action,selected)=>{const b=document.createElement('button');b.textContent=label;if(selected!==undefined)b.setAttribute('aria-pressed',String(selected));b.onclick=action;parent.append(b);};
+ const tools=manager.current?.tools||[];
+ if(quickSection==='views'){
+  heading('Choose your view');const list=grid();
+  for(const tool of tools.filter(t=>t.label.startsWith('View: ')))add(list,tool.label.slice(6),()=>{runTool(tool);closeQuickMenu();},tool.isActive?.());
+  if(!list.children.length){add(list,'Reset camera',()=>{$('reset').click();closeQuickMenu();});if(!$('cabin-view').hidden)add(list,'Command / cockpit',()=>{$('cabin-view').click();closeQuickMenu();});}
+  const drone=tools.find(t=>t.label==='Hold drone orbit');if(drone)add(list,'Hold drone orbit',()=>{runTool(drone);renderQuickMenu();},drone.isActive?.());
+  const hint=document.createElement('p');hint.textContent='Choose a view to return directly to the scene.';content.append(hint);
+ }else if(quickSection==='scenario'){
+  heading('Operation mode');const list=grid();
+  for(const tool of tools.filter(t=>!t.label.startsWith('View: ')&&!/Restart|Slow motion|Freeze|Hold drone/.test(t.label)))add(list,tool.label,()=>{runTool(tool);closeQuickMenu();},tool.isActive?.());
+  heading('Scenario tools');const actions=grid();
+  for(const tool of tools.filter(t=>/Restart|Slow motion|Freeze/.test(t.label)))add(actions,tool.label.replace(' on/off',''),()=>{runTool(tool);renderQuickMenu();},tool.isActive?.());
+  add(actions,'Choose scenario',()=>{closeQuickMenu();openDevMenu();});
+ }else{
+  heading('Game');const actions=grid();
+  add(actions,soundOn?'Sound on':'Sound off',async()=>{await $('sound').onclick();renderQuickMenu();},soundOn);
+  add(actions,paused?'Resume simulation':'Pause simulation',()=>{$('pause').click();renderQuickMenu();},paused);
+  add(actions,'Reset camera',()=>{$('reset').click();closeQuickMenu();});
+  heading('Weather');const weatherGrid=grid();
+  for(const value of weatherOrder)add(weatherGrid,value[0].toUpperCase()+value.slice(1),()=>{setWeather(value);renderQuickMenu();},weather===value);
+  heading('Location');const locations=grid();
+  for(const id of ['enter-bunker','enter-vehicle','walk-outside','use-terminal','leave-area','overview']){const source=$(id);if(!source.hidden&&!source.disabled)add(locations,source.textContent.replace(' · M',''),()=>{closeQuickMenu();source.click();});}
+ }
+}
+$('quick-menu-open').onclick=()=>{if(transitioning||terminalOpen)return;releaseLook();controlsOpen=true;renderQuickMenu();quickMenu.showModal();};
+$('quick-menu-close').onclick=$('quick-menu-resume').onclick=closeQuickMenu;
+quickMenu.addEventListener('cancel',e=>{e.preventDefault();closeQuickMenu();});
+quickMenu.addEventListener('click',e=>{if(e.target===quickMenu){const r=quickMenu.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeQuickMenu();}});
+for(const tab of document.querySelectorAll('[data-section]'))tab.onclick=()=>{quickSection=tab.dataset.section;renderQuickMenu();};
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}addEventListener('resize',resize);resize();
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();paused=true;releaseLook();$('error').hidden=false;$('error-message').textContent='Graphics were interrupted. Reload the page to restore the scene.';});
+let fpsFrames=0,fpsElapsed=0;
 function frame(now){
- requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.05);last=now;
- const active=manager.current&&!paused&&!transitioning&&!terminalOpen&&!document.hidden;
+ requestAnimationFrame(frame);const frameSeconds=(now-last)/1000,dt=Math.min(frameSeconds,.05);last=now;
+ const active=manager.current&&!paused&&!transitioning&&!terminalOpen&&!devMenuOpen&&!controlsOpen&&!document.hidden;
  if(audioGain){audioGain.gain.setTargetAtTime(soundOn&&active?(manager.id==='outside'?.16:.025):0,audio.currentTime,.2);audioFilter.frequency.setTargetAtTime(manager.id==='outside'?650:150,audio.currentTime,.3);audioSfx.gain.setTargetAtTime(soundOn&&active?.9:0,audio.currentTime,.05);}
- if(!manager.current||transitioning||terminalOpen||document.hidden)return;
+ if(!manager.current||transitioning||terminalOpen||document.hidden){fpsFrames=0;fpsElapsed=0;$('fps-counter').textContent='FPS —';return;}
  const area=manager.current;
  if(active){
   if(!overview){const f=-touchMoveY+Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown')),r=touchMoveX+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));const magnitude=Math.hypot(f,r),speed=(area.walkSpeed||(manager.id==='outside'?3.8:2.2))*dt/Math.max(1,magnitude);area.move(walker,(Math.sin(yaw)*f-Math.cos(yaw)*r)*speed,(Math.cos(yaw)*f+Math.sin(yaw)*r)*speed);}
@@ -180,15 +230,18 @@ function frame(now){
  if(overview){camera.fov=48;camera.position.set(13+Math.sin(yaw)*distance,7+pitch*distance,4+Math.cos(yaw)*distance);camera.lookAt(13,2,4);}
  else{camera.fov=70;camera.position.set(walker.x,(area.heightAt?.(walker.x,walker.z)||0)+area.eyeHeight,walker.z);camera.lookAt(walker.x+Math.sin(yaw)*Math.cos(pitch),camera.position.y+Math.sin(pitch),walker.z+Math.cos(yaw)*Math.cos(pitch));}
  camera.updateProjectionMatrix();camera.updateMatrixWorld();
+ area.beforeRender?.(camera,active?dt:0);
  fireCooldown=Math.max(0,fireCooldown-dt);
- if(triggerHeld&&active&&!overview&&area.fire&&fireCooldown===0){
+ if(triggerHeld&&active&&!overview&&area.fire&&(area.canFire?.()??true)&&fireCooldown===0){
   fireCooldown=.11;
   const result=area.fire({origin:camera.position.clone(),dir:camera.getWorldDirection(new THREE.Vector3())});
   if(result?.hit){document.body.classList.add('hit');clearTimeout(frame.hitTimer);frame.hitTimer=setTimeout(()=>document.body.classList.remove('hit'),140);}
  }
- area.beforeRender?.(camera);
+
  renderer.render(area.scene,camera);
- if(now-diagnosticTime>700){diagnosticTime=now;$('diagnostics-output').textContent=`Active: ${manager.id} · 1 scene\nGPU geometries: ${renderer.info.memory.geometries} · textures: ${renderer.info.memory.textures}\nDraw calls: ${renderer.info.render.calls}\nLast unload: ${manager.lastDisposed?JSON.stringify(manager.lastDisposed):'none'}\nPosition: ${walker.x.toFixed(1)}, ${walker.z.toFixed(1)}`;}
+ fpsFrames++;fpsElapsed+=frameSeconds;if(fpsElapsed>=.5){frame.fps=Math.round(fpsFrames/fpsElapsed);$('fps-counter').textContent='FPS '+frame.fps;fpsFrames=0;fpsElapsed=0;}
+ if(now-diagnosticTime>250){diagnosticTime=now;const status=area.getStatus?.();$('scenario-status').hidden=!status;if(status){$('scenario-title').textContent=status.title+' / '+status.mode;$('scenario-detail').textContent=status.detail;$('scenario-stats').textContent=status.stats;}for(const [i,button] of [...$('area-tools').children].entries()){const selected=area.tools?.[i]?.isActive?.();if(selected!==undefined)button.setAttribute('aria-pressed',String(selected));}if(debugOpen){const p=camera.position,info=renderer.info;$('debug-output').textContent=[`FPS ${frame.fps??'—'} · ${(frameSeconds*1000).toFixed(1)} ms`,`Area ${manager.id}${overview?' (overview)':''}`,`Position x ${p.x.toFixed(2)}  y ${p.y.toFixed(2)}  z ${p.z.toFixed(2)}`,`Heading ${heading()} · pitch ${Math.round(pitch*180/Math.PI)}°`,`Weather ${weather}${paused?' · PAUSED':''}`,`Draw calls ${info.render.calls} · triangles ${info.render.triangles}`,`Geometries ${info.memory.geometries} · textures ${info.memory.textures}`,...(status?.stats?[status.stats]:[])].join('\n');}
+  $('diagnostics-output').textContent=`Active: ${manager.id} · 1 scene\nGPU geometries: ${renderer.info.memory.geometries} · textures: ${renderer.info.memory.textures}\nDraw calls: ${renderer.info.render.calls}\nLast unload: ${manager.lastDisposed?JSON.stringify(manager.lastDisposed):'none'}\nPosition: ${walker.x.toFixed(1)}, ${walker.z.toFixed(1)}`;}
 }
 requestAnimationFrame(frame);
 if(devParam&&devParam!=='menu'){
@@ -196,6 +249,3 @@ if(devParam&&devParam!=='menu'){
  // Unknown or broken scenario: fall back to the snowfield and show the menu.
  if(!manager.current){await travel('outside');$('error').hidden=true;openDevMenu();}
 }else{await travel('outside');if(devParam!==null)openDevMenu();}
-
-
-

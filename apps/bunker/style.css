@@ -22,3 +22,42 @@
 #dev-menu{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;padding:16px;background:#050c12c4;backdrop-filter:blur(6px)}.dev-menu-panel{width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;background:#0d1a22f5;border:1px solid #9bb4c33b;padding:20px}.dev-menu-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}.dev-menu-head h2{margin:8px 0 0;font-size:24px;font-weight:400}#dev-menu-close{padding:9px 12px;font:11px monospace}#dev-menu-list{display:flex;flex-direction:column;gap:8px}.dev-menu-item{display:block;width:100%;text-align:left;padding:13px 14px;background:#10212b}.dev-menu-item b{display:block;font:600 13px monospace;color:#f2d7b2}.dev-menu-item span{display:block;margin-top:5px;font-size:12px;color:#a9bdca;line-height:1.4}.dev-menu-item[aria-current=true]{border-color:#d9b47a}
 #fire{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:calc(250px + env(safe-area-inset-bottom));z-index:4;width:84px;height:84px;border-radius:50%;border:2px solid #ff8e72aa;background:#3a1a14cc;color:#ffd0c2;font:bold 13px monospace;letter-spacing:1px;touch-action:none}#fire:active{background:#7a2a1ccc}.fps-locked #fire{display:none}@media(pointer:fine) and (min-width:901px){#fire{bottom:90px}}
 .has-weapon:after{content:"";position:fixed;left:50%;top:50%;width:6px;height:6px;border:1px solid #e4f2e7;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%);z-index:3}.has-weapon.hit:after{width:14px;height:14px;border:2px solid #ff5a3c}
+/* Scenario controls stay available without covering the entire street. */
+#area-toolbox{position:fixed;right:4vw;top:204px;z-index:6;width:220px;max-height:calc(100dvh - 300px);overflow:auto;background:#10212bf2;border:1px solid #8ba6b44d;font:11px monospace}
+#area-toolbox summary{padding:13px;cursor:pointer;color:#e3c69a;min-height:42px}
+#area-toolbox #area-tools{position:static;display:flex;flex-direction:column;max-height:none;padding:0 8px 8px;gap:5px;overflow:visible}
+#area-tools button[aria-pressed=true]{background:#34534f;border-color:#a9c3b4;color:#fff0cc}
+#scenario-status{position:fixed;left:4vw;top:180px;max-width:280px;width:35vw;padding:12px 14px;background:#0c1b25df;border-left:2px solid #dbb475;pointer-events:none;font:11px/1.5 monospace}
+#scenario-status strong{font-size:12px;color:#edd4a8}#scenario-status p{font:11px/1.5 Arial;margin:7px 0;color:#c2d1d7}#scenario-status small{font:10px/1.5 monospace;color:#9fb6b8}
+.fps-locked #area-toolbox{opacity:.35;pointer-events:none}
+@media(max-width:600px){#area-toolbox{top:185px;right:4vw;width:44vw;max-height:40dvh}#area-toolbox summary{padding:10px;font-size:10px}#area-toolbox #area-tools button{white-space:normal;font-size:10px;padding:10px}#scenario-status{top:167px;max-width:45vw;width:45vw;padding:8px}#scenario-status strong{font-size:10px}#scenario-status p,#scenario-status small{font-size:9px}.inside[data-area="dev/city"] #interact{bottom:166px}.inside[data-area="dev/city"] #fire{bottom:216px;width:68px;height:68px}}
+body[data-area="dev/city"] .vignette{opacity:.4}
+#fps-counter{position:fixed;right:4vw;top:80px;pointer-events:none;color:#bad0d9;font:10px monospace;font-variant-numeric:tabular-nums;letter-spacing:.5px}
+@media(max-width:600px){#fps-counter{top:68px;font-size:9px}}
+
+html,body{touch-action:none;overscroll-behavior:none}button,summary,a{touch-action:manipulation}#area-toolbox,#dev-menu{touch-action:pan-y}
+body.hurt:before{content:"";position:fixed;inset:0;z-index:3;pointer-events:none;box-shadow:inset 0 0 160px 40px #b3140f99}
+/* Command menu and debug toggles (top right while inside an area). */
+#quick-menu-open,#debug-toggle{display:none;position:fixed;top:calc(12px + env(safe-area-inset-top));z-index:8;padding:10px 14px;font:12px monospace;letter-spacing:.5px;background:#10212bf0;border:1px solid #9bb4c35c;color:#f2d7b2}
+#quick-menu-open{right:max(12px,env(safe-area-inset-right))}#debug-toggle{right:calc(max(12px,env(safe-area-inset-right)) + 92px);color:#a9bdca}
+.inside #quick-menu-open,.inside #debug-toggle{display:block}#debug-toggle[aria-pressed=true]{border-color:#d9b47a;color:#fff0cc}
+#debug-panel{position:fixed;top:calc(58px + env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:8;width:min(320px,calc(100vw - 24px));padding:10px 12px;background:#07121be8;border:1px solid #9bb4c34d;font:11px/1.55 monospace;color:#cfe0e6;pointer-events:auto}
+.debug-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:#e3c69a;letter-spacing:1px}#debug-close{padding:4px 10px;font:12px monospace}#debug-output{margin:0;white-space:pre-wrap;font:inherit}
+#quick-menu{width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 40px);overflow:auto;padding:18px;background:#0d1a22f7;color:#e0e8ec;border:1px solid #9bb4c34d;touch-action:pan-y}
+#quick-menu::backdrop{background:#050c12b0;backdrop-filter:blur(4px)}
+.quick-head{display:flex;justify-content:space-between;align-items:flex-start}.quick-head h2{margin:6px 0 0;font-size:22px;font-weight:400}#quick-menu-close{padding:8px 12px}
+.quick-note{margin:8px 0 12px;font-size:12px;color:#9fb3b4}.quick-tabs{display:flex;gap:6px;margin-bottom:6px}.quick-tabs button{flex:1;padding:10px 6px;font:12px monospace}
+.quick-tabs button[aria-pressed=true],.quick-grid button[aria-pressed=true]{background:#34534f;border-color:#a9c3b4;color:#fff0cc}
+#quick-menu h3{margin:14px 0 8px;font:11px monospace;letter-spacing:1px;color:#e3c69a;text-transform:uppercase}#quick-menu-content p{font-size:12px;color:#9fb3b4}
+.quick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.quick-grid button{padding:12px 8px;font:12px monospace;white-space:normal}
+#quick-menu-resume{width:100%;margin-top:16px;padding:13px;border-color:#d9b47a;color:#f2d7b2}
+
+/* Phones: inside an area, only the status chip, menu, debug, joystick and fire stay on screen. Everything else is in ☰ Menu. */
+@media(max-width:600px){
+ .inside header,.inside #area-actions,.inside #area-toolbox,.inside footer,.inside #fps-counter,.inside #cabin-status,.inside[data-area="dev/city"] #interact{display:none!important}
+ .inside #scenario-status{top:calc(12px + env(safe-area-inset-top));left:12px;width:auto;max-width:calc(100vw - 210px);padding:7px 10px}
+ .inside #scenario-status strong{font-size:10px}.inside #scenario-status p{font-size:10px;margin:4px 0 0}.inside #scenario-status small{display:none}
+ .inside[data-area="dev/city"] #fire{bottom:calc(40px + env(safe-area-inset-bottom));right:max(16px,env(safe-area-inset-right));width:84px;height:84px}
+ .inside #quick-menu-open,.inside #debug-toggle{padding:9px 12px;font-size:11px}.inside #debug-toggle{right:calc(max(12px,env(safe-area-inset-right)) + 84px)}
+}
+.inside #fps-counter{display:none}
