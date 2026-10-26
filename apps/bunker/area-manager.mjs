@@ -9,7 +9,8 @@ export function disposeScene(scene){
 }
 export class AreaManager{
  constructor(loaders,{dispose=disposeScene,onDispose=()=>{}}={}){this.loaders=loaders;this.dispose=dispose;this.onDispose=onDispose;this.current=null;this.id=null;this.saved={};this.busy=false;this.lastDisposed=null;}
- async go(id){
+ // options are passed to createArea (e.g. { linked: true } for the City drone feed).
+ async go(id,options={}){
   if(this.busy||id===this.id)return false;
   // 'dev/aim' loads the 'dev' module with variant 'aim'; each variant keeps its own saved state.
   const [base,variant]=id.split('/');const loader=this.loaders[id]||this.loaders[base];
@@ -18,7 +19,7 @@ export class AreaManager{
   try{
    // Keep the current area intact if the module download fails.
    const module=await loader();
-   const next=await module.createArea(this.saved[id]||{},{variant});
+   const next=await module.createArea(this.saved[id]||{},{variant,...options});
    if(!next?.scene||!next.spawn||typeof next.move!=='function'){next?.dispose?.();if(next?.scene)this.dispose(next.scene);throw new Error('Invalid area contract: '+id);}
    if(this.current){this.saved[this.id]=this.current.snapshot?.()||{};this.current.dispose?.();this.lastDisposed=this.dispose(this.current.scene);this.onDispose(this.lastDisposed);}
    this.current=next;this.id=id;return true;

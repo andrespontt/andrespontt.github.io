@@ -7,9 +7,9 @@ const MINUTE = 60_000, t0 = 1_700_000_000_000;
 test('starts quiet, ambushes after a few minutes, and clears waves over time', () => {
   let op = createOperation(t0, 42);
   assert.equal(op.phase, 'quiet');
-  op = advance(op, t0 + 2 * MINUTE);
+  op = advance(op, t0 + MINUTE);
   assert.equal(op.phase, 'quiet');
-  op = advance(op, t0 + 3 * MINUTE);
+  op = advance(op, t0 + 1.5 * MINUTE);
   assert.equal(op.phase, 'contact'); assert.equal(op.wave, 1); assert.equal(op.active, 12);
   assert.match(op.log.at(-1).text, /Ambush/);
   op = advance(op, t0 + 60 * MINUTE);
@@ -37,4 +37,63 @@ test('the live scene owns the fight while the drone feed is open', () => {
 test('log stays bounded', () => {
   const op = advance(createOperation(t0, 11), t0 + 6 * 60 * MINUTE);
   assert.ok(op.log.length <= 30);
+});
+
+test('the command: 500 personnel, supplies run down, fights cost ammunition and med kits', () => {
+  let op = createOperation(t0, 21);
+  assert.equal(op.forces.total, 500); assert.equal(op.forces.deployed, 5); assert.equal(op.forces.atOutpost, 495);
+  const start = structuredClone(op.supplies);
+  op = advance(op, t0 + 6 * 60 * MINUTE);
+  assert.ok(op.supplies.rations < start.rations && op.supplies.fuel < start.fuel);
+  assert.ok(op.supplies.rifleAmmo < start.rifleAmmo, 'ammunition spent in contact');
+  assert.equal(op.forces.wounded, op.soldiersWounded);
+  assert.equal(op.forces.atOutpost, 495 - op.forces.wounded, 'each wounded soldier is replaced from the outpost');
+});
+
+test('the drone feed charges rounds it fired, once', () => {
+  let op = advance(createOperation(t0, 3), t0 + 2 * MINUTE);
+  const ammo = op.supplies.rifleAmmo;
+  op = applyLive(op, { wave: 1, contact: true, active: 10, down: 2, vip: 'sheltering', rounds: 40, wounded: 0 }, t0 + 2 * MINUTE);
+  op = applyLive(op, { wave: 1, contact: true, active: 9, down: 3, vip: 'sheltering', rounds: 70, wounded: 1 }, t0 + 2 * MINUTE + 2000);
+  assert.equal(op.supplies.rifleAmmo, ammo - 70);
+  assert.equal(op.forces.wounded, 1);
+});
+
+test('saves from before the command existed get it added', () => {
+  const old = createOperation(t0, 1); delete old.forces; delete old.supplies;
+  assert.equal(advance(old, t0 + MINUTE).forces.total, 500);
+});
+
+test('final live kills are saved once and active count clears',()=>{
+ let op=advance(createOperation(t0,3),t0+2*MINUTE);
+ const before=op.totalDown,oldDown=op.down;
+ op=applyLive(op,{wave:op.wave,contact:false,active:0,down:12,vip:'safe',session:'a'},t0+2*MINUTE);
+ assert.equal(op.active,0);assert.equal(op.down,12);assert.equal(op.totalDown,before+12-oldDown);assert.equal(op.phase,'lull');
+ const repeated=applyLive(op,{wave:op.wave,contact:false,active:0,down:12,vip:'safe',session:'a'},t0+2*MINUTE+2000);
+ assert.equal(repeated.totalDown,op.totalDown);assert.equal(repeated.phaseEnds,op.phaseEnds);
+});
+test('new sessions count their ammunition and wounds from zero',()=>{
+ let op=createOperation(t0,1);const ammo=op.supplies.rifleAmmo;
+ const report={wave:1,contact:true,active:10,down:2,vip:'sheltering'};
+ op=applyLive(op,{...report,session:'a',rounds:30,wounded:2},t0);
+ op=applyLive(op,{...report,session:'b',rounds:4,wounded:1},t0+2000);
+ assert.equal(op.supplies.rifleAmmo,ammo-34);assert.equal(op.forces.wounded,3);
+});
+test('stale wave cannot roll a live operation back',()=>{
+ let op=createOperation(t0,1);op.wave=3;op.phase='contact';op.active=7;
+ assert.deepEqual(applyLive(op,{wave:1,contact:false,active:0,down:12},t0),op);
+});
+test('quiet heartbeats preserve scheduled attack time',()=>{
+ let op=createOperation(t0,1),due=op.phaseEnds;
+ for(let t=0;t<80000;t+=2000)op=applyLive(op,{session:'a',wave:0,contact:false,active:0,down:0,vip:'safe'},t0+t);
+ assert.equal(op.phase,'quiet');assert.equal(op.phaseEnds,due);assert.equal(op.wave,0);
+});
+
+test('same session renewing an expired lease does not charge old counters twice',()=>{
+ let op=createOperation(t0,1);const ammo=op.supplies.rifleAmmo;
+ const live={session:'same',wave:1,contact:true,active:10,down:2,vip:'sheltering',rounds:40,wounded:1};
+ op=applyLive(op,live,t0);op=applyLive(op,live,t0+20000);
+ assert.equal(op.supplies.rifleAmmo,ammo-40);assert.equal(op.forces.wounded,1);
+ op=applyLive(op,{...live,rounds:45,wounded:2},t0+22000);
+ assert.equal(op.supplies.rifleAmmo,ammo-45);assert.equal(op.forces.wounded,2);
 });

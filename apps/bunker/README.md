@@ -116,3 +116,14 @@ blocked), so it carries on between visits: on load it catches up on up to six ho
 scene is the operation: it reports every 2 s, joins a wave already under way with only the intruders still
 fighting, and the off-screen ticks pause until 15 s after the last report.
 Tests: `node --test apps/bunker/city-ops.test.mjs`.
+
+The operation starts when the game opens (first ambush ~90 s after the cordon goes up) and runs whether or not
+the map or feed is open. In the command center a strip shows its status and each new event (tap it for the map),
+and the wall map rings the city during contact. Only the drone feed is linked to it: the City opened from the
+scenarios menu (`?dev=city`, or `?at=city` without `&from=map`) always starts from zero and leaves it alone.
+
+**Outpost 07 command** (made-up figures, stored with the operation): 500 personnel, 5 of them in Kestrel Falls;
+120,000 rifle rounds, 18,000 L diesel, 45,000 meals, 600 med kits, 14 vehicles, 3 drones. Rations and diesel run
+down with time (1,500 meals and 900 L a day); contact costs ammunition (the drone feed charges the rounds it
+actually fired); each wounded soldier uses two med kits and is replaced from the outpost. Shown under **Forces**
+on the map; the map and wall also carry a Kestrel Falls inset, since the city is off the mountain survey.

@@ -67,13 +67,15 @@ function syncCursor(){
 function clearStick(){touchMoveX=0;touchMoveY=0;stickPointer=null;$('movement-knob').style.transform='';}
 function releaseLook(){triggerHeld=false;fallbackLook=false;keys.clear();clearStick();if(document.pointerLockElement===canvas)document.exitPointerLock();syncCursor();}
 async function lockLook(){
- if(overview||paused||transitioning||terminalOpen||devMenuOpen||controlsOpen||!fine.matches)return;
+ // Some views (the drone feed) are watched with the cursor free; they never take the mouse.
+ if(overview||paused||transitioning||terminalOpen||devMenuOpen||controlsOpen||!fine.matches||manager.current?.wantsCursor?.())return;
  if(typeof canvas.requestPointerLock!=='function'){fallbackLook=true;syncCursor();return;}
  try{await canvas.requestPointerLock();}catch{fallbackLook=true;syncCursor();}
 }
 document.addEventListener('pointerlockchange',syncCursor);document.addEventListener('pointerlockerror',syncCursor);
 function setPose(spawn){walker.x=spawn.x;walker.z=spawn.z;yaw=spawn.yaw||0;pitch=spawn.pitch||0;}
 function updateUI(){
+ if(manager.current?.wantsCursor?.()&&locked())releaseLook();
  const outside=manager.id==='outside';
  document.body.classList.toggle('inside',!overview);
  document.body.dataset.area=manager.id;
@@ -88,7 +90,7 @@ function updateUI(){
  $('walk-outside').hidden=!overview;$('leave-area').hidden=outside;$('leave-area').textContent=droneFeed&&manager.id==='dev/city'?'Return to command center':'Return outside';
  $('overview').hidden=!outside||overview;
  const armed=!overview&&!!manager.current?.fire&&(manager.current.canFire?.()??true);$('fire').hidden=!armed;document.body.classList.toggle('has-weapon',armed);
- $('use-terminal').hidden=manager.id!=='bunker';$('weather-cycle').hidden=overview;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
+ $('use-terminal').hidden=manager.id!=='bunker';$('weather-cycle').hidden=overview||!!manager.current?.weatherLabel;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
  $('weather-panel').hidden=!overview;$('scene-caption').hidden=!overview;
  $('pause').textContent=paused?'Resume':'Pause';$('pause').setAttribute('aria-pressed',String(paused));
  syncCursor();
@@ -97,13 +99,13 @@ async function travel(id,entry,{drone=false}={}){
  if(transitioning)return;
  closeSituationTerminal();
  // Opening the drone feed from the command center: the load reads as the uplink connecting.
- droneFeed=drone;$('transition').classList.toggle('drone-link',drone);
+ $('transition').classList.toggle('drone-link',drone);
  transitioning=true;for(const b of document.querySelectorAll('#area-actions button'))b.disabled=true;releaseLook();$('transition').hidden=false;$('transition-label').textContent=drone?'Connecting to drone…':'Entering '+areaName(id)+'…';$('transition-error').hidden=true;
  // Let the loading surface paint before procedural geometry is created.
  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
  try{
-  const changed=await manager.go(id);
-  if(changed){if(id!=='bunker'&&tacticalTerminal){tacticalTerminal.dispose();tacticalTerminal=null;}overview=id==='outside'&&!entry;setPose(manager.current.entrySpawns?.[entry]||manager.current.spawn);if(overview){yaw=0;pitch=0;}paused=false;currentInteraction=null;if(id==='bunker')manager.current.setMapState?.({weather});updateUI();syncUrl();}
+  const changed=await manager.go(id,{linked:drone});
+  if(changed){droneFeed=drone;pollCity.wall=null;if(id!=='bunker'&&tacticalTerminal){tacticalTerminal.dispose();tacticalTerminal=null;}overview=id==='outside'&&!entry;setPose(manager.current.entrySpawns?.[entry]||manager.current.spawn);if(overview){yaw=0;pitch=0;}paused=false;currentInteraction=null;if(id==='bunker')manager.current.setMapState?.({weather});updateUI();syncUrl();}
   $('error').hidden=true;
  }catch(error){console.error(error);$('error').hidden=false;$('error-message').textContent='This area could not load. Your current area is preserved. Retry the entrance when ready.';}
  finally{transitioning=false;for(const b of document.querySelectorAll('#area-actions button'))b.disabled=false;$('transition').hidden=true;if(manager.current&&!overview)lockLook();}
@@ -120,7 +122,7 @@ $('reset').onclick=()=>{if(manager.current){if(manager.current.resetView)manager
 $('pause').onclick=()=>{paused=!paused;if(paused)releaseLook();$('pause').textContent=paused?'Resume':'Pause';$('pause').setAttribute('aria-pressed',String(paused));};
 $('dismiss-error').onclick=()=>$('error').hidden=true;
 let tacticalTerminal=null;
-function openSituationTerminal(){
+function openSituationTerminal(focus){
  if(manager.id!=='bunker'||terminalOpen||transitioning)return;
  releaseLook();terminalOpen=true;updateUI();
  tacticalTerminal??=createTerminal($('situation-terminal'),{
@@ -129,15 +131,42 @@ function openSituationTerminal(){
   // City marker → drone feed: load the operation and circle it from the air.
   async onDrone(){closeSituationTerminal();await travel('dev/city',undefined,{drone:true});manager.current?.setView?.('drone',setPose);updateUI();}
  });
- tacticalTerminal.open({...manager.current.snapshot?.(),weather});
- // Kestrel Falls: the operation keeps running off-screen; refresh its card while the map is open.
- const refreshCity=()=>import('./city-store.js').then(store=>store.getOperation()).then(op=>{if(terminalOpen)tacticalTerminal?.setCity(op);}).catch(error=>console.warn('City operation unavailable',error));
- refreshCity();clearInterval(openSituationTerminal.timer);openSituationTerminal.timer=setInterval(refreshCity,2000);
+ tacticalTerminal.open({...manager.current.snapshot?.(),weather,...(focus?.selected?{selected:focus.selected}:{})});
+ if(cityOp)tacticalTerminal.setCity(cityOp);pollCity();
 }
-// Last known state of the city operation, saved by the City scenario while it runs (see dev/scenarios/city.js).
+// Kestrel Falls runs from the moment the game opens, wherever you are (city-ops.mjs, stored in IndexedDB by
+// city-store.js). Every few seconds it catches up; in the command center its status and each new event show in a
+// strip (tap it for the map), and the wall map marks the city during contact. While the drone feed is open the
+// City scene owns the operation, so polling pauses there. The City opened as a dev scenario is separate.
+let cityOp=null,cityLogSeen=null,cityNewsUntil=0;
+async function pollCity(){
+ if(manager.id==='dev/city'&&droneFeed)return;
+ try{
+  const op=await (await import('./city-store.js')).getOperation();
+  const fresh=cityLogSeen==null?[]:op.log.filter(e=>e.at>cityLogSeen);
+  cityLogSeen=op.log.at(-1)?.at??Date.now();cityOp=op;
+  if(fresh.length){$('city-strip-news').textContent=fresh.at(-1).text;cityNewsUntil=Date.now()+9000;}
+  // The wall map is redrawn only when what it shows changes.
+  const wall=JSON.stringify({cityContact:op.phase==='contact',cityOp:{phase:op.phase,active:op.active,wave:op.wave}});
+  if(manager.id==='bunker'&&wall!==pollCity.wall){pollCity.wall=wall;manager.current?.setMapState?.(JSON.parse(wall));}
+  if(terminalOpen)tacticalTerminal?.setCity(op);
+  renderCityStrip();
+ }catch(error){console.warn('City operation unavailable',error);}
+}
+function renderCityStrip(){
+ const show=!!cityOp&&manager.id==='bunker'&&!overview&&!terminalOpen;
+ $('city-strip').hidden=!show;if(!show)return;
+ const o=cityOp,contact=o.phase==='contact';
+ $('city-strip-title').textContent='KESTREL FALLS · '+(contact?`CONTACT · wave ${o.wave} · ${o.active} active · ${o.down} down`:o.wave?`quiet · ${o.totalDown} down so far`:'cordon quiet');
+ $('city-strip').classList.toggle('contact',contact);
+ $('city-strip').classList.toggle('news',Date.now()<cityNewsUntil);
+ if(Date.now()>=cityNewsUntil)$('city-strip-news').textContent=contact?'Tap for the map and drone feed.':'';
+}
+$('city-strip').onclick=()=>openSituationTerminal({selected:'city'});
+setInterval(pollCity,3000);setInterval(renderCityStrip,1000);
 function closeSituationTerminal(){
  if(!terminalOpen)return;
- clearInterval(openSituationTerminal.timer);tacticalTerminal?.close();terminalOpen=false;keys.clear();clearStick();updateUI();$('use-terminal').focus({preventScroll:true});
+ tacticalTerminal?.close();terminalOpen=false;keys.clear();clearStick();updateUI();$('use-terminal').focus({preventScroll:true});
 }
 $('use-terminal').onclick=openSituationTerminal;
 function interact(){if(paused||transitioning||terminalOpen||!currentInteraction)return;const action=currentInteraction;if(action.panel==='situation-map'){openSituationTerminal();return;}if(action.destination)travel(action.destination,action.entry);else action.action?.();}
@@ -155,7 +184,7 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyE'&&!e.repeat)interact();
  if(e.code==='KeyF'&&!e.repeat&&!overview&&manager.current?.fire){e.preventDefault();triggerHeld=true;}
  if(e.code==='KeyR'&&!e.repeat&&!overview&&manager.current?.reload){e.preventDefault();manager.current.reload();}
- if(e.code==='KeyN'&&!e.repeat&&!overview)$('weather-cycle').click();
+ if(e.code==='KeyN'&&!e.repeat&&!overview&&!manager.current?.weatherLabel)$('weather-cycle').click();
  const digit=/^Digit([1-9])$/.exec(e.code);if(digit&&!e.repeat&&!overview){const tool=manager.current?.tools?.[digit[1]-1];if(tool)runTool(tool);}
 });
 addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='KeyF')triggerHeld=false;});
@@ -209,7 +238,7 @@ $('sound').onclick=async()=>{try{if(!audio){audio=new AudioContext();const buffe
 // Chrome on Windows: sound is on by default. Browsers only allow audio after a user gesture,
 // so it switches on at the first click, tap or key press (unless that press is on the Sound button itself).
 {const ua=navigator.userAgent;if(/Windows/.test(ua)&&/Chrome\//.test(ua)&&!/Edg\/|OPR\//.test(ua)){
- const start=e=>{removeEventListener('pointerdown',start,true);removeEventListener('keydown',start,true);if(!soundOn&&e.target!==$('sound'))$('sound').onclick();};
+ const start=e=>{removeEventListener('pointerdown',start,true);removeEventListener('keydown',start,true);if(!soundOn&&e.target!==$('sound')&&!e.target.closest('#quick-menu'))$('sound').onclick();};
  addEventListener('pointerdown',start,true);addEventListener('keydown',start,true);}}
 // One touch-friendly command surface; existing desktop controls share the same actions.
 let quickSection='views';
@@ -229,7 +258,7 @@ function renderQuickMenu(){
   const drone=tools.find(t=>t.label==='Hold drone orbit');if(drone)add(list,'Hold drone orbit',()=>{runTool(drone);renderQuickMenu();},drone.isActive?.());
   const hint=document.createElement('p');hint.textContent='Choose a view to return directly to the scene.';content.append(hint);
  }else if(quickSection==='scenario'){
-  heading('Operation mode');const list=grid();
+  heading(droneFeed?'Linked operation':'Operation mode');if(droneFeed){const note=document.createElement('p');note.textContent='Live feed follows the saved operation. Mode and restart controls are available in the standalone scenario.';content.append(note);}const list=grid();
   for(const tool of tools.filter(t=>!t.label.startsWith('View: ')&&!/Restart|Slow motion|Freeze|Hold drone/.test(t.label)))add(list,tool.label,()=>{runTool(tool);closeQuickMenu();},tool.isActive?.());
   heading('Scenario tools');const actions=grid();
   for(const tool of tools.filter(t=>/Restart|Slow motion|Freeze/.test(t.label)))add(actions,tool.label.replace(' on/off',''),()=>{runTool(tool);renderQuickMenu();},tool.isActive?.());
@@ -239,8 +268,8 @@ function renderQuickMenu(){
   add(actions,soundOn?'Sound on':'Sound off',async()=>{await $('sound').onclick();renderQuickMenu();},soundOn);
   add(actions,paused?'Resume simulation':'Pause simulation',()=>{$('pause').click();renderQuickMenu();},paused);
   add(actions,'Reset camera',()=>{$('reset').click();closeQuickMenu();});
-  heading('Weather');const weatherGrid=grid();
-  for(const value of weatherOrder)add(weatherGrid,value[0].toUpperCase()+value.slice(1),()=>{setWeather(value);renderQuickMenu();},weather===value);
+  heading('Weather');const weatherGrid=grid();if(manager.current?.weatherLabel){const note=document.createElement('p');note.textContent='Local conditions: '+manager.current.weatherLabel;content.append(note);}
+  for(const value of (manager.current?.weatherLabel?[]:weatherOrder))add(weatherGrid,value[0].toUpperCase()+value.slice(1),()=>{setWeather(value);renderQuickMenu();},weather===value);
   heading('Location');const locations=grid();
   for(const id of ['enter-bunker','enter-vehicle','walk-outside','use-terminal','leave-area','overview']){const source=$(id);if(!source.hidden&&!source.disabled)add(locations,source.textContent.replace(' · M',''),()=>{closeQuickMenu();source.click();});}
  }
@@ -259,6 +288,8 @@ function frame(now){
  if(audioGain){audioGain.gain.setTargetAtTime(soundOn&&active?(manager.id==='outside'?.16:.025):0,audio.currentTime,.2);audioFilter.frequency.setTargetAtTime(manager.id==='outside'?650:150,audio.currentTime,.3);audioSfx.gain.setTargetAtTime(soundOn&&active?.9:0,audio.currentTime,.05);}
  if(!manager.current||transitioning||terminalOpen||document.hidden){fpsFrames=0;fpsElapsed=0;$('fps-counter').textContent='FPS —';return;}
  const area=manager.current;
+ // Cursor-first views (drone): drop mouse-look whenever it gets engaged, e.g. by a pointer-lock reply arriving late.
+ if(area.wantsCursor?.()&&locked())releaseLook();
  if(active){
   if(!overview){const f=-touchMoveY+Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown')),r=touchMoveX+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));const magnitude=Math.hypot(f,r),speed=(area.walkSpeed||(manager.id==='outside'?3.8:2.2))*dt/Math.max(1,magnitude);area.move(walker,(Math.sin(yaw)*f-Math.cos(yaw)*r)*speed,(Math.cos(yaw)*f+Math.sin(yaw)*r)*speed);}
   area.update?.(dt,{weather,position:walker,yaw,audio:soundOn&&audioSfx?{context:audio,output:audioSfx}:null,listener:{x:walker.x,z:walker.z,yaw}});
@@ -286,6 +317,7 @@ function frame(now){
   $('diagnostics-output').textContent=`Active: ${manager.id} · 1 scene\nGPU geometries: ${renderer.info.memory.geometries} · textures: ${renderer.info.memory.textures}\nDraw calls: ${renderer.info.render.calls}\nLast unload: ${manager.lastDisposed?JSON.stringify(manager.lastDisposed):'none'}\nPosition: ${walker.x.toFixed(1)}, ${walker.z.toFixed(1)}`;}
 }
 requestAnimationFrame(frame);
+pollCity();
 const at=params.get('at'),startView=params.get('view');
 if(at&&PLACES[at]){
  await travel(PLACES[at],undefined,{drone:at==='city'&&params.get('from')==='map'});

@@ -3,7 +3,18 @@
 // Pure functions: storage lives in city-store.js, the live 3D scene in dev/scenarios/city.js.
 
 const TICK = 10_000, MAX_CATCH_UP = 6 * 60 * 60_000, LOG_SIZE = 30;
-const MINUTE = 60_000;
+const MINUTE = 60_000, DAY = 24 * 60 * MINUTE;
+
+// Outpost 07 command (made-up numbers): 500 personnel, five of them holding the store in Kestrel Falls.
+export const COMMAND = { personnel: 500, cityDetail: 5 };
+// Daily use across the command: three meals a person, generators and heaters on diesel.
+export const USE_PER_DAY = { rations: COMMAND.personnel * 3, fuel: 900 };
+export function createCommand() {
+  return {
+    forces: { total: COMMAND.personnel, atOutpost: COMMAND.personnel - COMMAND.cityDetail, deployed: COMMAND.cityDetail, wounded: 0, killed: 0 },
+    supplies: { rifleAmmo: 120_000, fuel: 18_000, rations: 45_000, medKits: 600, vehicles: 14, drones: 3 },
+  };
+}
 
 // Deterministic per tick, so the same history replays the same way.
 function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
@@ -12,9 +23,10 @@ export function createOperation(now, seed = Math.floor(Math.random() * 2 ** 31))
   return {
     version: 1, seed, tick: 0, startedAt: now, updatedAt: now,
     // quiet: before the first ambush · contact: a wave is attacking · lull: between waves.
-    phase: 'quiet', phaseEnds: now + 3 * MINUTE,
+    phase: 'quiet', phaseEnds: now + 1.5 * MINUTE,
     wave: 0, active: 0, down: 0, totalDown: 0, soldiersWounded: 0, breaches: 0, vip: 'safe',
-    liveUntil: 0,
+    liveUntil: 0, liveRounds: 0,
+    ...createCommand(),
     log: [{ at: now, text: 'Cordon established around Corner Market 24. Five soldiers on the block.' }],
   };
 }
@@ -30,7 +42,22 @@ function startWave(op, at) {
 }
 
 // One 10-second slice of the fight.
+// Wounded soldier: two med kits, and a replacement goes down from the outpost so the detail stays at five.
+function wound(op, at) {
+  op.soldiersWounded++; op.forces.wounded++;
+  op.supplies.medKits = Math.max(0, op.supplies.medKits - 2);
+  if (op.forces.atOutpost > 0) { op.forces.atOutpost--; note(op, at, 'Soldier wounded at the cordon; a replacement leaves Outpost 07.'); }
+  else note(op, at, 'Soldier wounded at the cordon; no replacements left.');
+}
+function consume(op, random) {
+  const s = op.supplies, share = TICK / DAY;
+  s.rations = Math.max(0, s.rations - USE_PER_DAY.rations * share);
+  s.fuel = Math.max(0, s.fuel - USE_PER_DAY.fuel * share);
+  // Five rifles in a firefight: roughly 30-80 rounds per 10 s.
+  if (op.phase === 'contact') s.rifleAmmo = Math.max(0, s.rifleAmmo - Math.round(30 + random() * 50));
+}
 function step(op, at, random) {
+  consume(op, random);
   if (op.phase !== 'contact') {
     if (at >= op.phaseEnds) startWave(op, at);
     return;
@@ -39,7 +66,7 @@ function step(op, at, random) {
   let downed = 0;
   for (let i = 0; i < op.active; i++) if (random() < .045) downed++;
   op.active -= downed; op.down += downed; op.totalDown += downed;
-  if (random() < .015 * Math.min(2, op.active / 12)) { op.soldiersWounded++; note(op, at, 'Soldier wounded at the cordon; still fighting.'); }
+  if (random() < .015 * Math.min(2, op.active / 12)) wound(op, at);
   if (random() < .004 * op.active) { op.breaches++; note(op, at, 'An intruder reached the store door before being stopped.'); }
   if (op.active <= 0) {
     op.active = 0; op.phase = 'lull'; op.vip = 'safe';
@@ -52,6 +79,7 @@ function step(op, at, random) {
 // the off-screen ticks just pass.
 export function advance(state, now) {
   const op = structuredClone(state);
+  if (!op.forces) Object.assign(op, createCommand(), { liveRounds: 0 });
   if (now - op.updatedAt > MAX_CATCH_UP) op.updatedAt = now - MAX_CATCH_UP;
   while (op.updatedAt + TICK <= now) {
     const at = op.updatedAt + TICK;
@@ -65,17 +93,40 @@ export function advance(state, now) {
 // The live scene reports what it sees; that becomes the operation's state.
 export function applyLive(state, live, now) {
   const op = structuredClone(state);
+  if (live.wave < op.wave) return op; // Ignore late reports from a previous wave.
+  if (live.session ? live.session !== op.liveSession : now > op.liveUntil) op.liveRounds = op.liveWounded = 0;
+  if (live.session) op.liveSession = live.session;
   op.liveUntil = now + 15_000; op.updatedAt = Math.max(op.updatedAt, now);
   if (live.wave > op.wave && live.contact) note(op, now, `Drone: wave ${live.wave} engaging, ${live.active} intruders active.`);
   if (op.phase === 'contact' && !live.contact && live.wave >= op.wave) {
     note(op, now, `Drone: wave ${live.wave} cleared, ${live.down} down.`);
     op.phaseEnds = now + 4 * MINUTE;
   }
+  if (live.rounds != null) { op.supplies.rifleAmmo = Math.max(0, op.supplies.rifleAmmo - Math.max(0, live.rounds - op.liveRounds)); op.liveRounds = live.rounds; }
+  if (live.wounded != null) { for (let i = op.liveWounded || 0; i < live.wounded; i++) wound(op, now); op.liveWounded = Math.max(op.liveWounded || 0, live.wounded); }
+  if (live.wave > op.wave) op.down = 0;
+  op.totalDown += Math.max(0, live.down - op.down);
+  op.active = Math.max(0, live.active); op.down = Math.max(0, live.down);
   op.wave = Math.max(op.wave, live.wave);
   op.phase = live.contact ? 'contact' : op.wave ? 'lull' : 'quiet';
-  if (live.contact) { op.totalDown += Math.max(0, live.down - op.down); op.active = live.active; op.down = live.down; }
   op.vip = live.vip;
   return op;
+}
+
+// Forces and supplies as display lines, with days left at the current rate of use.
+export function commandLines(op) {
+  if (!op?.forces) return [];
+  const f = op.forces, s = op.supplies, n = v => Math.round(v).toLocaleString('en-US');
+  const days = (left, perDay) => (left / perDay).toFixed(0) + ' days';
+  return [
+    ['Personnel', n(f.total) + ' · ' + n(f.atOutpost) + ' at Outpost 07 · ' + f.deployed + ' in Kestrel Falls'],
+    ['Casualties', f.wounded + ' wounded · ' + f.killed + ' killed'],
+    ['5.56 mm rounds', n(s.rifleAmmo)],
+    ['Diesel', n(s.fuel) + ' L · ' + days(s.fuel, USE_PER_DAY.fuel)],
+    ['Rations', n(s.rations) + ' meals · ' + days(s.rations, USE_PER_DAY.rations)],
+    ['Medical kits', n(s.medKits)],
+    ['Vehicles · drones', s.vehicles + ' · ' + s.drones + ' (1 over Kestrel Falls)'],
+  ];
 }
 
 // One line for the map card.

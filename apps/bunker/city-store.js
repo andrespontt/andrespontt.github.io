@@ -19,35 +19,32 @@ function open() {
   });
   return dbPromise;
 }
-async function read() {
+// Serialize the entire read/advance/write cycle, including reports from other tabs.
+let memoryQueue = Promise.resolve();
+async function change(transform) {
   const db = await open();
-  if (!db) return memory;
-  return new Promise(resolve => {
-    try {
-      const request = db.transaction(STORE).objectStore(STORE).get(KEY);
-      request.onsuccess = () => resolve(request.result ?? memory);
-      request.onerror = () => resolve(memory);
-    } catch { resolve(memory); }
+  if (!db) {
+    const task=memoryQueue.then(()=>{memory=transform(memory);return structuredClone(memory);});
+    memoryQueue=task.catch(()=>{});return task;
+  }
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,'readwrite'),store=tx.objectStore(STORE),read=store.get(KEY);
+    let result;
+    read.onsuccess=()=>{try{const previous=read.result;result=transform(previous);if(JSON.stringify(previous)!==JSON.stringify(result))store.put(result,KEY);}catch(error){tx.abort();reject(error);}};
+    tx.oncomplete=()=>{memory=result;resolve(structuredClone(result));};
+    tx.onerror=tx.onabort=()=>reject(tx.error||new Error('Operation transaction aborted'));
   });
 }
-async function write(op) {
-  memory = op;
-  const db = await open();
-  if (!db) return;
-  try { db.transaction(STORE, 'readwrite').objectStore(STORE).put(op, KEY); } catch {}
+const current=(stored,now)=>stored?.version===1?advance(stored,now):createOperation(now);
+export async function getOperation(now=Date.now()){return change(stored=>current(stored,now));}
+export async function reportLive(live,now=Date.now()){
+  return change(stored=>{
+    const op=current(stored,now);
+    // An active feed owns one lease. A second tab cannot replace its combat state.
+    if(live.session&&op.liveSession&&live.session!==op.liveSession&&now<op.liveUntil)return op;
+    return applyLive(op,live,now);
+  });
 }
-
-// Current state of the operation, caught up to now (and created on first use).
-export async function getOperation(now = Date.now()) {
-  const stored = await read();
-  const op = stored?.version === 1 ? advance(stored, now) : createOperation(now);
-  await write(op);
-  return op;
-}
-
-// The live scene's view of the fight replaces the simulated one while the drone feed is open.
-export async function reportLive(live, now = Date.now()) {
-  const op = applyLive(await getOperation(now), live, now);
-  await write(op);
-  return op;
+export async function releaseLive(session,now=Date.now()){
+  return change(stored=>{const op=current(stored,now);if(op.liveSession===session)op.liveUntil=now;return op;});
 }

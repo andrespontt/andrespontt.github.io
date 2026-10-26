@@ -8,8 +8,9 @@ export const STORE_FRONT = [
   [-1,2.6,1.2,1,4.4,1.5],
   ...WINDOWS.flatMap(([a,b])=>[[a,0,1.2,b,1.25,1.5],[a,2.45,1.2,b,4.4,1.5]]),
   // Boards nailed across the top of each window leave a firing slit from the sill to ~1.95.
-  ...WINDOWS.map(([a,b])=>[a,1.95,1.08,b,2.45,1.2]),
+
 ];
+export const WINDOW_BOARDS = WINDOWS.map(([a,b])=>[a,1.95,1.08,b,2.45,1.2]);
 // Wrecks, a dumpster and crates outside the cordon that intruders hide behind.
 // Car boxes are loose bounds around the rotated wrecks, up to the bonnet line (you can see over the roof).
 export const COVER_PROPS = [
@@ -28,7 +29,7 @@ export const SOLIDS = [
   [-27,0,16.5,-3,12,30],[3,0,16.5,27,9,30],
   [-7,0,-10,-6.7,7.6,1.2],[6.7,0,-10,7,7.6,-7.8],[6.7,0,-6.2,7,7.6,1.2],
   [6.7,2.4,-7.8,7,7.6,-6.2],[-7,0,-10,7,7.6,-9.7],
-  ...STORE_FRONT,
+  ...STORE_FRONT,...WINDOW_BOARDS,
   [-7,4.4,1.2,7,7.6,1.5],[-7.2,7.6,-10.2,7.2,8.1,1.7],[-6.7,4.3,-9.7,6.7,4.4,1.2],
   [-6.7,0,-7.9,-1,4.4,-7.7],[1,0,-7.9,6.7,4.4,-7.7],[-1,2.5,-7.9,1,4.4,-7.7],
   [-3.9,0,-6.2,-3.1,1.45,-2.4],[3.1,0,-6.2,3.9,1.45,-2.4],[3.2,0,-.95,6.2,1.05,-.35],

@@ -73,3 +73,12 @@ body.hurt:before{content:"";position:fixed;inset:0;z-index:3;pointer-events:none
 #transition.drone-link .loading-line{background:#6fcf8f}
 @keyframes drone-scan{to{background-position:0 64px}}
 @media (prefers-reduced-motion:reduce){#transition.drone-link:before{animation:none}}
+
+/* Kestrel Falls news strip in the command center. */
+#city-strip{position:fixed;left:4vw;top:180px;z-index:6;max-width:min(360px,calc(100vw - 32px));display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px;text-align:left;background:#0c1b25e6;border:1px solid #9bb4c34d;border-left:2px solid #9fb6b8;font:11px/1.45 monospace;color:#c2d1d7}
+#city-strip b{color:#e3c69a;letter-spacing:.5px}#city-strip span:empty{display:none}
+#city-strip.contact{border-left-color:#ff8e72}#city-strip.contact b{color:#ffb39f}
+#city-strip.news{animation:city-news 1s ease-in-out 3}
+@keyframes city-news{50%{background:#3a1a14e6}}
+@media (prefers-reduced-motion:reduce){#city-strip.news{animation:none}}
+@media(max-width:600px){#city-strip{top:calc(12px + env(safe-area-inset-top));left:12px;max-width:calc(100vw - 200px);font-size:10px;padding:8px 10px}}

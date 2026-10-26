@@ -22,7 +22,8 @@ function viewPose(scenario) {
   return { x: 0, z: distance, yaw: Math.PI, pitch: -Math.atan2((scenario.eyeHeight || 1.7) - .6, distance) - .06 };
 }
 
-export async function createArea(saved = {}, { variant } = {}) {
+// linked: the scenario was opened as the live operation (City drone feed), not as a test scenario.
+export async function createArea(saved = {}, { variant, linked = false } = {}) {
   const scenario = scenarios.find(s => s.id === variant);
   if (!scenario) throw new Error('Unknown dev scenario: ' + variant);
 
@@ -56,7 +57,7 @@ export async function createArea(saved = {}, { variant } = {}) {
     if (group) { instance?.dispose?.(); scene.remove(group); disposeScene(group); }
     labels = [];
     group = new THREE.Group(); group.rotation.y = scenario.yaw || 0; scene.add(group);
-    try { instance = scenario.create({ group, soldier, character, label, THREE }); }
+    try { instance = scenario.create({ group, soldier, character, label, THREE, linked }); }
     catch (e) { console.error('Dev scenario failed:', scenario.id, e); instance = null; const m = label(`${scenario.title}\nERROR: ${e.message}`, { width: 4, lines: 2 }); m.position.y = 2; group.add(m); }
   }
   build();
@@ -74,15 +75,17 @@ export async function createArea(saved = {}, { variant } = {}) {
     spawn: home(),
     tools: [
       ...views.map(view => ({ label: 'View: ' + view.label, isActive: () => currentView === view.label, action: ({ setPose }) => goTo(view, setPose) })),
-      { label: 'Restart scenario', action: ({ setPose }) => { build(); goTo(home(), setPose); } },
+      ...(!linked ? [{ label: 'Restart scenario', action: ({ setPose }) => { build(); goTo(home(), setPose); } }] : []),
       { label: 'Slow motion on/off', isActive: () => timeScale !== 1, action() { timeScale = timeScale === 1 ? .25 : 1; } },
       { label: 'Freeze on/off', isActive: () => frozen, action() { frozen = !frozen; } },
       // Scenarios can declare named modes; each gets its own button.
-      ...(scenario.modes || []).map(mode => ({ label: mode, isActive: () => instance?.getStatus?.().mode === mode, action() { instance?.setMode?.(mode); } })),
+      ...(linked ? [] : scenario.modes || []).map(mode => ({ label: mode, isActive: () => instance?.getStatus?.().mode === mode, action() { instance?.setMode?.(mode); } })),
       ...(views.some(view=>view.orbit) ? [{label:'Hold drone orbit',isActive:()=>orbitPaused,action(){orbitPaused=!orbitPaused;}}] : []),
     ],
     resetView(setPose) { goTo(home(),setPose); },
     // Views by address: 'inside-store', 'drone' … (used for ?view=).
+    // Orbiting views (the drone) keep the cursor visible instead of mouse-look.
+    wantsCursor: () => !!selectedView.orbit,
     viewSlug: () => views.length ? currentView.toLowerCase().replace(/[^a-z0-9]+/g, '-') : null,
     setView(slug, setPose) { const view = views.find(v => v.label.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug); if (view) goTo(view, setPose); },
     weatherLabel: scenario.weatherLabel,
@@ -92,14 +95,10 @@ export async function createArea(saved = {}, { variant } = {}) {
         try { instance.update?.(frozen ? 0 : dt * timeScale, env); }
         catch (e) { console.error('Dev scenario update failed:', scenario.id, e); instance = null; }
       }
-      // Labels turn to face the viewer around the vertical axis.
-      if (env.position) for (const m of labels) {
-        m.getWorldPosition(world);
-        m.rotation.y = Math.atan2(env.position.x - world.x, env.position.z - world.z) - (m.parent?.rotation.y || 0);
-      }
     },
     // The scenario's action is always available, wherever you stand.
     getInteraction() {
+      if(linked)return null;
       const action = instance?.interaction?.();
       return action && { label: action.label + (timeScale !== 1 ? ' (slow-mo)' : ''), action: action.action };
     },
@@ -110,6 +109,7 @@ export async function createArea(saved = {}, { variant } = {}) {
     fire: scenario.weapon ? shot => !frozen && area.eyeHeight < 4 ? instance?.fire?.(shot) ?? null : null : undefined,
     getStatus() { const status=instance?.getStatus?.();return status && {...status, stats: `${currentView}${frozen ? ' · FROZEN' : timeScale !== 1 ? ' · 0.25×' : ''} · ${status.stats}`}; },
     beforeRender(camera,dt) {
+      instance?.heartbeat?.();
       const step=frozen ? 0 : dt*timeScale, orbit=selectedView.orbit;
       // Raised cameras push linear fog back by their height so the block stays clear from above.
       if(scene.fog?.isFog){const lift=Math.max(0,camera.position.y-2);scene.fog.near=scenario.fog[1]+lift;scene.fog.far=scenario.fog[2]+lift*1.4;}
@@ -120,6 +120,7 @@ export async function createArea(saved = {}, { variant } = {}) {
         camera.lookAt(0,orbit.targetY,orbit.centerZ);
         camera.updateMatrixWorld();
       }
+      for(const m of labels){m.getWorldPosition(world);m.rotation.y=Math.atan2(camera.position.x-world.x,camera.position.z-world.z)-(m.parent?.rotation.y||0);}
       instance?.beforeRender?.(camera,step);
     },
     snapshot() { return { timeScale }; },

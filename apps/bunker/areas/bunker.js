@@ -3,7 +3,7 @@ import { wallSurvey } from '../sector.js?v=room2';
 
 export function createArea(saved={}) {
   const scene=new THREE.Scene();scene.background=new THREE.Color('#172124');
-  const state={selected:'nomad',route:null,scanned:false,weather:'blizzard',...saved};
+  const state={selected:'shelter',route:null,scanned:false,weather:'blizzard',...saved};
   const material=(color,metalness=.15,roughness=.82)=>new THREE.MeshStandardMaterial({color,metalness,roughness});
   const wall=material('#67706a'),steel=material('#344349',.65),edge=material('#718087',.6),black=material('#10191f'),rubber=material('#232d2c'),amber=material('#c7a264',.4),ceiling=material('#454e4c');
   const warm=new THREE.MeshBasicMaterial({color:'#ffe3ad'}),cool=new THREE.MeshBasicMaterial({color:'#9ad1da'});
@@ -35,7 +35,7 @@ export function createArea(saved={}) {
   box(1.15,.04,.38,-.35,1.03,-3.82,rubber);for(let row=0;row<4;row++)for(let col=0;col<14;col++)box(.057,.018,.053,-.85+col*.075,1.06,-3.96+row*.08,edge);
   const ball=new THREE.Mesh(new THREE.SphereGeometry(.075,16,10),amber);ball.position.set(.7,1.06,-3.78);scene.add(ball);box(.32,.035,.3,.7,1.03,-3.8,rubber);
   for(const side of [-1,1])for(let i=0;i<5;i++){box(.1,.022,.1,side*(1.5+i*.18),1.027,-3.8,i%2?warm:cool);box(.12,.02,.04,side*(1.5+i*.18),1.027,-4.1,edge);}
-  plaque('USE TERMINAL  [ E ]',0,1.25,-4.59,1.5,'#a8e5e9');
+  plaque('USE TERMINAL  [ E ]',0,1.03,-4.59,1.5,'#a8e5e9');
   // Rack bays on the left, storage and an off-centre operator chair on the right.
   for(const z of [-2.1,-.7]){box(.85,2.55,1.15,-4.13,1.29,z,black);for(let i=0;i<8;i++){box(.07,.23,1.02,-3.66,.28+i*.29,z,steel);box(.025,.035,.16,-3.61,.31+i*.29,z-.3,i%3?cool:warm);}}
   for(const z of [1.3,2.5,3.7]){box(.8,2.45,1.05,4.16,1.25,z,steel);box(.04,2.3,.96,3.72,1.25,z,edge);box(.055,.34,.07,3.68,1.3,z-.25,black);}

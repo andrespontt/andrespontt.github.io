@@ -19,7 +19,7 @@ const inStore = (x, z) => x > STORE[0] && x < STORE[2] && z > STORE[1] && z < ST
 const groundAt = (x, z) => inStore(x, z) ? .03
   : Math.abs(x) < 32 && ((z > 1.5 && z < 4) || (z > 14 && z < 16.5 && Math.abs(x) > 3)) ? .14 : 0;
 const DOOR_OUT = [0, 2.7], DOOR_IN = [0, -.7];
-const HOSTILES = [[24, 6], [26, 10.5], [23, 13]];
+const HOSTILES = [[28.1, 3], [28.1, 12], [25.2, 15.8]];
 const MODES = ['Patrol', 'Alert', 'Take cover', 'Firefight', 'Intruders'];
 // Magazines and reload times in seconds. A trained rifleman changes mags in ~2.5 s;
 // from empty it takes longer (bolt release). Civilians with pistols fumble a little more.
@@ -67,7 +67,7 @@ const loadVehicle = name => {
 // Replace a placeholder's contents with the model, scaled to `length` metres and sat on the ground.
 function dressVehicle(holder, name, length, burned) {
   return loadVehicle(name).then(gltf => {
-    if (!holder.parent) return; // the scenario was rebuilt meanwhile
+    if (!holder.parent?.parent) return; // the scenario was rebuilt meanwhile
     const model = gltf.scene.clone(true), box = new THREE.Box3().setFromObject(model), size = box.getSize(new THREE.Vector3());
     const k = length / Math.max(size.x, size.z);
     model.scale.setScalar(k);
@@ -107,7 +107,7 @@ function buildCity(group) {
   facade([9.6, -12, 27, 1.5], 13, true, 6, '#4c5258');
   facade([-27, 16.5, -3, 30], 12, false, 8, '#565a52');
   facade([3, 16.5, 27, 30], 9, false, 8, '#5e4d45');
-  for (const x of [-30, 30]) box(group, x - 1.5, 0, -14, x + 1.5, 14, 32, mat('#1b2125')); // street ends, mostly lost in fog
+  for (const x of [-35, 35]) box(group, x - 1.5, 0, -14, x + 1.5, 14, 32, mat('#1b2125')); // street ends, mostly lost in fog
 
   // The store: brick shell with a broken storefront and an interior.
   const brick = mat('#6e5146'), plaster = mat('#8b867b'), trim = mat('#2d3436', .6, .4), dark = new THREE.MeshBasicMaterial({ color: '#0e1316' });
@@ -363,7 +363,7 @@ export default {
     { label: 'Alley', x: 8.3, z: -10.5, yaw: 0, pitch: -.04, eye: 1.7 },
     { label: 'Drone', x: 0, z: 34, yaw: Math.PI, pitch: -.85, eye: 36, orbit: { radius: 29, centerZ: 5, targetY: 1, speed: .085 } },
   ],
-  create({ group, soldier, character, label }) {
+  create({ group, soldier, character, label, linked = false }) {
     const random = seeded(99);
     const city = buildCity(group);
     const fx = createEffects(group);
@@ -387,31 +387,58 @@ export default {
     let reportTimer = 0;
     // While the feed is open, this scene is the operation: it reports to the shared store
     // (city-store.js, IndexedDB) that the bunker map reads and that keeps simulating when it's closed.
-    let opsStore = null, waveDownBase = 0;
-    import('../../city-store.js').then(store => {
-      opsStore = store;
-      return store.getOperation();
-    }).then(op => {
-      // A wave is already under way out there: join it mid-fight instead of waiting for the ambush.
-      if (op?.phase === 'contact' && startupRemaining > 0) joinWave(op.wave, op.active);
-    }).catch(error => console.warn('City operation store unavailable', error));
-    // Every 2 s of real time (not game time, which slows on weak devices), so the store knows the feed is live.
-    function saveReport() {
-      const now = performance.now();
-      if (now < reportTimer || !opsStore) return;
-      reportTimer = now + 2000;
-      opsStore.reportLive({
-        wave, contact: mode === 'Intruders' && !surprise && intruders.some(alive),
-        active: intruders.filter(alive).length, down: tally.down - waveDownBase,
-        vip: vip.state === 'shelter' || vip.state === 'to-shelter' ? 'sheltering' : 'safe',
-      }).catch(() => {});
+    // Only the drone feed (opened from the bunker map) is the live operation. As a dev scenario the
+    // City always starts from zero and never touches the stored operation.
+    let opsStore = null, waveDownBase = 0, joinedWounded = 0, linkedReady = false, disposed = false, reportBusy = false;
+    const feedSession = globalThis.crypto?.randomUUID?.() || String(Date.now())+Math.random();
+    let operation = null, lastHeartbeat = 0, sessionWounded = 0;
+    function syncOperation(op) {
+      operation = op; linkedReady = true;
+      if (op.phase === 'contact') joinWave(op);
+      else { setMode('Patrol'); wave=op.wave; tally.down=op.down; waveDownBase=0; }
     }
-    // Only the intruders still fighting out there appear (the rest of the wave is already down).
-    function joinWave(n, remaining) {
+    if (linked) import('../../city-store.js').then(async store => {
+      if(disposed)return;opsStore=store;
+      const op=await store.getOperation();if(!disposed)syncOperation(op);
+    }).catch(error => console.warn('City operation store unavailable', error));
+    // A real-time heartbeat also runs while the game/menu is paused.
+    function saveReport() {
+      const now=performance.now();
+      if(disposed||!linkedReady||reportBusy||now<reportTimer||!opsStore)return;
+      reportTimer=now+2000;reportBusy=true;
+      const resume=lastHeartbeat>0 && now-lastHeartbeat>12000;lastHeartbeat=now;
+      const run=async()=>{
+        if(resume){const op=await opsStore.getOperation();if(disposed)return;syncOperation(op);}
+        const op=await opsStore.reportLive({session:feedSession,
+          wave, contact: mode==='Intruders' && !surprise && intruders.some(alive),
+          active:intruders.filter(alive).length,down:tally.down-waveDownBase,
+          vip:vip.state==='shelter'||vip.state==='to-shelter'?'sheltering':'safe',
+          rounds:rounds+playerShots,wounded:sessionWounded,
+        });
+        if(disposed)return;
+        operation=op;
+        if(op.liveSession!==feedSession || op.wave>wave)syncOperation(op);
+      };
+      run().catch(error=>console.warn('City report unavailable',error)).finally(()=>reportBusy=false);
+    }
+    // Join the operation as it stands: the intruders still fighting come on, the ones already down lie
+    // where they fell along the approaches, and the casualty counts carry over.
+    function joinWave(op) {
       setMode('Intruders');
-      wave = Math.max(0, n - 1); startWave();
+      wave = Math.max(0, op.wave - 1); startWave();
       if (surprise) { surprise = false; assignWaveCover(); }
-      intruders.forEach((it, i) => { if (i >= Math.max(1, remaining)) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; } });
+      const remaining = Math.max(1, op.active), count = Math.min(POOL, 8 + wave * 4);
+      intruders.forEach((it, i) => {
+        if (i < remaining) return;
+        if (i < Math.min(count, remaining + op.down)) {
+          // Shot somewhere on the way in, before the barrier.
+          const k = 1 + Math.floor(random() * Math.max(1, it.climbAt - 1)), a = it.steps[k - 1], b = it.steps[k], t = .35 + random() * .6;
+          Object.assign(it, { state: 'down', fall: 1, x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, y: 0, crouch: 0 });
+          it.yaw = facing(DOOR_OUT[0] - it.x, DOOR_OUT[1] - it.z); chooseFall(it);
+          it.c.model.visible = true; it.pistol.visible = false;
+        } else { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; }
+      });
+      tally.down = op.down; waveDownBase = 0; tally.soldiersHit = joinedWounded = op.soldiersWounded || 0; tally.breached = op.breaches || 0;
     }
     // One shared light for muzzle flashes: it stays in the scene (intensity 0) so shaders never recompile.
     const muzzleLight = new THREE.PointLight('#ffc070', 0, 11, 1.6); group.add(muzzleLight);
@@ -479,7 +506,7 @@ export default {
     const COVER = [
       ...[5.2, 7.6, 12.6].flatMap(z => [[14.25, z - .6], [14.25, z + .6]]).map(([x, z]) => ({ x, z, h: 1.05 })),
       { x: 11.1, z: 10, h: 1.6 }, { x: 5.1, z: 10.8, h: 1.3 }, { x: 2.95, z: 3.1, h: .9 },
-      { x: 4.6, z: .85, h: .9, window: true }, { x: 2.7, z: .85, h: .9, window: true }, { x: -4.2, z: .85, h: .9, window: true },
+      { x: 4.6, z: .85, h: .9, window: true }, { x: 3.2, z: .85, h: .9, window: true }, { x: -4.2, z: .85, h: .9, window: true },
     ];
     const rifleGeometry = new THREE.BoxGeometry(.06, .09, .82), dark = new THREE.MeshStandardMaterial({ color: '#1d2224', roughness: .6, metalness: .5 });
     const guards = ROUTES.map(r => {
@@ -493,8 +520,8 @@ export default {
     // --- Armed civilians ------------------------------------------------------
     const JACKETS = ['#3d4c5c', '#5c3d33', '#4c5338', '#3a3a42'];
     const ENTRIES = [
-      { zone: 'east', lane: [0, 1], steps: [[31, 2.6], [19, 2.8], [16, 5.8], [14.1, 5.8, 'climb'], [6, 6], [1, 2.7], [0, -1.4]] },
-      { zone: 'west', lane: [0, 1], steps: [[-31, 12.6], [-16, 12.6], [-14.1, 12.6, 'climb'], [-6, 7], [-1, 2.7], [0, -1.2]] },
+      { zone: 'east', lane: [0, 1], steps: [[27.8, 2.6], [19, 2.8], [16, 5.8], [14.1, 5.8, 'climb'], [6, 6], [1, 2.7], [0, -1.4]] },
+      { zone: 'west', lane: [0, 1], steps: [[-27.8, 12.6], [-16, 12.6], [-14.1, 12.6, 'climb'], [-6, 7], [-1, 2.7], [0, -1.2]] },
       { zone: 'south', lane: [1, 0], steps: [[0, 34], [0, 18.5], [0, 16.6, 'climb'], [0, 6], [.5, 2.7], [.3, -1.6]] },
     ];
     // They have the numbers: a pool of 24, spread over the three streets in side-by-side lanes.
@@ -509,7 +536,7 @@ export default {
       const pistol = new THREE.Mesh(pistolGeometry, dark); pistol.visible = false; group.add(pistol);
       return { c, entry, steps, climbAt: steps.findIndex(p => p[2] === 'climb'), pistol, state: 'wait', x: 0, z: 0, y: 0, yaw: 0, hp: 3, step: 0, speed: 0, timer: 0, aim: 0, foe: null, cooldown: 0, spotted: false, fall: 0, climbFrom: null };
     });
-    let wave = 0, waveTimer = 0, startupRemaining = 5;
+    let wave = 0, waveTimer = 0, startupRemaining = linked ? 0 : 5;
     // Wave 1 is an ambush: soldiers keep patrolling, unaware, until first contact.
     let surprise = false, contactCheck = 0;
     const tally = { down: 0, escaped: 0, breached: 0, soldiersHit: 0 };
@@ -653,6 +680,7 @@ export default {
           const to = !spot ? new THREE.Vector3(victim.x + (random() - .5) * 3, .05, victim.z + (random() - .5) * 3)
             : spot.window ? new THREE.Vector3(spot.x + (random() - .5) * 2, .3 + random() * 3, 1.56)
               : new THREE.Vector3(spot.x + .9, .3 + random() * (spot.h - .3), spot.z + (random() - .5) * 1.4);
+          const ray=to.clone().sub(from),distance=ray.length();to.copy(from).addScaledVector(ray.normalize(),firstObstruction(from,ray,distance));
           fx.flash(from, 1);
           gunshot(audio, listener, hx, hz, { hostile: true });
           fx.tracer(from, to, () => { fx.puff(to); impact(audio, listener, to.x, to.z); });
@@ -816,7 +844,7 @@ export default {
           if (surprise) wantCrouch = .22;
           it.speed = damp(it.speed, top, 3, dt);
           const step = Math.min(distance, it.speed * dt);
-          if (distance > 1e-3) { it.x += dx / distance * step; it.z += dz / distance * step; faceYaw = facing(dx, dz); }
+          if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
           if (distance < .1) {
             if (fleeing) { it.step--; if (it.step <= 0) { it.state = 'escaped'; c.model.visible = false; it.pistol.visible = false; tally.escaped++; } }
             else if (++it.step >= steps.length) { it.state = 'hold'; it.speed = 0; it.shotTimer = .5; if (!it.breached) { it.breached = true; tally.breached++; } }
@@ -853,7 +881,7 @@ export default {
         const back = steps[Math.max(0, it.step - 1)], dx = back[0] - it.x, dz = back[1] - it.z, distance = Math.hypot(dx, dz);
         it.speed = damp(it.speed, 3, 5, dt); wantCrouch = .3;
         const step = Math.min(distance, it.speed * dt);
-        if (distance > 1e-3) { it.x += dx / distance * step; it.z += dz / distance * step; faceYaw = facing(dx, dz); }
+        if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
         // Cover turns up on the way back: take it.
         const spot = (it.scan -= dt) <= 0 && (it.scan = .3, freeCover(it, 4));
         if (spot) { spot.by = it; it.cover = spot; it.state = 'tocover'; }
@@ -862,7 +890,7 @@ export default {
         const dx = it.cover.x - it.x, dz = it.cover.z - it.z, distance = Math.hypot(dx, dz);
         it.speed = damp(it.speed, Math.min(3.6, distance * 3 + .4), 5, dt);
         const step = Math.min(distance, it.speed * dt);
-        if (distance > 1e-3) { it.x += dx / distance * step; it.z += dz / distance * step; faceYaw = facing(dx, dz); }
+        if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
         if (distance < .1) { it.state = 'cover'; it.timer = .8 + random(); it.peeks = 2 + Math.floor(random() * 2); }
       } else if (it.state === 'cover' || it.state === 'peek') {
         // Crouch behind cover, rise to fire a few rounds, duck again; after a few peeks move on.
@@ -1001,7 +1029,7 @@ export default {
         if (shotEpoch !== epoch) return;
         if (connects && f.isPlayer) hurtPlayer();
         else { fx.puff(end); impact(audio, listener, end.x, end.z); }
-        if (connects && !f.isPlayer) tally.soldiersHit++;
+        if (connects && !f.isPlayer) {tally.soldiersHit++;sessionWounded++;}
       });
       gunshot(audio, listener, it.x, it.z, { pistol: true });
       f.underFire = 2;
@@ -1123,14 +1151,15 @@ export default {
     }
 
     return {
-      setMode,
+      setMode: next => { if(!linked)setMode(next); },
+      heartbeat: saveReport,
       fire,
       move: moveThroughCity,
       reload() { startPlayerReload(playerMag === 0); },
       getAmmo: () => firstPerson ? { mag: playerMag, size: RIFLE_MAG, reloading: playerReload > 0 ? 1 - playerReload / playerReloadTotal : null } : null,
       getStatus() {
         const active = intruders.filter(alive).length;
-        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Night patrol. All quiet on the block." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
+        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Night patrol. All quiet on the block." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
       },
       beforeRender(camera, dt) {
         updateSleet(camera, dt);
@@ -1145,6 +1174,11 @@ export default {
         player.x = listener.x; player.z = listener.z; player.active = firstPerson && !!env.listener;
         if (dt <= 0) return;
         clock += dt;
+        if(linked && linkedReady && operation && operation.liveSession===feedSession && operation.phase!=='contact' && Date.now()>=operation.phaseEnds){
+          const nextWave=operation.wave+1;
+          joinWave({...operation,phase:'contact',wave:nextWave,active:Math.min(24,8+nextWave*4),down:0});
+          operation={...operation,phase:'contact',wave:nextWave};
+        }
         if (startupRemaining > 0) { startupRemaining = Math.max(0,startupRemaining-dt); if (startupRemaining === 0) setMode('Intruders'); }
         city.update(clock);
         saveReport(dt);
@@ -1160,7 +1194,7 @@ export default {
         checkContact(dt);
         separateIntruders();
         hostileFire(dt);
-        if (mode === 'Intruders' && wave > 0 && startupRemaining === 0 && !intruders.some(alive)) { if(waveTimer===0)for(const g of guards)backToRoute(g); waveTimer += dt; if (waveTimer > 6) { waveTimer = 0; startWave(); } } else waveTimer = 0;
+        if (mode === 'Intruders' && wave > 0 && startupRemaining === 0 && !intruders.some(alive)) { if(waveTimer===0)for(const g of guards)backToRoute(g); waveTimer += dt; if (!linked && waveTimer > 6) { waveTimer = 0; startWave(); } } else waveTimer = 0;
         fx.update(dt);
         const counts = guards.reduce((c, g) => (c[g.state] = (c[g.state] || 0) + 1, c), {});
         const line = mode === 'Intruders'
@@ -1170,8 +1204,8 @@ export default {
             : `${counts.sprint || 0} moving · ${counts.cover || 0} in cover · ${counts.peek || 0} firing`;
         readout.userData.set(`${mode.toUpperCase()}${audio ? '' : ' · tap Sound for audio'}\n${line} · you fired ${playerShots}`);
       },
-      dispose() { clearTimeout(hurtTimer); document.body.classList.remove('hurt'); },
-      interaction: () => { const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; return { label: 'Mode → ' + next, action() { setMode(next); } }; },
+      dispose() { disposed=true;if(opsStore)opsStore.releaseLive(feedSession).catch(()=>{});clearTimeout(hurtTimer); document.body.classList.remove('hurt'); },
+      interaction: () => { if(linked)return null;const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; return { label: 'Mode → ' + next, action() { setMode(next); } }; },
     };
   },
 };

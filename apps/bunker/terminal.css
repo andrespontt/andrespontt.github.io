@@ -36,3 +36,26 @@ body[data-area=bunker]>.vignette{opacity:.45}body[data-area=bunker] #cabin-statu
 
 /* Kestrel Falls operation log on the map card. */
 #ops-description.ops-log{white-space:pre-line;font:11px/1.55 monospace;color:#c2d1d7}
+
+/* Kestrel Falls inset: the city is far off this mountain survey, so it gets its own small plan. */
+#ops-city-inset{position:absolute;right:26px;top:78px;width:220px;height:150px;cursor:pointer;border:0;box-shadow:0 4px 18px #0008}
+#ops-city-inset:focus-visible{outline:2px solid #d9b47a;outline-offset:2px}
+@media(max-width:700px){#ops-city-inset{right:12px;top:58px;width:150px;height:102px}}
+
+/* Forces and supplies panel. */
+#ops-forces{position:absolute;left:24px;top:132px;z-index:3;width:min(330px,calc(100% - 48px));padding:12px 14px;background:#0f1d24f2;border:1px solid #9bb4c34d;border-left:2px solid #d4b680;color:#c2d1d7;font:11px/1.5 monospace}
+#ops-forces h3{margin:0 0 8px;font:11px monospace;letter-spacing:1px;color:#e3c69a}
+#ops-forces dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0}#ops-forces dt{color:#9fb3b4}#ops-forces dd{margin:0;color:#e3e9e7}
+@media(max-width:700px){#ops-forces{left:12px;top:120px;width:calc(100% - 24px);font-size:10px}}
+/* One geographic map: city detail is selected on the terrain instead of covering it with an inset. */
+#ops-city-inset{display:none}
+.ops-coordinate{display:none}.ops-tools{top:18px}.ops-title h2{font-size:19px}
+.ops-marker[data-site=city] i{border-radius:7px}
+#ops-forces{top:76px;max-height:calc(100% - 110px);overflow:auto;touch-action:pan-y}
+@media(max-width:700px){
+ .ops-top{min-height:60px}.ops-title h2{font-size:15px;letter-spacing:0}.ops-weather{font-size:9px}.ops-tools{left:10px;top:10px;gap:4px}.ops-tools button{padding:8px;min-width:44px}.ops-tools button span{display:none}.ops-north{top:10px}
+ .ops-marker span{max-width:112px;white-space:normal;line-height:1.25}.ops-selection{padding:10px}.ops-selection h3{font-size:16px}.ops-selection small{letter-spacing:.5px}.ops-selection-actions{gap:5px}.ops-selection-actions button{font-size:11px;padding:8px 4px}.ops-help{display:none}
+ #ops-forces{top:64px;bottom:12px;max-height:none;width:auto;right:12px;z-index:6;font-size:12px;padding:16px}.forces-open .ops-selection,.forces-open .ops-zoom,.forces-open .ops-scale{visibility:hidden}
+ .ops-scale{bottom:194px}.ops-zoom{bottom:222px}
+}
+.terminal-open #quick-menu-open,.terminal-open #debug-toggle,.terminal-open #debug-panel,.terminal-open #fps-counter{visibility:hidden!important}
