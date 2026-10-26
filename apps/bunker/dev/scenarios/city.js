@@ -414,7 +414,7 @@ export default {
         if(resume){const op=await opsStore.getOperation();if(disposed)return;syncOperation(op);}
         const op=await opsStore.reportLive({session:feedSession,
           wave, contact: mode==='Intruders' && !surprise && intruders.some(alive),
-          active:intruders.filter(alive).length,down:tally.down-waveDownBase,
+          active:intruders.filter(alive).length,incoming:waiting(),group:released,down:tally.down-waveDownBase,
           vip:vip.state==='down'?'killed':vip.state==='shelter'||vip.state==='to-shelter'?'sheltering':'safe',
           rounds:rounds+playerShots,wounded:sessionWounded,killed:sessionKilled,
         });
@@ -430,7 +430,7 @@ export default {
       setMode('Intruders');
       wave = Math.max(0, op.wave - 1); startWave();
       if (surprise) { surprise = false; assignWaveCover(); }
-      const remaining = Math.max(1, op.active), count = Math.min(POOL, 8 + wave * 4);
+      const remaining = Math.max(1, op.active), count = Math.min(POOL, waveSize(wave));
       intruders.forEach((it, i) => {
         if (i < remaining) return;
         if (i < Math.min(count, remaining + op.down)) {
@@ -544,8 +544,10 @@ export default {
       { zone: 'west', lane: [0, 1], steps: [[-27.8, 12.6], [-16, 12.6], [-14.1, 12.6, 'climb'], [-6, 7], [-1, 2.7], [0, -1.2]] },
       { zone: 'south', lane: [1, 0], steps: [[0, 34], [0, 18.5], [0, 16.6, 'climb'], [0, 6], [.5, 2.7], [.3, -1.6]] },
     ];
-    // They have the numbers: a pool of 24, spread over the three streets in side-by-side lanes.
-    const POOL = 24, LANES = [0, .7, -.7, .35, -.35, 1, -1, .15];
+    // They have the numbers: a pool of 40, spread over the three streets in side-by-side lanes.
+    // Each wave comes as GROUPS groups in a row (5 → 8 intruders each), up to 40 in all.
+    const GROUPS = 5, groupSize = w => Math.min(8, 4 + w), waveSize = w => GROUPS * groupSize(w);
+    const POOL = 40, LANES = [0, .7, -.7, .35, -.35, 1, -1, .15];
     const pistolGeometry = new THREE.BoxGeometry(.04, .11, .2);
     const intruders = Array.from({ length: POOL }, (_, i) => {
       const entry = ENTRIES[i % ENTRIES.length], lane = LANES[Math.floor(i / ENTRIES.length) % LANES.length];
@@ -559,6 +561,20 @@ export default {
     let wave = 0, waveTimer = 0, startupRemaining = linked ? 0 : 5;
     // Wave 1 is an ambush: soldiers keep patrolling, unaware, until first contact.
     let surprise = false, contactCheck = 0;
+    // Groups of the wave released so far; later groups wait out of sight (timer = Infinity).
+    let released = 1, groupClock = 0;
+    const waiting = () => intruders.filter(i => i.state === 'sneak' && i.timer === Infinity).length;
+    // The next group goes in once the last is nearly stopped, or after 45 s.
+    function releaseGroups(dt) {
+      if (mode !== 'Intruders' || !waiting()) return;
+      groupClock += dt;
+      const fighting = intruders.filter(i => alive(i) && i.timer !== Infinity).length;
+      if (fighting > 2 && groupClock < 45) return;
+      const next = intruders.filter(i => i.state === 'sneak' && i.timer === Infinity);
+      const group = Math.min(...next.map(i => i.group));
+      next.filter(i => i.group === group).forEach((it, k) => { it.timer = 1.2 * Math.floor(k / ENTRIES.length) + random() * 2.5; });
+      released++; groupClock = 0;
+    }
     const tally = { down: 0, escaped: 0, breached: 0, soldiersHit: 0 };
     const alive = i => i.state !== 'wait' && i.state !== 'down' && i.state !== 'escaped';
     // Intruders still waiting off-screen at their start point can't be targeted yet.
@@ -587,11 +603,12 @@ export default {
       for (const g of guards) if (g.state === 'down') reviveGuard(g);
       surprise = wave === 1;
       if (!surprise) assignWaveCover();
-      const count = Math.min(POOL, 8 + wave * 4);
+      const count = Math.min(POOL, waveSize(wave)), size = groupSize(wave);
+      released = 1; groupClock = 0;
       intruders.forEach((it, n) => {
         if (n >= count) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; return; }
         const [x, z] = it.steps[0];
-        Object.assign(it, { state: 'sneak', x, z, y: 0, hp: 3, step: 1, speed: 0, timer: 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5, suppressed: 0, mag: PISTOL_MAG, reload: 0, pushing: 0, scan: 0, calm: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
+        Object.assign(it, { state: 'sneak', x, z, y: 0, hp: 3, step: 1, speed: 0, group: Math.floor(n / size), timer: n < size ? 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5 : Infinity, suppressed: 0, mag: PISTOL_MAG, reload: 0, pushing: 0, scan: 0, calm: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
         it.c.model.visible = false; it.c.model.rotation.x = 0;
       });
     }
@@ -1218,7 +1235,7 @@ export default {
       // Nearest hit among intruder heads (one-shot) and torsos, else the ground or far away.
       let best = firstObstruction(o,d,60), victim = null, damage = 0;
       if(d.y < -1e-3)best=Math.min(best,Math.max(0,-o.y/d.y));
-      for (const it of intruders) if (alive(it)) for (const [y, radius, dmg] of [[1.62 + it.y - it.crouch, .14, 3], [1.15 + it.y - it.crouch, .32, 2]]) {
+      for (const it of intruders) if (exposed(it)) for (const [y, radius, dmg] of [[1.62 + it.y - it.crouch, .14, 3], [1.15 + it.y - it.crouch, .32, 2]]) {
         const distance = sphereEntry(o,d,{x:it.x,y,z:it.z},radius);
         if(distance < best){best=distance;victim=it;damage=dmg;}
       }
@@ -1260,7 +1277,7 @@ export default {
       getAmmo: () => firstPerson ? { mag: playerMag, size: RIFLE_MAG, reloading: playerReload > 0 ? 1 - playerReload / playerReloadTotal : null } : null,
       getStatus() {
         const active = intruders.filter(alive).length;
-        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Night patrol. All quiet on the block." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover${linked ? ` · soldiers ${guards.filter(g => g.state !== 'down').length}/${guards.length} · VIP ${vip.state === 'down' ? 'KILLED' : Math.round(vip.hp) + '%'}` : ''}` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
+        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Night patrol. All quiet on the block." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · group ${released}/${GROUPS} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover${linked ? ` · soldiers ${guards.filter(g => g.state !== 'down').length}/${guards.length} · VIP ${vip.state === 'down' ? 'KILLED' : Math.round(vip.hp) + '%'}` : ''}` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
       },
       beforeRender(camera, dt) {
         updateSleet(camera, dt);
@@ -1277,7 +1294,7 @@ export default {
         clock += dt;
         if(linked && linkedReady && operation && operation.liveSession===feedSession && operation.phase!=='contact' && Date.now()>=operation.phaseEnds){
           const nextWave=operation.wave+1;
-          joinWave({...operation,phase:'contact',wave:nextWave,active:Math.min(24,8+nextWave*4),down:0});
+          joinWave({...operation,phase:'contact',wave:nextWave,active:waveSize(nextWave),down:0});
           operation={...operation,phase:'contact',wave:nextWave};
         }
         if (startupRemaining > 0) { startupRemaining = Math.max(0,startupRemaining-dt); if (startupRemaining === 0) setMode('Intruders'); }
@@ -1293,6 +1310,7 @@ export default {
         for (const g of guards) updateGuard(g, dt);
         for (const it of intruders) updateIntruder(it, dt);
         checkContact(dt);
+        releaseGroups(dt);
         separateIntruders();
         hostileFire(dt);
         if (mode === 'Intruders' && wave > 0 && startupRemaining === 0 && !intruders.some(alive)) { if(waveTimer===0)for(const g of guards)backToRoute(g); waveTimer += dt; if (!linked && waveTimer > 6) { waveTimer = 0; startWave(); } } else waveTimer = 0;

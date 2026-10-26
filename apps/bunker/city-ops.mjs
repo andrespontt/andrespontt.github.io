@@ -31,15 +31,24 @@ export function createOperation(now, seed = Math.floor(Math.random() * 2 ** 31))
   };
 }
 
-const waveSize = wave => Math.min(24, 8 + wave * 4);
+// Each wave comes as five groups in a row; groups grow with the wave (5 → 8 intruders).
+export const GROUPS = 5, groupSize = wave => Math.min(8, 4 + wave), waveSize = wave => GROUPS * groupSize(wave);
+const GROUP_GAP = 45_000; // the next group comes once the last is nearly stopped, or after 45 s
 function note(op, at, text) { op.log.push({ at, text }); if (op.log.length > LOG_SIZE) op.log.splice(0, op.log.length - LOG_SIZE); }
 
 function startWave(op, at) {
   op.wave++; op.active = waveSize(op.wave); op.down = 0; op.phase = 'contact';
+  op.group = 1; op.incoming = op.active - groupSize(op.wave); op.groupAt = at;
   if (op.vip !== 'killed') op.vip = 'sheltering';
   note(op, at, op.wave === 1
-    ? `Ambush! ${op.active} armed civilians hit the cordon from three streets. VIP sheltering in the storeroom.`
-    : `Wave ${op.wave}: ${op.active} intruders moving on the store.`);
+    ? `Ambush! ${groupSize(op.wave)} armed civilians hit the cordon from three streets, ${op.incoming} more behind them. VIP sheltering in the storeroom.`
+    : `Wave ${op.wave}: ${groupSize(op.wave)} intruders moving on the store, ${GROUPS - 1} more groups behind them.`);
+}
+// The next group of the wave joins the fight.
+function nextGroup(op, at) {
+  const n = Math.min(op.incoming, groupSize(op.wave));
+  op.incoming -= n; op.group++; op.groupAt = at;
+  note(op, at, `Group ${op.group} of ${GROUPS}: ${n} more intruders hit the cordon.`);
 }
 
 // One 10-second slice of the fight.
@@ -70,11 +79,14 @@ function step(op, at, random) {
     return;
   }
   // Soldiers have the accuracy, the intruders the numbers.
+  op.incoming ??= 0;
+  const fighting = () => op.active - op.incoming;
+  if (op.incoming > 0 && (fighting() <= 2 || at - (op.groupAt ?? 0) >= GROUP_GAP)) nextGroup(op, at);
   let downed = 0;
-  for (let i = 0; i < op.active; i++) if (random() < .045) downed++;
+  for (let i = 0; i < fighting(); i++) if (random() < .045) downed++;
   op.active -= downed; op.down += downed; op.totalDown += downed;
-  if (random() < .015 * Math.min(2, op.active / 12)) (random() < .3 ? kill : wound)(op, at);
-  if (random() < .004 * op.active) {
+  if (random() < .015 * Math.min(2, fighting() / 6)) (random() < .3 ? kill : wound)(op, at);
+  if (random() < .004 * fighting()) {
     op.breaches++;
     // Intruders who get inside go for the VIP sheltering in the storeroom.
     if (op.vip !== 'killed' && random() < .2) { op.vip = 'killed'; note(op, at, 'Intruders reached the storeroom. The VIP has been killed.'); }
@@ -121,6 +133,7 @@ export function applyLive(state, live, now) {
   if (live.wave > op.wave) op.down = 0;
   op.totalDown += Math.max(0, live.down - op.down);
   op.active = Math.max(0, live.active); op.down = Math.max(0, live.down);
+  op.incoming = Math.min(op.active, Math.max(0, live.incoming ?? 0)); op.group = live.group ?? op.group; op.groupAt = now;
   op.wave = Math.max(op.wave, live.wave);
   op.phase = live.contact ? 'contact' : op.wave ? 'lull' : 'quiet';
   op.vip = op.vip === 'killed' ? 'killed' : live.vip; // a dead VIP stays dead
@@ -147,7 +160,7 @@ export function commandLines(op) {
 export function summary(op, now) {
   const weather = 'Sleet · 1 °C · wind 15 km/h';
   const since = m => m < 1 ? 'just now' : m < 60 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h';
-  if (op.phase === 'contact') return `CONTACT · wave ${op.wave} · ${op.active} active · ${op.down} down · VIP ${op.vip} · ${weather}`;
+  if (op.phase === 'contact') return `CONTACT · wave ${op.wave} · group ${op.group || 1}/${GROUPS} · ${op.active} active · ${op.down} down · VIP ${op.vip} · ${weather}`;
   if (op.phase === 'lull') return `Quiet since wave ${op.wave} · ${op.totalDown} intruders down in ${since((now - op.startedAt) / MINUTE)} · ${weather}`;
   return `Patrol · all quiet · cordon up ${since((now - op.startedAt) / MINUTE)} · ${weather}`;
 }

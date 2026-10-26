@@ -10,11 +10,11 @@ test('starts quiet, ambushes after a few minutes, and clears waves over time', (
   op = advance(op, t0 + MINUTE);
   assert.equal(op.phase, 'quiet');
   op = advance(op, t0 + 1.5 * MINUTE);
-  assert.equal(op.phase, 'contact'); assert.equal(op.wave, 1); assert.equal(op.active, 12);
+  assert.equal(op.phase, 'contact'); assert.equal(op.wave, 1); assert.equal(op.active, 25); assert.equal(op.incoming, 20, 'four more groups of five behind the first');
   assert.match(op.log.at(-1).text, /Ambush/);
   op = advance(op, t0 + 60 * MINUTE);
   assert.ok(op.wave >= 2, 'more waves follow');
-  assert.ok(op.totalDown >= 12);
+  assert.ok(op.totalDown >= 25);
 });
 
 test('catching up is deterministic and capped at six hours', () => {
@@ -31,7 +31,7 @@ test('the live scene owns the fight while the drone feed is open', () => {
   assert.equal(live.active, 9); assert.equal(live.down, 3);
   // Off-screen ticks don't touch it for the next 15 s.
   assert.equal(advance(live, t0 + 4 * MINUTE + 10_000).active, 9);
-  assert.match(summary(live, t0 + 4 * MINUTE), /CONTACT · wave 1 · 9 active/);
+  assert.match(summary(live, t0 + 4 * MINUTE), /CONTACT · wave 1 · group \d\/5 · 9 active/);
 });
 
 test('log stays bounded', () => {
@@ -108,4 +108,17 @@ test('the live feed reports killed soldiers and a killed VIP, and the VIP stays 
   op = applyLive(op, { session: 'a', wave: 1, contact: false, active: 0, down: 12, vip: 'safe', rounds: 0, wounded: 1, killed: 2 }, t0 + 2 * MINUTE + 4000);
   assert.equal(op.vip, 'killed');
   assert.ok(op.log.some(e => /VIP has been killed/.test(e.text)));
+});
+
+test('a wave comes as five groups in a row, each once the last is nearly stopped', () => {
+  let op = advance(createOperation(t0, 5), t0 + 1.5 * MINUTE);
+  assert.equal(op.group, 1);
+  const groups = new Set([1]);
+  for (let t = 1.5 * MINUTE; op.wave === 1 && op.phase === 'contact'; t += 10_000) {
+    op = advance(op, t0 + t);
+    groups.add(op.group);
+    assert.ok(op.active - op.incoming >= 0);
+  }
+  assert.deepEqual([...groups], [1, 2, 3, 4, 5]);
+  assert.equal(op.incoming, 0); assert.ok(op.log.some(e => /Group 5 of 5/.test(e.text)));
 });
