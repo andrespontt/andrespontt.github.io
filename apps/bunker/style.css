@@ -61,3 +61,15 @@ body.hurt:before{content:"";position:fixed;inset:0;z-index:3;pointer-events:none
  .inside #quick-menu-open,.inside #debug-toggle{padding:9px 12px;font-size:11px}.inside #debug-toggle{right:calc(max(12px,env(safe-area-inset-right)) + 84px)}
 }
 .inside #fps-counter{display:none}
+/* Ammo counter: bottom centre on desktop, above the fire button on phones. Tap to reload. */
+#ammo{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:4;padding:8px 14px;font:bold 13px monospace;letter-spacing:1px;color:#e4f2e7;background:#0d1a22d0;border:1px solid #9bb4c34d;font-variant-numeric:tabular-nums}
+#ammo.low{color:#ffb08f;border-color:#ff8e72aa}
+@media(max-width:600px){.inside #ammo{left:auto;transform:none;right:max(16px,env(safe-area-inset-right));bottom:calc(136px + env(safe-area-inset-bottom));min-width:84px;padding:9px 6px;font-size:11px;text-align:center}}
+
+/* Drone uplink: the city loads behind a "connecting" feed screen. */
+#transition.drone-link{background:#05110cf7;color:#9fe7b4;font-family:monospace}
+#transition.drone-link .eyebrow{color:#6fcf8f}
+#transition.drone-link:before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,#9fe7b40d 0 2px,transparent 2px 4px);animation:drone-scan 4s linear infinite}
+#transition.drone-link .loading-line{background:#6fcf8f}
+@keyframes drone-scan{to{background-position:0 64px}}
+@media (prefers-reduced-motion:reduce){#transition.drone-link:before{animation:none}}

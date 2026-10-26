@@ -81,3 +81,14 @@ export function glass(audio, listener, x, z) {
     burst(audio, panner, t + .05 + Math.random() * .5, { frequency: 4500 + Math.random() * 3500, q: 6, gain: (.15 + Math.random() * .2) * loudness, attack: .001, decay: .03 + Math.random() * .05 });
   }
 }
+
+// Magazine change over `duration` seconds: release click, mag seated, then the bolt or slide going home.
+export function reload(audio, listener, x, z, duration = 2.5) {
+  if (!audio) return;
+  const { panner, delay, loudness } = place(audio, listener, x, z);
+  const t = audio.context.currentTime + delay, quiet = loudness * .6;
+  burst(audio, panner, t + .12, { frequency: 2600, q: 4, gain: .35 * quiet, attack: .001, decay: .03 });
+  burst(audio, panner, t + duration * .62, { frequency: 1400, q: 2, gain: .5 * quiet, attack: .001, decay: .05 });
+  burst(audio, panner, t + duration * .62 + .02, { filter: 'lowpass', frequency: 500, gain: .3 * quiet, decay: .06 });
+  burst(audio, panner, t + duration - .12, { frequency: 2000, q: 1.5, gain: .55 * quiet, attack: .001, decay: .07 });
+}

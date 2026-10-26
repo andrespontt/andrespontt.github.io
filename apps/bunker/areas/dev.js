@@ -34,7 +34,8 @@ export async function createArea(saved = {}, { variant } = {}) {
   const sun = new THREE.DirectionalLight(night ? '#9fb6d6' : '#fff1dc', scenario.keyIntensity ?? (night ? .45 : 2.2)); sun.position.set(12, 20, 8); scene.add(sun);
   if (scenario.fog) { scene.fog = scenario.fog.length > 2 ? new THREE.Fog(...scenario.fog) : new THREE.FogExp2(scenario.fog[0], scenario.fog[1]); scene.background = new THREE.Color(scenario.fog[0]); }
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: '#33424a', roughness: 1 }));
-  floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  // Scenarios with their own ground (noPad) get the floor pushed well below it, so the two surfaces never fight.
+  floor.rotation.x = -Math.PI / 2; floor.position.y = scenario.noPad ? -.2 : 0; scene.add(floor);
   if(!scenario.noPad){const grid = new THREE.GridHelper(200, 200, '#4f6670', '#40525a'); grid.position.y = .005; scene.add(grid);}
   if (!scenario.noPad) {
     const pad = new THREE.Mesh(new THREE.CircleGeometry(PAD, 48), new THREE.MeshStandardMaterial({ color: '#26343a', roughness: 1 }));
@@ -81,6 +82,10 @@ export async function createArea(saved = {}, { variant } = {}) {
       ...(views.some(view=>view.orbit) ? [{label:'Hold drone orbit',isActive:()=>orbitPaused,action(){orbitPaused=!orbitPaused;}}] : []),
     ],
     resetView(setPose) { goTo(home(),setPose); },
+    // Views by address: 'inside-store', 'drone' … (used for ?view=).
+    viewSlug: () => views.length ? currentView.toLowerCase().replace(/[^a-z0-9]+/g, '-') : null,
+    setView(slug, setPose) { const view = views.find(v => v.label.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug); if (view) goTo(view, setPose); },
+    weatherLabel: scenario.weatherLabel,
     move(p, dx, dz) { if(selectedView.orbit)return; if(instance?.move && area.eyeHeight < 4){instance.move(p,dx,dz);return;} p.x = THREE.MathUtils.clamp(p.x + dx, -90, 90); p.z = THREE.MathUtils.clamp(p.z + dz, -90, 90); },
     update(dt, env = {}) {
       if (instance) {
@@ -99,6 +104,8 @@ export async function createArea(saved = {}, { variant } = {}) {
       return action && { label: action.label + (timeScale !== 1 ? ' (slow-mo)' : ''), action: action.action };
     },
     // First-person weapon: the shell calls fire() with the camera ray; beforeRender() places the viewmodel.
+    reload: () => { if (!frozen) instance?.reload?.(); },
+    getAmmo: () => scenario.weapon && area.eyeHeight < 4 ? instance?.getAmmo?.() ?? null : null,
     canFire: () => !!scenario.weapon && !frozen && area.eyeHeight < 4,
     fire: scenario.weapon ? shot => !frozen && area.eyeHeight < 4 ? instance?.fire?.(shot) ?? null : null : undefined,
     getStatus() { const status=instance?.getStatus?.();return status && {...status, stats: `${currentView}${frozen ? ' · FROZEN' : timeScale !== 1 ? ' · 0.25×' : ''} · ${status.stats}`}; },

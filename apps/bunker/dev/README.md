@@ -69,7 +69,7 @@ Intruders enter only from the west, east and south streets (three per wave). Sol
 
 **Drone** (view 5) circles the city block from above. Use **Hold drone orbit** to stop/resume its camera without stopping combat. **Inside store** (view 3) or **Reset view** returns to first person. Pause and Freeze stop both combat and the drone orbit.
 
-**Intruders** come in growing waves (6, then +2 per wave, up to 12) over three streets, in side-by-side lanes that keep them apart. They move cover to cover, crouch, pop up to fire pistols (poor accuracy), duck when rounds land close, and shoot at soldiers or at you. Muzzle flashes light the street and give the shooter away at long range. Soldiers inside fight from the four window slits and duck below the sill between bursts.
+**Intruders** come in growing waves (12, then +4 per wave, up to 24) against 5 soldiers over three streets, in side-by-side lanes that keep them apart. They move cover to cover, crouch, pop up to fire pistols (poor accuracy), duck when rounds land close, and shoot at soldiers or at you. Muzzle flashes light the street and give the shooter away at long range. The two soldiers inside fight from the window slits and duck below the sill between bursts.
 
 The **VIP** (unarmed, dark suit) paces the centre aisle and runs to the storeroom crates when shooting starts, staying down until it has been quiet for 3 seconds. The status shows if you hit them.
 

@@ -87,3 +87,32 @@ repeated visits (bunker: 17 geometries/15 textures; vehicle: 21/16 in the tested
 views), with disposal reported for the prior area. Desktop and 390×844 controls
 were visually checked. No console errors or warnings observed. These counts are
 not a frame-rate benchmark and may vary by visible scene content.
+
+## Addresses
+
+Every place has its own address, so a refresh returns there:
+
+| Address | Place |
+|---|---|
+| `bunker.html` | Overview (landing) |
+| `?at=snowfield` | On foot outside |
+| `?at=nomad` | Nomad crew compartment |
+| `?at=bunker` | Bunker situation room |
+| `?at=map` | Situation room with the map open |
+| `?at=city` (`&view=drone`, `street`, `inside-store`…) | City operation, Kestrel Falls |
+| `?dev=<id>`, `?dev` | Other dev scenarios, scenarios menu |
+
+The map in the bunker shows Kestrel Falls, the closest city (38 km SW, sleet rather than snow). Its card shows the
+operation status the City scenario last reported, and **Drone feed** opens the operation in the drone view behind a
+"Connecting to drone…" screen (`&from=map`); leaving the feed returns to the command center.
+
+## Kestrel Falls operation (off-screen)
+
+`city-ops.mjs` simulates the city operation in 10-second ticks of real time: a quiet start, the ambush, waves
+(12, +4 each, up to 24), intruders going down, wounded soldiers, breaches and the VIP, with a 30-entry log.
+`city-store.js` keeps it in the browser's IndexedDB (`bunker` database, `operations` store; memory if storage is
+blocked), so it carries on between visits: on load it catches up on up to six hours. The bunker map reads it live
+(status line, last three log entries; the marker pulses only during contact). While the drone feed is open the 3D
+scene is the operation: it reports every 2 s, joins a wave already under way with only the intruders still
+fighting, and the off-screen ticks pause until 15 s after the last report.
+Tests: `node --test apps/bunker/city-ops.test.mjs`.

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { disposeScene } from './area-manager.mjs';
 import { SITES, WEATHER, elevation, routeTo, surveyCanvas } from './sector.js?v=room2';
+import { summary } from './city-ops.mjs';
 
-export function createTerminal(root,{onClose,onState}) {
+export function createTerminal(root,{onClose,onState,onDrone}) {
   let state={selected:'nomad',route:null,scanned:false,weather:'blizzard'},active=false,renderer,scene,camera,terrain,routeMesh,storm;
   let zoom=1,tilted=false,weatherVisible=false,target=new THREE.Vector3(),width=1,height=1,scanTimer=null;
   const pointers=new Map(),ray=new THREE.Raycaster(),ground=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -12,11 +13,11 @@ export function createTerminal(root,{onClose,onState}) {
     <div class="ops-tools"><button id="ops-fit" title="Show the whole sector (Home)">⌖ <span>Fit sector</span></button><button id="ops-relief" aria-pressed="false">3D <span>Relief</span></button><button id="ops-storm" aria-pressed="false">≋ <span>Weather</span></button></div>
     <div class="ops-zoom"><button id="ops-plus" aria-label="Zoom in">+</button><output id="ops-zoom-label">1.0×</output><button id="ops-minus" aria-label="Zoom out">−</button></div>
     <div class="ops-scale"><span id="ops-scale-bar"></span><b id="ops-scale-text">500 m</b></div><div id="ops-notice" role="status" hidden></div>
-    <div class="ops-selection"><div class="ops-selection-heading"><div><small id="ops-type"></small><h3 id="ops-name"></h3></div><button id="ops-focus" aria-label="Center map on selected location">⌖</button></div><p id="ops-status"></p><p id="ops-description"></p><div class="ops-selection-actions"><button id="ops-route">Plot route</button><button id="ops-scan">Scan sector</button></div></div>
+    <div class="ops-selection"><div class="ops-selection-heading"><div><small id="ops-type"></small><h3 id="ops-name"></h3></div><button id="ops-focus" aria-label="Center map on selected location">⌖</button></div><p id="ops-status"></p><p id="ops-description"></p><div class="ops-selection-actions"><button id="ops-route">Plot route</button><button id="ops-drone" hidden>▶ Drone feed</button><button id="ops-scan">Scan sector</button></div></div>
     <div class="ops-help">DRAG TO MOVE <span>·</span> PINCH / SCROLL TO ZOOM <span>·</span> TAP A LOCATION</div></div></div>`;
   const $=id=>root.querySelector('#'+id),canvas=$('ops-map'),viewport=$('ops-viewport');
   const markers={};for(const [id,s] of Object.entries(SITES)){
-    const b=document.createElement('button');b.className='ops-marker';b.style.setProperty('--pin',s.color);b.innerHTML=`<i>${id==='shelter'?'⌂':id==='nomad'?'▰':id==='relay'?'⌁':'?'}</i><span>${s.short}</span>`;b.setAttribute('aria-label','Inspect '+s.short);b.onclick=()=>{state.selected=id;update();};$('ops-markers').append(b);markers[id]=b;
+    const b=document.createElement('button');b.className='ops-marker';b.style.setProperty('--pin',s.color);b.innerHTML=`<i>${id==='shelter'?'⌂':id==='nomad'?'▰':id==='relay'?'⌁':id==='city'?'▣':'?'}</i><span>${s.short}</span>`;b.setAttribute('aria-label','Inspect '+s.short);b.onclick=()=>{state.selected=id;update();};$('ops-markers').append(b);markers[id]=b;
   }
   function init(){
     if(renderer)return;
@@ -54,13 +55,18 @@ export function createTerminal(root,{onClose,onState}) {
   function fit(){target.set(0,0,0);zoom=1;draw();}
   function notify(text){$('ops-notice').hidden=false;$('ops-notice').textContent=text;clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('ops-notice').hidden=true,3500);}
   function updateRoute(){if(!scene)return;if(routeMesh){scene.remove(routeMesh);routeMesh.geometry.dispose();routeMesh.material.dispose();routeMesh=null;}const points=routeTo(state.route);if(points.length<2)return;const sampled=[];for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];for(let t=0;t<1;t+=.04){const x=THREE.MathUtils.lerp(a[0],b[0],t),z=THREE.MathUtils.lerp(a[1],b[1],t);sampled.push(new THREE.Vector3(x,elevation(x,z)+.35,z));}}const end=points.at(-1);sampled.push(new THREE.Vector3(end[0],elevation(...end)+.35,end[1]));routeMesh=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(sampled),160,.19,5,false),new THREE.MeshBasicMaterial({color:'#ffca6b'}));scene.add(routeMesh);}
-  function update(){const s=SITES[state.selected]||SITES.nomad;const distance=Math.hypot(s.x-SITES.shelter.x,s.z-SITES.shelter.z)*50;
-    $('ops-type').textContent=s.type;$('ops-name').textContent=s.name;$('ops-status').textContent=s.status+(distance?' · '+(distance/1000).toFixed(1)+' km':'');$('ops-description').textContent=s.description;
+  // The city's line comes from the running operation (city-ops.mjs), with its last few log entries.
+  let cityOp=null;
+  function cityStatus(){return cityOp?summary(cityOp,Date.now()):SITES.city.status+' · Sleet · 1 °C';}
+  function cityLog(){if(!cityOp)return SITES.city.description;const clock=at=>new Date(at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});return cityOp.log.slice(-3).reverse().map(e=>clock(e.at)+'  '+e.text).join('\n');}
+  function update(){const s=SITES[state.selected]||SITES.nomad;const city=state.selected==='city';const distance=Math.hypot(s.x-SITES.shelter.x,s.z-SITES.shelter.z)*50;
+    $('ops-type').textContent=s.type;$('ops-name').textContent=s.name;$('ops-status').textContent=city?cityStatus():s.status+(distance?' · '+(distance/1000).toFixed(1)+' km':'');$('ops-description').textContent=city?cityLog():s.description;$('ops-description').classList.toggle('ops-log',city);
+    $('ops-route').hidden=city;$('ops-drone').hidden=!city;
     $('ops-route').disabled=state.selected==='shelter';$('ops-route').textContent=state.route===state.selected?'Clear route':'Plot route';
     const [wind,vis]=WEATHER[state.weather]||WEATHER.blizzard;$('ops-weather').textContent=state.weather.toUpperCase()+' / '+wind+' km/h / '+vis+' m visibility';
     updateRoute();draw();onState?.({...state});
   }
-  $('terminal-close').onclick=onClose;$('ops-fit').onclick=fit;$('ops-plus').onclick=()=>zoomAt(zoom*1.3);$('ops-minus').onclick=()=>zoomAt(zoom/1.3);
+  $('terminal-close').onclick=onClose;$('ops-drone').onclick=()=>onDrone?.();$('ops-fit').onclick=fit;$('ops-plus').onclick=()=>zoomAt(zoom*1.3);$('ops-minus').onclick=()=>zoomAt(zoom/1.3);
   $('ops-relief').onclick=()=>{tilted=!tilted;$('ops-relief').setAttribute('aria-pressed',String(tilted));draw();};
   $('ops-storm').onclick=()=>{weatherVisible=!weatherVisible;storm.visible=weatherVisible;$('ops-storm').setAttribute('aria-pressed',String(weatherVisible));draw();};
   $('ops-focus').onclick=()=>{const s=SITES[state.selected];target.set(s.x,0,s.z);draw();};
@@ -70,6 +76,8 @@ export function createTerminal(root,{onClose,onState}) {
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();notify('Map graphics interrupted. Waiting for the display to recover.');});canvas.addEventListener('webglcontextrestored',()=>{resize();});
   const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(viewport);
   return {
+    // Live operation state for the Kestrel Falls card; the marker only pulses during contact.
+    setCity(op){cityOp=op;markers.city?.classList.toggle('ops-alert',op?.phase==='contact');if(state.selected==='city')update();},
     open(next){state={...state,...next};root.hidden=false;active=true;init();resize();update();canvas.focus({preventScroll:true});},
     close(){active=false;root.hidden=true;pointers.clear();clearTimeout(scanTimer);scanTimer=null;root.classList.remove('ops-scanning');$('ops-scan').disabled=false;$('ops-scan').textContent=state.scanned?'Rescan sector':'Scan sector';},
     snapshot(){return {...state};},

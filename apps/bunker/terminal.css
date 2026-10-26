@@ -27,3 +27,12 @@ body[data-area=bunker]>.vignette{opacity:.45}body[data-area=bunker] #cabin-statu
 @media(prefers-reduced-motion:reduce){.ops-scanning #ops-viewport:after{animation:none;background:#c2d7df15}}
 .ops-marker.label-left{flex-direction:row-reverse;transform:translate(calc(-100% + 22px),-22px)} @media(max-width:700px){.ops-marker i{width:44px;height:44px}}
 @media(max-width:700px){.ops-scale{right:74px;bottom:190px}.ops-top{padding-top:max(10px,env(safe-area-inset-top))}.ops-selection{bottom:max(12px,env(safe-area-inset-bottom))}}
+
+/* The city marker pulses while an operation is reported there. */
+.ops-marker.ops-alert i{animation:ops-alert 1.4s ease-in-out infinite}
+@keyframes ops-alert{0%,100%{box-shadow:0 0 0 0 #ff8e7299}50%{box-shadow:0 0 0 9px #ff8e7200}}
+@media (prefers-reduced-motion:reduce){.ops-marker.ops-alert i{animation:none}}
+#ops-drone{border-color:#ff8e72aa;color:#ffd0c2}
+
+/* Kestrel Falls operation log on the map card. */
+#ops-description.ops-log{white-space:pre-line;font:11px/1.55 monospace;color:#c2d1d7}

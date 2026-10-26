@@ -14,3 +14,9 @@ download or asset pack.
 used in the Three.js additive animation blending example (Mixamo character and
 animations). It is recolored at runtime as the civilian intruders in the dev
 Perimeter scenario.
+
+# City vehicles
+
+`vehicles/*.glb` and `vehicles/Textures/colormap.png` are from the Car Kit (3.1) by Kenney
+(www.kenney.nl), CC0 1.0 public domain: <https://opengameart.org/content/car-kit>.
+Placed on the street in the dev City scenario (police cars, ambulance, parked and burned-out cars, cones).

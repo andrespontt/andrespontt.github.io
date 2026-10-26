@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { facing } from '../kit.js';
 import { angleDelta, damp } from '../easing.js';
 import { aimPistol, aimRifle, crouch } from '../../rig.js';
-import { glass, gunshot, impact } from '../sound.js';
+import { glass, gunshot, impact, reload as reloadSound } from '../sound.js';
 import { createEffects, plan, route, seeded } from '../combat.js';
 import { firstObstruction, sphereEntry, moveThroughCity, STORE_FRONT, FIRE_BARRELS, WINDOWS } from '../city-space.js';
 
@@ -14,9 +15,16 @@ const BLOCKS = [STORE, [-27, -12, -7.4, 1.5], [9.6, -12, 27, 1.5], [-27, 16.5, -
 const OUTSIDE_BLOCKS = BLOCKS.slice(1);
 const INTERIOR_BLOCKS = [[-3.9,-6.2,-3.1,-2.4],[3.1,-6.2,3.9,-2.4],[3.2,-.95,6.2,-.35]];
 const inStore = (x, z) => x > STORE[0] && x < STORE[2] && z > STORE[1] && z < STORE[3];
+// Height of the surface underfoot: store tiles, the raised sidewalks, or the street.
+const groundAt = (x, z) => inStore(x, z) ? .03
+  : Math.abs(x) < 32 && ((z > 1.5 && z < 4) || (z > 14 && z < 16.5 && Math.abs(x) > 3)) ? .14 : 0;
 const DOOR_OUT = [0, 2.7], DOOR_IN = [0, -.7];
 const HOSTILES = [[24, 6], [26, 10.5], [23, 13]];
 const MODES = ['Patrol', 'Alert', 'Take cover', 'Firefight', 'Intruders'];
+// Magazines and reload times in seconds. A trained rifleman changes mags in ~2.5 s;
+// from empty it takes longer (bolt release). Civilians with pistols fumble a little more.
+const RIFLE_MAG = 30, PISTOL_MAG = 15;
+const RELOAD = { soldier: [2.4, 3.1], intruder: [2.2, 3.4], player: 2.5, playerEmpty: 3.1 };
 
 // Walking routes that respect the store walls: in or out through the front door.
 function walkPath(from, to) {
@@ -47,6 +55,28 @@ function signTexture(text) {
   g.fillStyle = '#1c2a2e'; g.fillRect(0, 0, 1024, 128);
   g.fillStyle = '#e9d29a'; g.font = 'bold 84px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 512, 68);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// Street vehicles: Kenney Car Kit models (CC0), loaded once and cloned. Each spot shows a box car
+// until its model arrives, and keeps it if the download fails.
+const vehicleLoads = new Map();
+const loadVehicle = name => {
+  if (!vehicleLoads.has(name)) vehicleLoads.set(name, new GLTFLoader().loadAsync(new URL('../../assets/vehicles/' + name + '.glb', import.meta.url).href));
+  return vehicleLoads.get(name);
+};
+// Replace a placeholder's contents with the model, scaled to `length` metres and sat on the ground.
+function dressVehicle(holder, name, length, burned) {
+  return loadVehicle(name).then(gltf => {
+    if (!holder.parent) return; // the scenario was rebuilt meanwhile
+    const model = gltf.scene.clone(true), box = new THREE.Box3().setFromObject(model), size = box.getSize(new THREE.Vector3());
+    const k = length / Math.max(size.x, size.z);
+    model.scale.setScalar(k);
+    model.position.set(-(box.min.x + box.max.x) / 2 * k, -box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
+    // Burned-out wrecks: same model, charred.
+    if (burned) model.traverse(n => { if (n.isMesh) { n.material = n.material.clone(); n.material.color.set('#3b342e'); n.material.roughness = 1; n.material.metalness = 0; } });
+    holder.clear(); holder.add(model);
+    return size.y * k; // the model's height, for anything mounted on top
+  }).catch(error => console.warn('Vehicle model failed to load; keeping the placeholder.', name, error));
 }
 
 function buildCity(group) {
@@ -195,14 +225,31 @@ function buildCity(group) {
     return v;
   };
   vehicle(-12.6, 10, 0, tan); vehicle(12.6, 10, Math.PI, tan);
-  const car = (x, z, rotation, color, burned) => {
+  const car = (x, z, rotation, color, burned, kind = 'sedan', length = 4.4) => {
     const c = new THREE.Group(); c.position.set(x, 0, z); c.rotation.y = rotation; group.add(c);
+    // Box car placeholder, replaced by the model when it loads (resolves to the model's height).
     const m = burned ? mat('#26221f') : mat(color, .6, .3);
     box(c, -.9, .35, -2.1, .9, 1, 2.1, m); box(c, -.8, 1, -1.1, .8, 1.5, .9, m); box(c, -.78, 1.04, -1.12, .78, 1.45, -1.08, dark);
     for (const sx of [-1, 1]) for (const sz of [-1.3, 1.3]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.33, .33, .25, 12), tyre); w.rotation.z = Math.PI / 2; w.position.set(sx * .9, .33, sz); c.add(w); }
+    return dressVehicle(c, kind, length, burned);
   };
-  car(6.3, 10.9, Math.PI / 2 + .15, '#6b2f2a', false); car(-7, 5.6, Math.PI / 2 - .1, '#2f4b63', false); car(24.5, 9, .4, '', true); car(23, 13.3, -.3, '#7f7a6e', false); car(25.5, 5.5, 1.3, '', true);
-  car(-24.5, 9.5, -.4, '', true); car(-22.5, 4.6, .2, '', true);
+  // Parked cars inside the cordon, abandoned ones and burned-out wrecks down the street.
+  car(6.3, 10.9, Math.PI / 2 + .15, '#6b2f2a', false, 'sedan'); car(-7, 5.6, Math.PI / 2 - .1, '#2f4b63', false, 'van', 4.6);
+  car(24.5, 9, .4, '', true, 'suv', 4.6); car(23, 13.3, -.3, '#7f7a6e', false, 'taxi'); car(25.5, 5.5, 1.3, '', true, 'sedan');
+  car(-24.5, 9.5, -.4, '', true, 'van', 4.6); car(-22.5, 4.6, .2, '', true, 'suv', 4.6);
+  // Emergency vehicles at the cordon: a police car with its light bar going, and an ambulance.
+  const police = car(6.5, 14.8, Math.PI / 2, '#d8d8d8', false, 'police', 4.6); car(-12, 14.8, -Math.PI / 2, '#e0e0e0', false, 'ambulance', 5.4);
+  const blinkers = ['#ff2a2a', '#2a6bff'].map((color, i) => {
+    const light = new THREE.Mesh(new THREE.BoxGeometry(.32, .12, .2), new THREE.MeshBasicMaterial({ color }));
+    light.position.set(6.5, 1.72, 14.8 + (i ? .3 : -.3)); group.add(light); return light;
+  });
+  // Sit the lights just above the roof once the model is in (it has its own light bar geometry).
+  police.then(height => { if (height) for (const light of blinkers) light.position.y = height + .07; });
+  // Traffic cones along the barriers.
+  for (const [x, z] of [[-4.1, 17.6], [4.1, 17.6], [-15, 3.6], [15, 3.6], [-16, 13.6], [16, 13.6], [-3.6, 18.4], [3.6, 18.4]]) {
+    const holder = new THREE.Group(); holder.position.set(x, groundAt(x, z), z); group.add(holder);
+    dressVehicle(holder, 'cone', .5, false);
+  }
   // Intruder cover outside the cordon (matching boxes live in COVER_PROPS).
   const rust = mat('#4a3a2c'), crate = mat('#5b4a32');
   box(group, -21.6, 0, 13.6, -20.2, 1.3, 15, rust); box(group, 1.4, 0, 21.5, 2.9, 1.4, 23.3, mat('#2f4a3a'));
@@ -254,6 +301,9 @@ function buildCity(group) {
         if (f.light) f.light.intensity = 4 + Math.sin(t * 17) * .8 + Math.sin(t * 7.3) * .6;
         f.flame.scale.y = 1 + Math.sin(t * 13) * .15;
       }
+      // Police light bar: red and blue alternate in quick double flashes.
+      const phase = (time * 2.2) % 1;
+      blinkers[0].visible = phase < .5 && (phase % .25) < .13; blinkers[1].visible = phase >= .5 && (phase % .25) < .13;
       for (const p of fogPatches) p.sprite.position.set(p.x + Math.sin(time * .15 + p.phase) * 1.5, p.y, p.z + Math.cos(time * .11 + p.phase) * 1.2);
     },
   };
@@ -273,14 +323,17 @@ function createViewmodel(group) {
     rifle,
     fired() { kick = 1; },
     // Returns the muzzle position in group space (for tracers and flashes).
-    place(camera, visible, dt = 0) {
+    // reload: 0..1 progress while changing magazines (null when not reloading).
+    place(camera, visible, dt = 0, reload = null) {
       rifle.visible = visible;
       if (!visible) return null;
       kick = Math.max(0, kick - dt * 10.8);
-      offset.set(.2, -.19 + kick * .02, -.42 + kick * .06).applyQuaternion(camera.quaternion);
+      // Reloading: the rifle dips and cants toward you, then comes back up.
+      const dip = reload == null ? 0 : Math.sin(Math.PI * Math.min(1, reload * 1.15));
+      offset.set(.2 - dip * .06, -.19 + kick * .02 - dip * .16, -.42 + kick * .06 + dip * .08).applyQuaternion(camera.quaternion);
       rifle.position.copy(camera.position).add(offset);
       rifle.quaternion.copy(camera.quaternion);
-      rifle.rotateX(kick * .08);
+      rifle.rotateX(kick * .08 + dip * .35); rifle.rotateZ(dip * .7);
       group.worldToLocal(rifle.position);
       muzzle.set(0, .015, -.7).applyMatrix4(rifle.matrix.compose(rifle.position, rifle.quaternion, rifle.scale));
       return muzzle;
@@ -300,6 +353,8 @@ export default {
   models: ['xbot'],
   modes: MODES,
   weapon: true,
+  // Down in the valley it's sleet, not the mountain blizzard (the shell's weather doesn't apply here).
+  weatherLabel: 'Sleet · 1 °C',
   defaultView: 'Inside store',
   views: [
     { label: 'Overhead', x: 0, z: 15, yaw: Math.PI, pitch: -.95, eye: 21 },
@@ -312,6 +367,52 @@ export default {
     const random = seeded(99);
     const city = buildCity(group);
     const fx = createEffects(group);
+    // Sleet: short streaks falling around the viewer, slanting with the wind. None inside the store.
+    const SLEET = 700, sleetBox = 26;
+    const sleetPositions = new Float32Array(SLEET * 6), drops = Array.from({ length: SLEET }, () => ({ x: (random() - .5) * sleetBox, y: random() * 14, z: (random() - .5) * sleetBox, v: 7 + random() * 3 }));
+    const sleetGeometry = new THREE.BufferGeometry(); sleetGeometry.setAttribute('position', new THREE.BufferAttribute(sleetPositions, 3));
+    const sleet = new THREE.LineSegments(sleetGeometry, new THREE.LineBasicMaterial({ color: '#9fb3c0', transparent: true, opacity: .32, depthWrite: false }));
+    sleet.frustumCulled = false; group.add(sleet);
+    function updateSleet(camera, dt) {
+      const cx = camera.position.x, cz = camera.position.z, top = Math.min(camera.position.y + 6, 16);
+      drops.forEach((d, i) => {
+        d.y -= d.v * dt; d.x -= 1.4 * dt;
+        if (d.y < 0) { d.y += top; d.x = (random() - .5) * sleetBox; d.z = (random() - .5) * sleetBox; }
+        const x = cx + d.x, z = cz + d.z, hidden = inStore(x, z);
+        sleetPositions.set(hidden ? [0, -5, 0, 0, -5, 0] : [x, d.y, z, x + .06, d.y + .32, z], i * 6);
+      });
+      sleetGeometry.attributes.position.needsUpdate = true;
+    }
+    // Status report for the bunker's situation map (read by the shell as 'bunker-city-report').
+    let reportTimer = 0;
+    // While the feed is open, this scene is the operation: it reports to the shared store
+    // (city-store.js, IndexedDB) that the bunker map reads and that keeps simulating when it's closed.
+    let opsStore = null, waveDownBase = 0;
+    import('../../city-store.js').then(store => {
+      opsStore = store;
+      return store.getOperation();
+    }).then(op => {
+      // A wave is already under way out there: join it mid-fight instead of waiting for the ambush.
+      if (op?.phase === 'contact' && startupRemaining > 0) joinWave(op.wave, op.active);
+    }).catch(error => console.warn('City operation store unavailable', error));
+    // Every 2 s of real time (not game time, which slows on weak devices), so the store knows the feed is live.
+    function saveReport() {
+      const now = performance.now();
+      if (now < reportTimer || !opsStore) return;
+      reportTimer = now + 2000;
+      opsStore.reportLive({
+        wave, contact: mode === 'Intruders' && !surprise && intruders.some(alive),
+        active: intruders.filter(alive).length, down: tally.down - waveDownBase,
+        vip: vip.state === 'shelter' || vip.state === 'to-shelter' ? 'sheltering' : 'safe',
+      }).catch(() => {});
+    }
+    // Only the intruders still fighting out there appear (the rest of the wave is already down).
+    function joinWave(n, remaining) {
+      setMode('Intruders');
+      wave = Math.max(0, n - 1); startWave();
+      if (surprise) { surprise = false; assignWaveCover(); }
+      intruders.forEach((it, i) => { if (i >= Math.max(1, remaining)) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; } });
+    }
     // One shared light for muzzle flashes: it stays in the scene (intensity 0) so shaders never recompile.
     const muzzleLight = new THREE.PointLight('#ffc070', 0, 11, 1.6); group.add(muzzleLight);
     let muzzleGlow = 0;
@@ -345,10 +446,19 @@ export default {
         }
       }
     }
+    // Magazines: `unit.mag` rounds left, `unit.reload` seconds until the new magazine is in.
+    function startReload(unit, [min, max]) {
+      unit.reload = min + random() * (max - min);
+      reloadSound(audio, listener, unit.x, unit.z, unit.reload);
+    }
+    function tickReload(unit, dt, size) {
+      if (unit.reload > 0 && (unit.reload -= dt) <= 0) { unit.reload = 0; unit.mag = size; }
+    }
     // Every shot: flash the light, reveal the shooter, and break any intact pane along its path.
     function shotFired(shooter, from, dir, reach) {
       muzzleLight.position.copy(from); muzzleGlow = 1;
       if (shooter) shooter.revealed = 2.5;
+      contact();
       for (const pane of city.panes) {
         if (!pane.intact) continue;
         const t = firstObstruction(from, dir, reach, [pane.bounds]);
@@ -358,17 +468,13 @@ export default {
     const viewmodel = createViewmodel(group);
 
     // --- Soldiers -----------------------------------------------------------
+    // Five soldiers: two inside the store, one at the door, one on each side of the cordon.
     const ROUTES = [
       { pts: [[-5.6, -1.4], [-5.6, -6.7], [-1.6, -6.7], [-1.6, -1.4]], dir: 1, speed: 1.1, pause: .5 },
       { pts: [[1.6, -1.4], [1.6, -6.7], [5.6, -6.7], [5.6, -1.6]], dir: -1, speed: 1.1, pause: .5 },
-      { pts: [[-.9, -.6], [.9, -.6]], speed: .7, pause: 1 },
       { pts: [[-3.2, 3], [-1.5, 3]], speed: .8, pause: 1 },
-      { pts: [[1.5, 3], [2.9, 3]], speed: .8, pause: 1 },
       { pts: [[-13.6, 5.2], [-13.6, 8.4]], speed: .9, pause: .8 },
-      { pts: [[-13.6, 11.6], [-13.6, 13.4]], speed: .9, pause: .8 },
-      { pts: [[13.6, 5.2], [13.6, 8.4]], speed: .9, pause: .8 },
       { pts: [[13.6, 11.6], [13.6, 13.4]], speed: .9, pause: .8 },
-      { pts: [[8.3, .6], [8.3, -3.5]], speed: .9, pause: .8 },
     ].map(r => ({ ...r, dir: r.dir || 1, path: route(r.pts) }));
     const COVER = [
       ...[5.2, 7.6, 12.6].flatMap(z => [[14.25, z - .6], [14.25, z + .6]]).map(([x, z]) => ({ x, z, h: 1.05 })),
@@ -381,7 +487,7 @@ export default {
       const p = r.path.at(0);
       s.actions.Walk.time = random() * 2; s.actions.Idle.time = random() * 2;
       const rifle = new THREE.Mesh(rifleGeometry, dark); rifle.visible = false; group.add(rifle);
-      return { s, r, rifle, dist: 0, speed: 0, wait: random() * 2, scanYaw: 0, state: 'route', path: [], after: null, x: p.x, z: p.z, yaw: facing(p.dx * r.dir, p.dz * r.dir), crouch: 0, aim: 0, spot: null, timer: 0, shots: 0, target: new THREE.Vector3(20, 1, 8), foe: null, underFire: 0, segment: undefined };
+      return { s, r, rifle, dist: 0, speed: 0, wait: random() * 2, scanYaw: 0, state: 'route', path: [], after: null, x: p.x, z: p.z, yaw: facing(p.dx * r.dir, p.dz * r.dir), crouch: 0, aim: 0, spot: null, timer: 0, shots: 0, target: new THREE.Vector3(20, 1, 8), foe: null, underFire: 0, segment: undefined, mag: RIFLE_MAG, reload: 0 };
     });
 
     // --- Armed civilians ------------------------------------------------------
@@ -391,8 +497,8 @@ export default {
       { zone: 'west', lane: [0, 1], steps: [[-31, 12.6], [-16, 12.6], [-14.1, 12.6, 'climb'], [-6, 7], [-1, 2.7], [0, -1.2]] },
       { zone: 'south', lane: [1, 0], steps: [[0, 34], [0, 18.5], [0, 16.6, 'climb'], [0, 6], [.5, 2.7], [.3, -1.6]] },
     ];
-    // They have the numbers: a pool of 12, spread over the three streets in side-by-side lanes.
-    const POOL = 12, LANES = [0, .8, -.8, .4];
+    // They have the numbers: a pool of 24, spread over the three streets in side-by-side lanes.
+    const POOL = 24, LANES = [0, .7, -.7, .35, -.35, 1, -1, .15];
     const pistolGeometry = new THREE.BoxGeometry(.04, .11, .2);
     const intruders = Array.from({ length: POOL }, (_, i) => {
       const entry = ENTRIES[i % ENTRIES.length], lane = LANES[Math.floor(i / ENTRIES.length) % LANES.length];
@@ -404,6 +510,8 @@ export default {
       return { c, entry, steps, climbAt: steps.findIndex(p => p[2] === 'climb'), pistol, state: 'wait', x: 0, z: 0, y: 0, yaw: 0, hp: 3, step: 0, speed: 0, timer: 0, aim: 0, foe: null, cooldown: 0, spotted: false, fall: 0, climbFrom: null };
     });
     let wave = 0, waveTimer = 0, startupRemaining = 5;
+    // Wave 1 is an ambush: soldiers keep patrolling, unaware, until first contact.
+    let surprise = false, contactCheck = 0;
     const tally = { down: 0, escaped: 0, breached: 0, soldiersHit: 0 };
     const alive = i => i.state !== 'wait' && i.state !== 'down' && i.state !== 'escaped';
     // Intruders still waiting off-screen at their start point can't be targeted yet.
@@ -428,21 +536,49 @@ export default {
     }
     let epoch = 0;
     function startWave() {
-      epoch++; wave++;
-      assignWaveCover();
-      const count = Math.min(POOL, 4 + wave * 2);
+      epoch++; wave++; waveDownBase = tally.down;
+      surprise = wave === 1;
+      if (!surprise) assignWaveCover();
+      const count = Math.min(POOL, 8 + wave * 4);
       intruders.forEach((it, n) => {
         if (n >= count) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; return; }
         const [x, z] = it.steps[0];
-        Object.assign(it, { state: 'sneak', x, z, y: 0, hp: 3, step: 1, speed: 0, timer: 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5, suppressed: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
+        Object.assign(it, { state: 'sneak', x, z, y: 0, hp: 3, step: 1, speed: 0, timer: 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5, suppressed: 0, mag: PISTOL_MAG, reload: 0, pushing: 0, scan: 0, calm: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
         it.c.model.visible = false; it.c.model.rotation.x = 0;
       });
+    }
+    // First contact: everyone opens up at once; soldiers react a moment later and run for cover.
+    function contact() {
+      if (!surprise) return;
+      surprise = false;
+      for (const it of intruders) if (alive(it)) { it.spotted = true; it.cooldown = random() * .6; }
+      const shotEpoch = epoch;
+      pending.push({ at: clock + .6 + random() * .6, fire: () => { if (shotEpoch === epoch) assignWaveCover(); } });
+    }
+    // Soldiers only notice sneaking intruders up close in the dark (9 m), or 14 m if one is running.
+    function checkContact(dt) {
+      if (!surprise || (contactCheck -= dt) > 0) return;
+      contactCheck = .25;
+      for (const g of guards) for (const it of intruders) {
+        if (!exposed(it)) continue;
+        const d = Math.hypot(it.x - g.x, it.z - g.z);
+        if (d < (it.speed > 2 ? 14 : 9) && sightTo(g, it)) return contact();
+      }
+    }
+    // Pick a way to fall with room for the body: backwards, forwards, then either side. Keeps bodies out of shelves and walls.
+    function chooseFall(it) {
+      for (const [yaw, sign] of [[it.yaw, 1], [it.yaw, -1], [it.yaw + Math.PI / 2, 1], [it.yaw - Math.PI / 2, 1]]) {
+        // rotation.x > 0 tips the model onto its back (local +Z); < 0 onto its front.
+        const dir = new THREE.Vector3(Math.sin(yaw) * sign, 0, Math.cos(yaw) * sign);
+        if (firstObstruction(new THREE.Vector3(it.x, .35, it.z), dir, 1.9) >= 1.85) { it.fallYaw = yaw; it.fallSign = sign; return; }
+      }
+      it.fallYaw = it.yaw; it.fallSign = 1;
     }
     function hideIntruders() { for (const it of intruders) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; } }
     function hitIntruder(it, damage) {
       if (!alive(it)) return;
       it.hp -= damage; it.spotted = true;
-      if (it.hp <= 0) { it.state = 'down'; it.fall = 0; it.pistol.visible = false; tally.down++; }
+      if (it.hp <= 0) { it.state = 'down'; it.fall = 0; it.pistol.visible = false; tally.down++; chooseFall(it); }
       // Hit while peeking: duck back behind cover.
       else if (it.state === 'peek') { it.state = 'cover'; it.timer = .8 + random() * .8; }
       // Wounded intruders stay in combat so every wave can be fully cleared.
@@ -531,9 +667,16 @@ export default {
       return length < .01 || firstObstruction(a,dir.normalize(),length) >= length - .1;
     }
     // A crouched intruder's head drops below barriers and car bodies.
-    const sightTo = (g,it) => clearSight(new THREE.Vector3(g.x,1.5,g.z),new THREE.Vector3(it.x,1.55+it.y-(it.crouch||0),it.z));
+    // A soldier at a window looks (and fires) from the window opening itself, so the frame doesn't hide the street.
+    const atWindow = g => !!g.spot?.window && g.state === 'engage';
+    const guardEye = (g, y = 1.5) => new THREE.Vector3(g.x, y, atWindow(g) ? 1.3 : g.z);
+    const sightTo = (g,it) => clearSight(guardEye(g),new THREE.Vector3(it.x,1.55+it.y-(it.crouch||0),it.z));
+    // What an intruder can see of a soldier: ducked below a sill or barrier, they're hidden.
+    const exposedTo = (g,it) => clearSight(new THREE.Vector3(it.x,1.55+it.y-(it.crouch||0),it.z),guardEye(g,1.5-(g.crouch||0)));
     function guardShot(g, target, onHit) {
       const muzzle = g.rifle.position.clone().addScaledVector(w.set(0, 0, 1).applyQuaternion(g.rifle.quaternion), .45);
+      // At a window the barrel is out over the sill, just behind the glass, so rounds go through (and break) the pane.
+      if (atWindow(g)) muzzle.set(g.x, Math.min(1.85, Math.max(1.35, muzzle.y)), 1.3);
       const dir = target.clone().sub(muzzle), distance = dir.length(), obstruction = firstObstruction(muzzle,dir.normalize(),distance);
       const end = muzzle.clone().addScaledVector(dir,obstruction), shotEpoch = epoch;
       fx.flash(muzzle, .55);
@@ -544,12 +687,13 @@ export default {
     }
 
     function updateGuard(g, dt) {
+      tickReload(g, dt, RIFLE_MAG);
       const { s, r } = g;
       let faceYaw = g.yaw, wantCrouch = 0, wantAim = 0;
       g.underFire = Math.max(0, g.underFire - dt);
       const indoor = inStore(g.x, g.z);
       if (g.state === 'route') {
-        const alert = mode === 'Alert' || mode === 'Intruders';
+        const alert = mode === 'Alert' || (mode === 'Intruders' && !surprise);
         let targetSpeed = mode === 'Alert' ? 2.6 : r.speed;
         if (g.wait > 0) { g.wait -= dt; targetSpeed = 0; }
         if (gapAhead(g) < 2.2) targetSpeed = 0;
@@ -561,7 +705,7 @@ export default {
         const p = r.path.at(g.dist);
         g.x = p.x; g.z = p.z;
         faceYaw = g.wait > 0 ? facing(p.dx * r.dir, p.dz * r.dir) + Math.PI / 2 * Math.sign(g.scanYaw || 1) + g.scanYaw * Math.sin(g.wait * 1.3) : facing(p.dx * r.dir, p.dz * r.dir);
-        wantAim = mode === 'Intruders' ? .35 : 0;
+        wantAim = mode === 'Intruders' && !surprise ? .35 : 0;
       } else if (g.state === 'sprint' || g.state === 'return') {
         if (!g.path.length) { backToRoute(g); }
         const [tx, tz] = g.path[0], dx = tx - g.x, dz = tz - g.z, distance = Math.hypot(dx, dz);
@@ -575,20 +719,25 @@ export default {
         wantCrouch = .55;
         if (!g.foe || !exposed(g.foe) || !sightTo(g,g.foe)) {
           // Next armed civilian in range, otherwise back to the route.
-          let next = null, nd = 18;
+          let next = null, nd = atWindow(g) ? 24 : 18;
           for (const it of intruders) if (exposed(it) && sightTo(g,it)) { const d = Math.hypot(it.x - g.x, it.z - g.z); if (d < nd) { next = it; nd = d; } }
           if (next) {g.foe = next;next.spotted=true;} else {g.foe=null;}
+          // Lull in the fight: top up a half-empty magazine.
+          if (!g.foe && g.mag < 12 && g.reload <= 0) startReload(g, RELOAD.soldier);
         }
         if (g.foe) {
           const f = g.foe;
           faceYaw = facing(f.x - g.x, f.z - g.z);
           g.target.set(f.x, 1.2 + f.y, f.z);
           // Fire in bursts, ducking below the sill (or barrier) between them.
-          wantAim = 1; wantCrouch = g.underFire > 0 || (g.shots <= 0 && g.timer > .35) ? .55 : .12;
+          // Reloading: get down behind cover until the new magazine is in.
+          wantAim = g.reload > 0 ? .2 : 1;
+          wantCrouch = g.reload > 0 || g.underFire > 0 || (g.shots <= 0 && g.timer > .35) ? .55 : .12;
           g.timer -= dt;
-          if (g.timer <= 0 && g.aim > .9) {
+          if (g.timer <= 0 && g.aim > .9 && g.reload <= 0) {
             if (g.shots <= 0) g.shots = 2 + Math.floor(random() * 2);
             g.shots--;
+            if (--g.mag <= 0) { startReload(g, RELOAD.soldier); g.shots = 0; }
             g.timer = g.shots > 0 ? .14 : .6 + random() * .8;
             const hit = random() < .3;
             const target = hit ? g.target.clone() : g.target.clone().add(v.set((random() - .5) * 1.6, (random() - .5) * .8 - .4, (random() - .5) * 1.6));
@@ -619,7 +768,7 @@ export default {
       g.yaw += angleDelta(g.yaw, faceYaw) * (1 - Math.exp(-dt * (g.state === 'sprint' ? 10 : 6)));
       g.crouch = damp(g.crouch, wantCrouch, 8, dt);
       g.aim = damp(g.aim, wantAim, 9, dt);
-      s.model.position.set(g.x, 0, g.z);
+      s.model.position.set(g.x, groundAt(g.x, g.z), g.z);
       s.model.rotation.y = g.yaw;
       s.setSpeed(g.speed);
       s.mixer.update(dt);
@@ -641,14 +790,20 @@ export default {
       let faceYaw = it.yaw, wantAim = 0, wantCrouch = 0;
       const steps = it.steps;
       if (it.state === 'down') {
-        // Fall backwards over half a second, then lie still.
+        // Fall over half a second, then lie still on top of the surface (the body is ~0.25 m thick).
         it.fall = Math.min(1, it.fall + dt * 2.2);
-        c.model.rotation.x = Math.PI / 2 * (1 - (1 - it.fall) ** 3);
-        c.model.position.set(it.x, 0, it.z);
+        const k = 1 - (1 - it.fall) ** 3;
+        c.model.rotation.y = it.fallYaw;
+        c.model.rotation.x = it.fallSign * Math.PI / 2 * k;
+        c.model.position.set(it.x, groundAt(it.x, it.z) + .13 * k, it.z);
         if (it.fall < 1) { c.setSpeed(0); c.mixer.update(dt); }
         return;
       }
       it.suppressed = Math.max(0, (it.suppressed || 0) - dt);
+      tickReload(it, dt, PISTOL_MAG);
+      it.pushing = Math.max(0, it.pushing - dt);
+      // Time since rounds last landed close: they only feel safe to move after a quiet moment.
+      it.calm = it.suppressed > 0 ? 0 : it.calm + dt;
       if (it.timer > 0 && it.state === 'sneak' && it.step === 1 && it.speed === 0) { it.timer -= dt; c.model.visible = it.timer < 1; }
       else if (it.state === 'sneak' || it.state === 'flee') {
         const fleeing = it.state === 'flee';
@@ -656,7 +811,9 @@ export default {
         const dx = goal[0] - it.x, dz = goal[1] - it.z, distance = Math.hypot(dx, dz);
         if (!fleeing && goal[2] === 'climb') { it.state = 'climb'; it.timer = 0; it.climbFrom = [it.x, it.z]; }
         else {
-          const top = fleeing ? 3.8 : it.spotted ? 3.4 : 1.25;
+          // Firing while advancing means a fast walk, not a sprint.
+          const top = fleeing ? 3.8 : it.pushing > 0 && it.foe ? 2.2 : it.spotted ? 3.4 : surprise ? 1 : 1.25;
+          if (surprise) wantCrouch = .22;
           it.speed = damp(it.speed, top, 3, dt);
           const step = Math.min(distance, it.speed * dt);
           if (distance > 1e-3) { it.x += dx / distance * step; it.z += dz / distance * step; faceYaw = facing(dx, dz); }
@@ -667,17 +824,40 @@ export default {
           // A soldier (or you) in sight: dive into nearby cover if there is any, else stop and shoot.
           it.cooldown -= dt;
           // Rounds landing close (suppressed) send them to cover straight away. Near the door they just rush it.
-          if (!fleeing && it.state === 'sneak' && (it.cooldown <= 0 || it.suppressed > 0) && it.step < steps.length - 2) {
+          // Pushing forward: keep moving and fire on the move; only heavy fire (or an empty gun) stops them.
+          if (!surprise && it.pushing > 0) {
+            if ((it.scan -= dt) <= 0) { it.scan = .3; it.foe = nearestTarget(it, 18); }
+            if (it.foe && it.reload <= 0) {
+              wantAim = 1; it.shotTimer -= dt;
+              if (it.shotTimer <= 0 && it.aim > .7) { it.shotTimer = .5 + random() * .6; intruderShot(it, true); }
+            }
+            if (it.suppressed > 1.2 && random() < dt * 3 * (1 - courage(it))) it.pushing = 0;
+          }
+          // Under fire, take cover; otherwise advance. Near the door they just rush it.
+          else if (!surprise && !fleeing && it.state === 'sneak' && (it.cooldown <= 0 || it.suppressed > 0) && it.step < steps.length - 2) {
             const target = nearestTarget(it, 18);
             if (!target) it.cooldown = .3;
+            else if (it.suppressed <= 0 && random() < courage(it)) push(it, target);
             else {
               it.foe = target;
               const spot = freeCover(it, it.suppressed > 0 ? 9 : 7);
               if (spot) { spot.by = it; it.cover = spot; it.state = 'tocover'; }
+              // Pinned with nowhere to hide: back off a few metres the way they came, then try again.
+              else if (it.suppressed > 0 && it.step > 1) fallBack(it);
               else { it.state = 'shoot'; it.timer = 1 + random(); it.shotTimer = .3; }
             }
           }
         }
+      } else if (it.state === 'fallback') {
+        // Crouched retreat toward the previous waypoint; after a moment (or on arrival) they advance again.
+        const back = steps[Math.max(0, it.step - 1)], dx = back[0] - it.x, dz = back[1] - it.z, distance = Math.hypot(dx, dz);
+        it.speed = damp(it.speed, 3, 5, dt); wantCrouch = .3;
+        const step = Math.min(distance, it.speed * dt);
+        if (distance > 1e-3) { it.x += dx / distance * step; it.z += dz / distance * step; faceYaw = facing(dx, dz); }
+        // Cover turns up on the way back: take it.
+        const spot = (it.scan -= dt) <= 0 && (it.scan = .3, freeCover(it, 4));
+        if (spot) { spot.by = it; it.cover = spot; it.state = 'tocover'; }
+        else if ((it.timer -= dt) <= 0 || distance < .2) { it.state = 'sneak'; it.cooldown = 1 + random(); }
       } else if (it.state === 'tocover') {
         const dx = it.cover.x - it.x, dz = it.cover.z - it.z, distance = Math.hypot(dx, dz);
         it.speed = damp(it.speed, Math.min(3.6, distance * 3 + .4), 5, dt);
@@ -691,23 +871,25 @@ export default {
         it.timer -= dt;
         if (it.state === 'cover') {
           wantCrouch = .55;
-          if (it.timer <= 0) { it.foe = nearestTarget(it, 18) || it.foe; it.state = 'peek'; it.timer = 1.3 + random() * .9; it.shotTimer = .35 + random() * .3; }
+          // Pinned: rounds keep landing close, so they stay down. Reloading also happens down here.
+          if (it.suppressed > 0 || it.reload > 0) it.timer = Math.max(it.timer, .4);
+          if (it.timer <= 0) {
+            // Quiet for a moment and friends close by: get up and go instead of peeking.
+            if (it.calm > 1 && random() < courage(it) * .8) leaveCover(it, true);
+            else { it.foe = nearestTarget(it, 18) || it.foe; it.state = 'peek'; it.timer = 1.3 + random() * .9; it.shotTimer = .35 + random() * .3; }
+          }
         } else {
           wantCrouch = .08; wantAim = 1;
           if (it.foe && !sightTo(it.foe, it)) it.foe = nearestTarget(it, 18);
           it.shotTimer -= dt;
           if (it.foe && it.shotTimer <= 0 && it.aim > .85) { it.shotTimer = .45 + random() * .55; intruderShot(it); }
+          // Empty: duck back down to reload.
+          if (it.reload > 0) { it.state = 'cover'; it.timer = it.reload + .2; }
           // Rounds snapping past: get down early.
           if (it.suppressed > 1.2 && it.timer > .4) { it.state = 'cover'; it.timer = .7 + random() * .8; }
           if (it.timer <= 0) {
             if (--it.peeks > 0 && it.foe) { it.state = 'cover'; it.timer = .9 + random() * 1.3; }
-            else {
-              // Bound forward to the next free cover closer to the store, or break out and push on.
-              const from = it.cover; from.by = null; it.cover = null;
-              const next = freeCover(it, 10, doorDistance(from) - 2);
-              if (next) { next.by = it; it.cover = next; it.state = 'tocover'; }
-              else { it.state = 'sneak'; it.timer = 0; it.spotted = true; it.cooldown = 4 + random() * 3; }
-            }
+            else leaveCover(it, false);
           }
         }
       } else if (it.state === 'climb') {
@@ -720,17 +902,24 @@ export default {
         if (t >= 1) { it.y = 0; it.step++; it.state = 'sneak'; }
       } else if (it.state === 'shoot' || it.state === 'hold') {
         it.speed = damp(it.speed, 0, 6, dt);
+        // Standing in the open under heavy fire: break off and find cover or fall back (not once inside the store).
+        if (it.state === 'shoot' && it.suppressed > 1.2 && random() < dt * 4 * (1 - courage(it))) {
+          const spot = freeCover(it, 9);
+          if (spot) { spot.by = it; it.cover = spot; it.state = 'tocover'; } else if (it.step > 1) fallBack(it);
+        }
         if (!it.foe || it.state === 'hold' || !sightTo(it.foe,it)) it.foe = nearestTarget(it, 16);
         if (it.foe) {
           faceYaw = facing(it.foe.x - it.x, it.foe.z - it.z); wantAim = 1;
           it.shotTimer -= dt;
           if (it.shotTimer <= 0 && it.aim > .85) { it.shotTimer = .45 + random() * .5; intruderShot(it); }
         }
+        // Reloading in the open: crouch while the new magazine goes in.
+        if (it.reload > 0) { wantAim = 0; wantCrouch = .45; }
         if (it.state === 'shoot') { it.timer -= dt; if (it.timer <= 0) { it.state = 'sneak'; it.cooldown = 2 + random() * 2.5; } }
       }
       it.yaw += angleDelta(it.yaw, faceYaw) * (1 - Math.exp(-dt * 7));
       it.aim = damp(it.aim, wantAim, 8, dt);
-      c.model.position.set(it.x, it.y, it.z);
+      c.model.position.set(it.x, it.y + groundAt(it.x, it.z), it.z);
       c.model.rotation.y = it.yaw;
       c.setSpeed(it.state === 'climb' ? .6 : it.speed);
       c.mixer.update(dt);
@@ -752,6 +941,31 @@ export default {
       const closer = d < (guard ? Math.hypot(guard.x - it.x, guard.z - it.z) : player.revealed > 0 ? Math.max(range, 32) : range);
       return closer && clearSight(new THREE.Vector3(it.x, 1.5 + it.y, it.z), new THREE.Vector3(player.x, 1.5, player.z)) ? player : guard;
     }
+    // Courage to advance instead of hiding: grows with friends close by (peer pressure), drops under fire.
+    function fallBack(it) { it.state = 'fallback'; it.pushing = 0; it.timer = 1.5 + random() * 1.5; it.scan = 0; }
+    function courage(it) {
+      let friends = 0;
+      for (const o of intruders) if (o !== it && exposed(o) && Math.hypot(o.x - it.x, o.z - it.z) < 6) friends++;
+      const base = Math.min(.75, .12 + friends * .14);
+      return it.suppressed > 0 ? (friends >= 4 ? .25 : 0) : base;
+    }
+    // Advance for a few seconds, firing on the move. Nearby friends who are not pinned often join in.
+    function push(it, target, rally = true) {
+      if (it.cover) { it.cover.by = null; it.cover = null; }
+      Object.assign(it, { state: 'sneak', foe: target || it.foe, pushing: 3 + random() * 3, spotted: true, cooldown: 2 + random() * 2, timer: 0, shotTimer: .4 + random() * .4 });
+      if (!rally) return;
+      for (const o of intruders) {
+        if (o === it || !exposed(o) || o.pushing > 0 || o.suppressed > 0 || Math.hypot(o.x - it.x, o.z - it.z) > 6) continue;
+        if (['cover', 'peek', 'shoot', 'sneak'].includes(o.state) && random() < .6) push(o, null, false);
+      }
+    }
+    // Done with this cover: bound to cover closer to the store, or push forward in the open.
+    function leaveCover(it, eager) {
+      const from = it.cover; from.by = null; it.cover = null;
+      const next = !eager || random() < .5 ? freeCover(it, 10, doorDistance(from) - 2) : null;
+      if (next) { next.by = it; it.cover = next; it.state = 'tocover'; }
+      else push(it, it.foe, eager);
+    }
     // Nearest free cover on the intruder's side of the cordon; `closerThan` keeps only spots nearer the store door.
     function freeCover(it, range, closerThan = Infinity) {
       let best = null, bestDistance = range;
@@ -765,11 +979,14 @@ export default {
       return best;
     }
     // One pistol round. Intruders are poor shots: wide misses, and only a few rounds connect.
-    function intruderShot(it) {
+    function intruderShot(it, moving = false) {
+      if (it.mag <= 0 || it.reload > 0) return;
+      if (--it.mag <= 0) startReload(it, RELOAD.intruder);
       const f = it.foe;
       const muzzle = it.pistol.position.clone().addScaledVector(w.set(0, 0, 1).applyQuaternion(it.pistol.quaternion), .14);
       const range = Math.hypot(f.x - it.x, f.z - it.z), spread = 1.2 + range * .15;
-      const hit = random() < (f.isPlayer ? .1 : .14) * Math.min(1, 8 / range);
+      // Firing on the move halves what little accuracy they have.
+      const hit = random() < (f.isPlayer ? .1 : .14) * Math.min(1, 8 / range) * (moving ? .5 : 1);
       const aim = hit ? new THREE.Vector3(f.x, f.isPlayer ? 1.3 : 1.1, f.z)
         : new THREE.Vector3(f.x + (random() - .5) * spread, .2 + random() * 2.2, f.z + (random() - .5) * spread);
       // A miss keeps flying past the target until it meets a wall, cover or the ground.
@@ -800,7 +1017,7 @@ export default {
       return { c, x: 0, z: -2.6, yaw: 0, speed: 0, crouch: 0, state: 'pace', path: [], end: 1, wait: 1.5, calm: 0, hits: 0 };
     })();
     function updateVip(dt) {
-      const v = vip, threat = mode === 'Take cover' || mode === 'Firefight' || intruders.some(exposed);
+      const v = vip, threat = mode === 'Take cover' || mode === 'Firefight' || (!surprise && intruders.some(exposed));
       let top = 0, wantCrouch = 0, faceYaw = v.yaw;
       if (threat && v.state !== 'shelter' && v.state !== 'to-shelter') {
         v.state = 'to-shelter'; v.path = v.z > -7.3 ? VIP_SHELTER.map(p => [...p]) : [VIP_SHELTER[2]];
@@ -831,7 +1048,7 @@ export default {
       } else v.speed = damp(v.speed, 0, 8, dt);
       v.yaw += angleDelta(v.yaw, faceYaw) * (1 - Math.exp(-dt * 6));
       v.crouch = damp(v.crouch, wantCrouch, 6, dt);
-      v.c.model.position.set(v.x, 0, v.z); v.c.model.rotation.y = v.yaw;
+      v.c.model.position.set(v.x, groundAt(v.x, v.z), v.z); v.c.model.rotation.y = v.yaw;
       v.c.setSpeed(v.speed); v.c.mixer.update(dt);
       crouch(v.c.model, v.crouch);
     }
@@ -851,14 +1068,23 @@ export default {
     }
     function nearestGuard(it, range) {
       let best = null, bestDistance = range;
-      for (const g of guards) { const d = Math.hypot(g.x - it.x, g.z - it.z); if (d < (g.revealed > 0 ? Math.max(bestDistance, 32) : bestDistance) && sightTo(g,it)) { best = g; bestDistance = d; } }
+      for (const g of guards) { const d = Math.hypot(g.x - it.x, g.z - it.z); if (d < (g.revealed > 0 ? Math.max(bestDistance, 32) : bestDistance) && exposedTo(g,it)) { best = g; bestDistance = d; } }
       return best;
     }
 
     // --- Player weapon ----------------------------------------------------------
     let muzzle = null, firstPerson = false;
+    // Your rifle: 30 rounds; R (or tapping the ammo counter) reloads, and it reloads itself when empty.
+    let playerMag = RIFLE_MAG, playerReload = 0, playerReloadTotal = 0;
+    function startPlayerReload(empty) {
+      if (playerReload > 0 || playerMag >= RIFLE_MAG) return;
+      playerReload = playerReloadTotal = empty ? RELOAD.playerEmpty : RELOAD.player;
+      reloadSound(audio, listener, listener.x, listener.z, playerReload);
+    }
     function fire({ origin, dir }) {
       if (origin.y >= 4) return null;
+      if (playerReload > 0) return { reloading: true };
+      if (playerMag <= 0) { startPlayerReload(true); return { reloading: true }; }
       const o = group.worldToLocal(origin.clone()), d = dir.clone().transformDirection(new THREE.Matrix4().copy(group.matrixWorld).invert());
       // Nearest hit among intruder heads (one-shot) and torsos, else the ground or far away.
       let best = firstObstruction(o,d,60), victim = null, damage = 0;
@@ -885,6 +1111,14 @@ export default {
       gunshot(audio, listener, listener.x, listener.z);
       viewmodel.fired();
       playerShots++;
+      if (--playerMag <= 0) startPlayerReload(true);
+      // Near misses pin intruders down: anyone within ~1.5 m of the round's path is suppressed.
+      for (const it of intruders) {
+        if (!exposed(it) || it === victim) continue;
+        const along = Math.max(0, Math.min(best, (it.x - o.x) * d.x + (1.2 - o.y) * d.y + (it.z - o.z) * d.z));
+        const px = o.x + d.x * along - it.x, py = o.y + d.y * along - 1.2, pz = o.z + d.z * along - it.z;
+        if (px * px + py * py + pz * pz < 2.25) it.suppressed = Math.max(it.suppressed, 1.5);
+      }
       return { hit: !!victim };
     }
 
@@ -892,15 +1126,18 @@ export default {
       setMode,
       fire,
       move: moveThroughCity,
+      reload() { startPlayerReload(playerMag === 0); },
+      getAmmo: () => firstPerson ? { mag: playerMag, size: RIFLE_MAG, reloading: playerReload > 0 ? 1 - playerReload / playerReloadTotal : null } : null,
       getStatus() {
         const active = intruders.filter(alive).length;
-        return { mode, title: mode === "Intruders" ? "Defend the market" : "City operation", detail: startupRemaining > 0 ? `Intruders incoming in ${Math.ceil(startupRemaining)}s. Prepare to defend the store.` : mode === "Intruders" ? `Wave ${wave} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
+        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Night patrol. All quiet on the block." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
       },
       beforeRender(camera, dt) {
+        updateSleet(camera, dt);
         // Show the rifle only in first-person (low) views.
         firstPerson = camera.position.y < 4;
         city.setOverview(!firstPerson);
-        muzzle = viewmodel.place(camera, firstPerson, dt);
+        muzzle = viewmodel.place(camera, firstPerson, dt, playerReload > 0 ? 1 - playerReload / playerReloadTotal : null);
       },
       update(dt, env = {}) {
         audio = env.audio || null;
@@ -910,14 +1147,17 @@ export default {
         clock += dt;
         if (startupRemaining > 0) { startupRemaining = Math.max(0,startupRemaining-dt); if (startupRemaining === 0) setMode('Intruders'); }
         city.update(clock);
+        saveReport(dt);
         muzzleGlow = Math.max(0, muzzleGlow - dt * 16); muzzleLight.intensity = muzzleGlow * 14;
         player.revealed = Math.max(0, player.revealed - dt);
         for (const g of guards) g.revealed = Math.max(0, (g.revealed || 0) - dt);
         updateShards(dt);
+        if (playerReload > 0 && (playerReload -= dt) <= 0) { playerReload = 0; playerMag = RIFLE_MAG; }
         updateVip(dt);
         for (let i = pending.length - 1; i >= 0; i--) if (pending[i].at <= clock) { pending[i].fire(); pending.splice(i, 1); }
         for (const g of guards) updateGuard(g, dt);
         for (const it of intruders) updateIntruder(it, dt);
+        checkContact(dt);
         separateIntruders();
         hostileFire(dt);
         if (mode === 'Intruders' && wave > 0 && startupRemaining === 0 && !intruders.some(alive)) { if(waveTimer===0)for(const g of guards)backToRoute(g); waveTimer += dt; if (waveTimer > 6) { waveTimer = 0; startWave(); } } else waveTimer = 0;

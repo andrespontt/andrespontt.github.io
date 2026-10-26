@@ -4,6 +4,8 @@ export const SITES = {
   shelter: { name: 'OUTPOST 07', short: 'Outpost 07', x: -25, z: 17, color: '#f1ba68', type: 'YOUR LOCATION', status: 'Sealed · power online', description: 'Situation room and emergency shelter. Your point of return.' },
   nomad: { name: 'NOMAD', short: 'Nomad', x: -3, z: -9, color: '#b7e5e2', type: 'EXPEDITION CARRIER', status: 'Parked · intermittent radio', description: 'The carrier is sheltered below the western ridge. Follow the access road north.' },
   relay: { name: 'RELAY 03', short: 'Relay 03', x: 31, z: -26, color: '#b7e5e2', type: 'WEATHER STATION', status: 'Battery 18% · transmitting', description: 'A remote weather relay on the high ground. The eastern crossing is exposed to wind.' },
+  // The closest city, far down the south-west valley road. Not to scale: the marker sits where the road leaves the survey.
+  city: { name: 'KESTREL FALLS', short: 'Kestrel Falls', x: -33.7, z: 37, color: '#ff8e72', type: 'CLOSEST CITY · 38 KM SW', distanceKm: 38, status: 'Army cordon · Corner Market 24', description: 'Down in the valley it is sleet, not snow. Soldiers are holding a corner store; armed civilians have been trying to get in. A drone is on station over the block.' },
   echo: { name: 'UNKNOWN CONTACT', short: 'Echo 03', x: 22, z: 11, color: '#ff8e72', type: 'THERMAL RETURN', status: 'Three pulses · motion detected', description: 'An intermittent heat signature in the eastern ravine. Its source is unresolved.' },
 };
 export const WEATHER = { flurries: [5,160], snowfall: [24,90], blizzard: [78,35], whiteout: [120,12] };
@@ -39,7 +41,7 @@ export function surveyCanvas() {
   const road=[[-38,45],[-31,32],[-25,17],[-22,7],[-17,-1],[-3,-9],[11,-14],[19,-23],[31,-26],[45,-35]];
   line(road,'#657170',8);line(road,'#c4b9a0',4);line(road,'#f3e0b6',1,[9,7]);
   ctx.strokeStyle='#253f4028';ctx.lineWidth=1;for(let x=0;x<=1200;x+=100){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,900);ctx.stroke();}for(let y=0;y<=900;y+=100){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(1200,y);ctx.stroke();}
-  ctx.fillStyle='#304c53';ctx.font='600 20px monospace';ctx.fillText('BLACK RIDGE',120,170);ctx.fillText('EASTERN CUT',850,540);ctx.fillText('FROZEN BASIN',450,765);
+  ctx.fillStyle='#304c53';ctx.font='600 20px monospace';ctx.fillText('BLACK RIDGE',120,170);ctx.fillText('↙ KESTREL FALLS 38 km',60,880);ctx.fillText('EASTERN CUT',850,540);ctx.fillText('FROZEN BASIN',450,765);
   ctx.font='14px monospace';ctx.fillText('1840 m',150,199);ctx.fillText('1280 m',875,568);
   base=c;return c;
 }
