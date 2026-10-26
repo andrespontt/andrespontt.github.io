@@ -632,8 +632,6 @@ export default {
       // Wounded intruders stay in combat so every wave can be fully cleared.
     }
 
-    globalThis.__cityHit = () => { for (let i = 0; i < 6; i++) hitGuard(guards[3]); return guards[3].state + " killed=" + guards[3].killed; }; globalThis.__cityHunt = () => { const it = intruders.find(alive); Object.assign(it, { x: 0, z: -1.4, y: 0, state: "hunt", path: [], replan: 0, step: it.steps.length, reload: 0, mag: 15 }); it.c.model.visible = true; return "hunting"; }; // TEMPDBG
-    globalThis.__cityDbg = () => { const c = {}; for (const i of intruders) if (i.state !== "wait") c[i.state] = (c[i.state] || 0) + 1; return { g: guards.map(g => g.state + ":" + Math.round(g.hp)).join(" "), vip: vip.state + ":" + Math.round(vip.hp) + "@" + vip.x.toFixed(1) + "," + vip.z.toFixed(1), it: c, sw: sessionWounded, sk: sessionKilled }; }; // TEMPDBG
     const readout = label('', { width: 4.4, lines: 2 }); readout.visible = false; readout.position.set(0, 9.3, 0); group.add(readout);
     let mode = 'Patrol', hostileTimer = 1, rounds = 0, incoming = 0, playerShots = 0, clock = 0;
     let audio = null, listener = { x: 0, z: 0, yaw: 0 };
