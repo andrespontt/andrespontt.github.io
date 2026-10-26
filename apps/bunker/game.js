@@ -286,8 +286,11 @@ function frame(now){
  requestAnimationFrame(frame);const frameSeconds=(now-last)/1000,dt=Math.min(frameSeconds,.05);last=now;
  const active=manager.current&&!paused&&!transitioning&&!terminalOpen&&!devMenuOpen&&!controlsOpen&&!document.hidden;
  if(audioGain){audioGain.gain.setTargetAtTime(soundOn&&active?(manager.id==='outside'?.16:.025):0,audio.currentTime,.2);audioFilter.frequency.setTargetAtTime(manager.id==='outside'?650:150,audio.currentTime,.3);audioSfx.gain.setTargetAtTime(soundOn&&active?.9:0,audio.currentTime,.05);}
- if(!manager.current||transitioning||terminalOpen||document.hidden){fpsFrames=0;fpsElapsed=0;$('fps-counter').textContent='FPS —';return;}
+ if(!manager.current||transitioning||terminalOpen||document.hidden){$('scene-dialogue').hidden=true;fpsFrames=0;fpsElapsed=0;$('fps-counter').textContent='FPS —';return;}
  const area=manager.current;
+ const dialogue=area.getDialogue?.();
+ $('scene-dialogue').hidden=!dialogue||controlsOpen||devMenuOpen;
+ if(dialogue){if($('dialogue-line').textContent!==dialogue.text){$('dialogue-speaker').textContent=dialogue.speaker;$('dialogue-line').textContent=dialogue.text;}}
  // Cursor-first views (drone): drop mouse-look whenever it gets engaged, e.g. by a pointer-lock reply arriving late.
  if(area.wantsCursor?.()&&locked())releaseLook();
  if(active){

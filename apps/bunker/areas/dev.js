@@ -97,14 +97,15 @@ export async function createArea(saved = {}, { variant, linked = false } = {}) {
       }
     },
     // The scenario's action is always available, wherever you stand.
-    getInteraction() {
-      if(linked)return null;
-      const action = instance?.interaction?.();
+    getInteraction(position) {
+      if(area.eyeHeight>4)return null;
+      const action = instance?.interaction?.(position);
       return action && { label: action.label + (timeScale !== 1 ? ' (slow-mo)' : ''), action: action.action };
     },
     // First-person weapon: the shell calls fire() with the camera ray; beforeRender() places the viewmodel.
     reload: () => { if (!frozen) instance?.reload?.(); },
     getAmmo: () => scenario.weapon && area.eyeHeight < 4 ? instance?.getAmmo?.() ?? null : null,
+    getDialogue: () => instance?.getDialogue?.() ?? null,
     canFire: () => !!scenario.weapon && !frozen && area.eyeHeight < 4,
     fire: scenario.weapon ? shot => !frozen && area.eyeHeight < 4 ? instance?.fire?.(shot) ?? null : null : undefined,
     getStatus() { const status=instance?.getStatus?.();return status && {...status, stats: `${currentView}${frozen ? ' · FROZEN' : timeScale !== 1 ? ' · 0.25×' : ''} · ${status.stats}`}; },

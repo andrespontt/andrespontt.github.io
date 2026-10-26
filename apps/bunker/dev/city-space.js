@@ -1,3 +1,4 @@
+import { SAFE_WALL, STORE_FURNITURE } from './store-layout.js';
 // Solid city geometry shared by walking, sight lines and projectiles.
 // Boxes are [minX, minY, minZ, maxX, maxY, maxZ]. Door openings remain open.
 // Display windows in the store front: [minX, maxX]. Openings run from the sill (1.25) to 2.45.
@@ -23,16 +24,13 @@ export const FIRE_BARRELS = [[-19.1,14.9,true],[18.6,9.5,true],[-18.6,6.8,false]
 export const SOLIDS = [
   ...COVER_PROPS,
   ...FIRE_BARRELS.map(([x,z])=>[x-.3,0,z-.3,x+.3,.9,z+.3]),
-  // Store interior: cooler bank, storeroom crates and desk.
-  [-6.5,0,-7.7,-1.2,2.3,-7.12],[1.2,0,-7.7,5.6,2.3,-7.12],[-5.6,0,-9.6,-4.4,1.6,-8.4],[2,0,-9.6,3.6,.8,-8.9],
+  ...SAFE_WALL, ...STORE_FURNITURE,
   [-27,0,-12,-7.4,10.5,1.5],[9.6,0,-12,27,13,1.5],
   [-27,0,16.5,-3,12,30],[3,0,16.5,27,9,30],
-  [-7,0,-10,-6.7,7.6,1.2],[6.7,0,-10,7,7.6,-7.8],[6.7,0,-6.2,7,7.6,1.2],
+  [-7,0,-10,-6.7,7.6,1.2],[6.7,0,-10,7,7.6,1.2],
   [6.7,2.4,-7.8,7,7.6,-6.2],[-7,0,-10,7,7.6,-9.7],
   ...STORE_FRONT,...WINDOW_BOARDS,
   [-7,4.4,1.2,7,7.6,1.5],[-7.2,7.6,-10.2,7.2,8.1,1.7],[-6.7,4.3,-9.7,6.7,4.4,1.2],
-  [-6.7,0,-7.9,-1,4.4,-7.7],[1,0,-7.9,6.7,4.4,-7.7],[-1,2.5,-7.9,1,4.4,-7.7],
-  [-3.9,0,-6.2,-3.1,1.45,-2.4],[3.1,0,-6.2,3.9,1.45,-2.4],[3.2,0,-.95,6.2,1.05,-.35],
   [-13.7,0,7.7,-11.5,2.1,12.3],[11.5,0,7.7,13.7,2.1,12.3],
   [4.1,0,9.8,8.5,1.25,12],[-9.2,0,4.5,-4.8,1.25,6.7],
   // Police car and ambulance at the cordon.
@@ -63,9 +61,9 @@ export function sphereEntry(origin,dir,center,radius){
   const half=Math.sqrt(Math.max(0,radius*radius-d2));return along+half<0?Infinity:Math.max(0,along-half);
 }
 
-export function moveThroughCity(p,dx,dz){
+export function moveThroughCity(p,dx,dz,boxes=SOLIDS){
   const radius=.26;
-  const blocked=(x,z)=>Math.abs(x)>31||z< -21||z>34||SOLIDS.some(b=>b[1]<1.7&&b[4]>.25&&x>b[0]-radius&&x<b[3]+radius&&z>b[2]-radius&&z<b[5]+radius);
+  const blocked=(x,z)=>Math.abs(x)>31||z< -21||z>34||boxes.some(b=>b[1]<1.7&&b[4]>.25&&x>b[0]-radius&&x<b[3]+radius&&z>b[2]-radius&&z<b[5]+radius);
   const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.08));
   for(let i=0;i<steps;i++){if(!blocked(p.x+dx/steps,p.z))p.x+=dx/steps;if(!blocked(p.x,p.z+dz/steps))p.z+=dz/steps;}
   return p;

@@ -54,7 +54,7 @@ body.hurt:before{content:"";position:fixed;inset:0;z-index:3;pointer-events:none
 
 /* Phones: inside an area, only the status chip, menu, debug, joystick and fire stay on screen. Everything else is in ☰ Menu. */
 @media(max-width:600px){
- .inside header,.inside #area-actions,.inside #area-toolbox,.inside footer,.inside #fps-counter,.inside #cabin-status,.inside[data-area="dev/city"] #interact{display:none!important}
+ .inside header,.inside #area-actions,.inside #area-toolbox,.inside footer,.inside #fps-counter,.inside #cabin-status{display:none!important}
  .inside #scenario-status{top:calc(12px + env(safe-area-inset-top));left:12px;width:auto;max-width:calc(100vw - 210px);padding:7px 10px}
  .inside #scenario-status strong{font-size:10px}.inside #scenario-status p{font-size:10px;margin:4px 0 0}.inside #scenario-status small{display:none}
  .inside[data-area="dev/city"] #fire{bottom:calc(40px + env(safe-area-inset-bottom));right:max(16px,env(safe-area-inset-right));width:84px;height:84px}
@@ -82,3 +82,10 @@ body.hurt:before{content:"";position:fixed;inset:0;z-index:3;pointer-events:none
 @keyframes city-news{50%{background:#3a1a14e6}}
 @media (prefers-reduced-motion:reduce){#city-strip.news{animation:none}}
 @media(max-width:600px){#city-strip{top:calc(12px + env(safe-area-inset-top));left:12px;max-width:calc(100vw - 200px);font-size:10px;padding:8px 10px}}
+
+/* Briefing subtitles stay above touch controls and never intercept the playfield. */
+#scene-dialogue{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);width:min(520px,88vw);padding:12px 18px;background:linear-gradient(90deg,#102320ed,#132522c9);border-left:2px solid #c3a779;border-radius:2px;pointer-events:none;z-index:5;text-align:left}
+#scene-dialogue strong{font:10px/1.4 monospace;letter-spacing:1.5px;color:#e7c792}
+#scene-dialogue p{max-width:none;margin:6px 0 0;font:15px/1.5 Arial;color:#f1eee3;text-shadow:0 1px 2px #000}
+@media(max-width:600px){#scene-dialogue{bottom:calc(200px + env(safe-area-inset-bottom));width:calc(100vw - 32px);padding:10px 13px}#scene-dialogue p{font-size:13px}#scene-dialogue strong{font-size:9px}.inside[data-area="dev/city"] #interact{bottom:calc(178px + env(safe-area-inset-bottom));font-size:11px;min-height:44px;z-index:6}body:has(#interact:not([hidden])) #scene-dialogue{bottom:calc(234px + env(safe-area-inset-bottom))}}
+@media(max-height:500px) and (min-width:601px){#scene-dialogue{bottom:105px;width:46vw;padding:8px 12px}#scene-dialogue p{font-size:12px}}

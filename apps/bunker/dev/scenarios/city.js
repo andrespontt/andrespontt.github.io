@@ -2,10 +2,14 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { facing } from '../kit.js';
 import { angleDelta, damp } from '../easing.js';
-import { aimPistol, aimRifle, crouch } from '../../rig.js';
+import { aimPistol, aimRifle, crouch, bone, solveTwoBone } from '../../rig.js';
 import { glass, gunshot, impact, reload as reloadSound } from '../sound.js';
-import { createEffects, plan, route, seeded } from '../combat.js';
-import { firstObstruction, sphereEntry, moveThroughCity, STORE_FRONT, FIRE_BARRELS, WINDOWS } from '../city-space.js';
+import { createEffects, route, seeded } from '../combat.js';
+import { firstObstruction as traceCity, sphereEntry, moveThroughCity as walkCity, SOLIDS, STORE_FRONT, FIRE_BARRELS, WINDOWS } from '../city-space.js';
+import { buildStoreRoom } from '../store-room.js';
+import { INTERIOR_BLOCKS, VIP_HOME, SAFE_APPROACH, SAFE_INSIDE, safeDoorBounds } from '../store-layout.js';
+import { plan } from '../city-paths.js';
+import { createMeetingDirector } from '../store-meeting.js';
 
 // City operation: soldiers hold a corner store on one block of a city street.
 // Only this block is built; fog hides where the city would continue.
@@ -13,7 +17,6 @@ import { firstObstruction, sphereEntry, moveThroughCity, STORE_FRONT, FIRE_BARRE
 const STORE = [-7, -10, 7, 1.5];
 const BLOCKS = [STORE, [-27, -12, -7.4, 1.5], [9.6, -12, 27, 1.5], [-27, 16.5, -3, 30], [3, 16.5, 27, 30]];
 const OUTSIDE_BLOCKS = BLOCKS.slice(1);
-const INTERIOR_BLOCKS = [[-3.9,-6.2,-3.1,-2.4],[3.1,-6.2,3.9,-2.4],[3.2,-.95,6.2,-.35]];
 const inStore = (x, z) => x > STORE[0] && x < STORE[2] && z > STORE[1] && z < STORE[3];
 // Height of the surface underfoot: store tiles, the raised sidewalks, or the street.
 const groundAt = (x, z) => inStore(x, z) ? .03
@@ -140,74 +143,10 @@ function buildCity(group) {
   sign.position.set(0, 3.8, 1.52); store.add(sign);
   // Sides and back; the east wall has a side door onto the alley.
   box(store, -7, 0, -10, -6.7, H2, 1.2, brick);
-  box(store, 6.7, 0, -10, 7, H2, -7.8, brick); box(store, 6.7, 0, -6.2, 7, H2, 1.2, brick); box(store, 6.7, 2.4, -7.8, 7, H2, -6.2, brick);
+  box(store, 6.7, 0, -10, 7, H2, 1.2, brick);
   box(store, -7, 0, -10, 7, H2, -9.7, brick);
   const roof = box(store, -7.2, H2, -10.2, 7.2, H2 + .5, 1.7, mat('#3f3a36')); // roof + parapet
-  // Interior: tiled floor, ceiling, storeroom partition, aisles, counter, lights.
-  const floorCanvas=document.createElement('canvas');floorCanvas.width=floorCanvas.height=128;
-  const fg=floorCanvas.getContext('2d');fg.fillStyle='#686b62';fg.fillRect(0,0,128,128);
-  fg.fillStyle='#74766c';fg.fillRect(0,0,64,64);fg.fillRect(64,64,64,64);
-  fg.strokeStyle='#424943';fg.lineWidth=2;for(const v of [0,64,128]){fg.beginPath();fg.moveTo(v,0);fg.lineTo(v,128);fg.moveTo(0,v);fg.lineTo(128,v);fg.stroke();}
-  const floorMap=new THREE.CanvasTexture(floorCanvas);floorMap.colorSpace=THREE.SRGBColorSpace;floorMap.wrapS=floorMap.wrapT=THREE.RepeatWrapping;floorMap.repeat.set(11,9);
-  box(store,-6.7,0,-9.7,6.7,.03,1.2,new THREE.MeshStandardMaterial({map:floorMap,roughness:.85}));
-  // Interior skirting and aisle identification keep the room readable at eye level.
-  for(const x of [-6.65,6.65]) box(store,x-.035,.03,-9.65,x+.035,.24,1.1,trim);
-  for(const [x,text] of [[-3.5,'01 / SUPPLIES'],[3.5,'02 / PROVISIONS']]){
-    const marker=new THREE.Mesh(new THREE.PlaneGeometry(2.4,.3),new THREE.MeshBasicMaterial({map:signTexture(text),side:THREE.DoubleSide}));marker.position.set(x,2.3,-2.35);marker.rotation.y=Math.PI;store.add(marker);
-  }
-  const ceiling = box(store, -6.7, H1 - .1, -9.7, 6.7, H1, 1.2, plaster);
-  box(store, -6.7, 0, -7.9, -1, H1, -7.7, plaster); box(store, 1, 0, -7.9, 6.7, H1, -7.7, plaster); box(store, -1, 2.5, -7.9, 1, H1, -7.7, plaster);
-  const shelf = mat('#3b474b', .7, .3), goods = ['#a8533f', '#d0b25e', '#5d8a6a', '#c8c6bb', '#4f6d8e'].map(c => mat(c, .8));
-  for (const x of [-3.5, 3.5]) {
-    // Low gondolas (1.45 m) so you can see across the store at eye level.
-    box(store,x-.04,0,-6.2,x+.04,1.45,-2.4,shelf);
-    for(const y of [.05,.5,.95,1.4]) box(store,x-.4,y,-6.2,x+.4,y+.045,-2.4,shelf);
-    for(const z of [-6.16,-2.44]) for(const side of [-1,1]) box(store,x+side*.36-.025,0,z-.025,x+side*.36+.025,1.48,z+.025,shelf);
-    for (const y of [.55, 1]) for (let i = 0; i < 9; i++) {
-      if (random() < .3) continue; // looted gaps
-      const side = random() < .5 ? -1 : 1, z = -6 + i * .42;
-      box(store, x + side * .2 - .12, y, z, x + side * .2 + .12, y + .22 + random() * .12, z + .3, goods[Math.floor(random() * goods.length)]);
-    }
-  }
-  const tipped = box(store, -6.6, 0, -6, -5.8, 1.9, -3, shelf); tipped.rotation.z = -1.1; tipped.position.set(-5.2, .5, -4.5);
-  for (let i = 0; i < 14; i++) { const p = box(store, 0, 0, 0, .25, .2, .3, goods[i % goods.length]); p.position.set(-5.4 + random() * 2, .1, -6 + random() * 3); p.rotation.y = random() * 3; }
-  box(store, 3.2, 0, -.95, 6.2, 1.05, -.35, mat('#4a3c33')); box(store, 4.8, 1.05, -.85, 5.4, 1.35, -.45, trim);
-  // Cooler bank on the storeroom partition: lit glass doors with rows of stock behind them.
-  const coolerBody = mat('#c9cdc8', .5, .2), coolerGlow = new THREE.MeshBasicMaterial({ color: '#8fb4c0' }), stock = new THREE.MeshBasicMaterial({ color: '#3b4a52' });
-  for (const [a, b] of [[-6.5, -1.2], [1.2, 5.6]]) {
-    box(store, a, 0, -7.7, b, 2.3, -7.12, coolerBody); box(store, a, 2.3, -7.7, b, 2.6, -7.05, trim);
-    const doors = Math.round((b - a) / .9), wide = (b - a) / doors;
-    for (let i = 0; i < doors; i++) {
-      const x0 = a + wide * i;
-      box(store, x0 + .06, .25, -7.12, x0 + wide - .06, 2.05, -7.1, coolerGlow);
-      for (const y of [.75, 1.3, 1.85]) box(store, x0 + .1, y, -7.1, x0 + wide - .1, y + .05, -7.09, stock);
-      box(store, x0 + wide - .03, .25, -7.13, x0 + wide + .03, 2.05, -7.06, trim);
-    }
-  }
-  // Behind the counter: a cigarette and lottery rack on the east wall.
-  box(store, 6.35, 0, -2.5, 6.7, 2.3, -.4, trim);
-  for (let i = 0; i < 6; i++) box(store, 6.3, .6 + i * .27, -2.4, 6.36, .8 + i * .27, -.5, goods[i % goods.length]);
-  // Entrance mat, wall posters, and boards across the top of each window: soldiers fire through the slit below.
-  box(store, -1, .03, -.4, 1, .05, 1.1, mat('#1c2124'));
-  for (const [z, text] of [[-1.6, 'OPEN 24/7'], [-5.2, 'HOT COFFEE']]) {
-    const poster = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .3), new THREE.MeshBasicMaterial({ map: signTexture(text) }));
-    poster.position.set(-6.68, 2.6, z); poster.rotation.y = Math.PI / 2; store.add(poster);
-  }
-  const plank = mat('#5e4a35', .95);
-  for (const [a, b] of WINDOWS) for (const [y, tilt] of [[2.05, .04], [2.3, -.03]]) {
-    const board = box(store, a - .1, y - .08, 1.08, b + .1, y + .08, 1.13, plank); board.rotation.z = tilt;
-  }
-  const staff = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .3), new THREE.MeshBasicMaterial({ map: signTexture('STAFF ONLY') }));
-  staff.position.set(0, 2.75, -7.66); store.add(staff);
-  // Storeroom: stacked crates the VIP shelters behind, and a manager's desk.
-  const crateWood = mat('#5b4a32');
-  box(store, -5.6, 0, -9.6, -4.4, .9, -8.4, crateWood); box(store, -5.4, .9, -9.5, -4.6, 1.6, -8.7, crateWood);
-  box(store, 2, 0, -9.6, 3.6, .8, -8.9, mat('#4a3c33')); box(store, 2.6, .8, -9.5, 3.1, 1.15, -9.3, trim);
-  const tube = new THREE.MeshBasicMaterial({ color: '#dfe9e4' });
-  for (const [x, z] of [[-3.5, -4.3], [3.5, -4.3], [0, -.5]]) {
-    box(store, x - .1, H1 - .18, z - 1.2, x + .1, H1 - .1, z + 1.2, tube);
-    const light = new THREE.PointLight('#dbe7ff', 10, 12, 1.5); light.position.set(x, H1 - .4, z); store.add(light);
-  }
+  const room = buildStoreRoom(store);
 
   // Street furniture and the military cordon.
   const concrete = mat('#7d817a'), tan = mat('#8a7a58', .9), tyre = mat('#141618');
@@ -292,8 +231,9 @@ function buildCity(group) {
   const mesh = new THREE.MeshBasicMaterial({ color: '#6c746f', transparent: true, opacity: .35 }); box(group, 7, .1, -12.07, 9.6, 2.1, -12.03, mesh);
 
   return {
-    setOverview(enabled) { roof.visible = ceiling.visible = upperFacade.visible = !enabled; },
+    setOverview(enabled) { roof.visible = room.ceiling.visible = upperFacade.visible = !enabled; },
     panes,
+    setDoor: room.setDoor,
     update(time) {
       // Store lighting stays steady; the barrel fires flicker and the fog drifts east.
       for (const f of fires) {
@@ -359,13 +299,16 @@ export default {
   views: [
     { label: 'Overhead', x: 0, z: 15, yaw: Math.PI, pitch: -.95, eye: 21 },
     { label: 'Street', x: -6, z: 15.2, yaw: 2.77, pitch: -.04, eye: 1.7 },
-    { label: 'Inside store', x: 0, z: -7.3, yaw: 0, pitch: -.05, eye: 1.7 },
+    { label: 'Inside store', x: 1.5, z: -.9, yaw: (globalThis.innerWidth||1280)<600?-2.42:-2.13, pitch: -.13, eye: 1.7 },
     { label: 'Alley', x: 8.3, z: -10.5, yaw: 0, pitch: -.04, eye: 1.7 },
     { label: 'Drone', x: 0, z: 34, yaw: Math.PI, pitch: -.85, eye: 36, orbit: { radius: 29, centerZ: 5, targetY: 1, speed: .085 } },
   ],
   create({ group, soldier, character, label, linked = false }) {
     const random = seeded(99);
     const city = buildCity(group);
+    const doorSolid = safeDoorBounds(0), solids = [...SOLIDS,doorSolid];
+    const firstObstruction=(origin,dir,distance)=>traceCity(origin,dir,distance,solids);
+    const moveThroughCity=(p,dx,dz)=>walkCity(p,dx,dz,solids);
     const fx = createEffects(group);
     // Sleet: short streaks falling around the viewer, slanting with the wind. None inside the store.
     const SLEET = 700, sleetBox = 26;
@@ -517,8 +460,8 @@ export default {
     // --- Soldiers -----------------------------------------------------------
     // Five soldiers: two inside the store, one at the door, one on each side of the cordon.
     const ROUTES = [
-      { pts: [[-5.6, -1.4], [-5.6, -6.7], [-1.6, -6.7], [-1.6, -1.4]], dir: 1, speed: 1.1, pause: .5 },
-      { pts: [[1.6, -1.4], [1.6, -6.7], [5.6, -6.7], [5.6, -1.6]], dir: -1, speed: 1.1, pause: .5 },
+      { pts: [[-5.55, -6.15], [-5.55, -.9], [-.25, -.9], [-.25, -6.15]], dir: 1, speed: 1.1, pause: .5 },
+      { pts: [[1.6, -.9], [1.6, -5.6], [4.75, -5.6], [4.75, -.9]], dir: -1, speed: 1.1, pause: .5 },
       { pts: [[-3.2, 3], [-1.5, 3]], speed: .8, pause: 1 },
       { pts: [[-13.6, 5.2], [-13.6, 8.4]], speed: .9, pause: .8 },
       { pts: [[13.6, 11.6], [13.6, 13.4]], speed: .9, pause: .8 },
@@ -664,7 +607,7 @@ export default {
       return best;
     };
     const travel = (g, to, state, after) => { g.path = walkPath([g.x, g.z], to); g.state = state; g.after = after; };
-    const backToRoute = g => { if (g.state === 'down') return; const p = g.r.path.at(g.dist); g.spot = null; g.foe = null; travel(g, [p.x, p.z], 'return', () => { g.state = 'route'; g.wait = 0; }); };
+    const backToRoute = g => { if (g.state === 'down' || meeting.isEscort(g)) return; const p = g.r.path.at(g.dist); g.spot = null; g.foe = null; travel(g, [p.x, p.z], 'return', () => { g.state = 'route'; g.wait = 0; }); };
 
     function assignWaveCover() {
       // Cover faces the three street approaches; each soldier owns one position.
@@ -674,7 +617,7 @@ export default {
         {x:2.95,z:3.1,h:.9},{x:-7,z:4,h:1.5},
       ];
       for(const g of guards){
-        if(g.state==='down')continue;
+        if(g.state==='down'||meeting.isEscort(g))continue;
         free.sort((a,b)=>(Math.hypot(a.x-g.x,a.z-g.z)+(inStore(g.x,g.z)!==!!a.window?12:0))-(Math.hypot(b.x-g.x,b.z-g.z)+(inStore(g.x,g.z)!==!!b.window?12:0)));
         const spot=free.shift();g.spot=spot;g.foe=null;g.shots=0;
         travel(g,[spot.x,spot.z],'sprint',()=>{g.state='engage';g.timer=.6;});
@@ -693,7 +636,7 @@ export default {
       }
       // Take cover / Firefight: hostiles at the east end of the street. Nearest free cover wins.
       const free = COVER.filter(s => !guards.some(g => g.spot === s));
-      for (const g of [...guards].filter(g => !g.spot).sort((a, b) => b.x - a.x)) {
+      for (const g of [...guards].filter(g => !g.spot && !meeting.isEscort(g)).sort((a, b) => b.x - a.x)) {
         let best = null, bestDistance = Infinity;
         for (const s of free) { const d = Math.hypot(s.x - g.x, s.z - g.z) + (inStore(g.x, g.z) !== !!s.window ? 12 : 0); if (d < bestDistance) { best = s; bestDistance = d; } }
         if (!best) continue;
@@ -788,7 +731,10 @@ export default {
       let faceYaw = g.yaw, wantCrouch = 0, wantAim = 0;
       g.underFire = Math.max(0, g.underFire - dt);
       const indoor = inStore(g.x, g.z);
-      if (g.state === 'route') {
+      if (meeting.isEscort(g)) {
+        faceYaw = g.speed > .01 ? g.yaw : facing(-g.x, -6.9-g.z);
+        wantAim = .2;
+      } else if (g.state === 'route') {
         const alert = mode === 'Alert' || (mode === 'Intruders' && !surprise);
         let targetSpeed = mode === 'Alert' ? 2.6 : r.speed;
         if (g.wait > 0) { g.wait -= dt; targetSpeed = 0; }
@@ -803,13 +749,15 @@ export default {
         faceYaw = g.wait > 0 ? facing(p.dx * r.dir, p.dz * r.dir) + Math.PI / 2 * Math.sign(g.scanYaw || 1) + g.scanYaw * Math.sin(g.wait * 1.3) : facing(p.dx * r.dir, p.dz * r.dir);
         wantAim = mode === 'Intruders' && !surprise ? .35 : 0;
       } else if (g.state === 'sprint' || g.state === 'return') {
-        if (!g.path.length) { backToRoute(g); }
+        if (!g.path.length) { g.speed=0;g.after?.(); }
+        if(g.path.length){
         const [tx, tz] = g.path[0], dx = tx - g.x, dz = tz - g.z, distance = Math.hypot(dx, dz);
         const top = g.state === 'sprint' ? 4.2 : 1.6;
         g.speed = damp(g.speed, g.path.length === 1 ? Math.min(top, distance * 2.5 + .3) : top, 4, dt);
         const step = Math.min(distance, g.speed * dt);
         if (distance > 1e-3) { g.x += dx / distance * step; g.z += dz / distance * step; faceYaw = facing(dx, dz); }
         if (distance < .08) { g.path.shift(); if (!g.path.length) { g.speed = 0; g.after?.(); } }
+        }
       } else if (g.state === 'engage') {
         g.speed = damp(g.speed, 0, 6, dt);
         wantCrouch = .55;
@@ -1009,7 +957,7 @@ export default {
             const [tx, tz] = it.path[0], dx = tx - it.x, dz = tz - it.z, distance = Math.hypot(dx, dz);
             it.speed = damp(it.speed, 2.4, 5, dt);
             const step = Math.min(distance, it.speed * dt);
-            if (distance > 1e-3) { it.x += dx / distance * step; it.z += dz / distance * step; faceYaw = facing(dx, dz); }
+            if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
             if (distance < .15) it.path.shift();
           }
           if (it.reload > 0) wantCrouch = .4;
@@ -1057,8 +1005,12 @@ export default {
     }
     // Route inside the store to just beside the VIP, through the storeroom door if they're in back.
     function vipPath(it) {
-      const inBack = vip.z < -7.7, goal = [vip.x + (vip.x < it.x ? 1.2 : -1.2), vip.z + (inBack ? .3 : 1.2)];
-      if (inBack && it.z > -7.7) return [...plan([it.x, it.z], [0, -7], INTERIOR_BLOCKS), [0, -8.4], goal];
+      const inBack = vip.z < -7.05, goal = [vip.x + (vip.x < it.x ? 1.2 : -1.2), vip.z + (inBack ? .3 : 1.2)];
+      if (inBack && it.z > -7.05) {
+        // A sealed refuge cannot be entered or fired through; intruders hold outside it.
+        if(meeting.door<.96)return plan([it.x,it.z],[0,-6.25],INTERIOR_BLOCKS);
+        return [...plan([it.x,it.z],SAFE_APPROACH,INTERIOR_BLOCKS),[...SAFE_INSIDE],goal];
+      }
       return plan([it.x, it.z], goal, INTERIOR_BLOCKS);
     }
     // Nearest soldier in sight, or you if you're on foot, in sight and closer.
@@ -1138,60 +1090,51 @@ export default {
       incoming++;
     }
     // --- VIP ---------------------------------------------------------------------
-    // Unarmed, inside the store. Paces the centre aisle; at the first sign of shooting runs to the
-    // storeroom and crouches behind the crates until it has been quiet for a few seconds.
-    const VIP_PACE = [[0, -2.6], [0, -6.3]], VIP_SHELTER = [[0, -6.9], [0, -8.5], [-3.9, -8.9]];
+    // Envoy at the head of the meeting table. Escort One is the only guard assigned to the refuge.
     const vip = (() => {
-      const c = character('xbot', { tint(m) { m.color.set(/Joints/i.test(m.name) ? '#b9b1a3' : '#262a33'); m.roughness = .7; m.metalness = 0; } });
-      group.add(c.model);
-      c.model.rotation.order = 'YXZ';
-      return { c, isVip: true, x: 0, z: -2.6, yaw: 0, speed: 0, crouch: 0, state: 'pace', path: [], end: 1, wait: 1.5, calm: 0, hits: 0, hp: 100, fall: 0, bar: healthBar() };
+      const c=character('xbot',{tint(m){m.color.set(/Joints/i.test(m.name)?'#b9b1a3':'#535e68');m.roughness=.8;m.metalness=0;}});
+      group.add(c.model);c.model.rotation.order='YXZ';
+      return {c,isVip:true,x:VIP_HOME[0],z:VIP_HOME[1],yaw:Math.PI,speed:0,crouch:0,state:'meeting',path:[],hp:100,fall:0,hits:0,bar:healthBar()};
     })();
+    const meeting=createMeetingDirector(vip,guards[0]);
+    // Two unarmed delegates remain at the briefing table; only the envoy and their escort enter the safe room.
+    const delegates=[[-3,-1.55,'#4b655c'],[-5.35,-4.1,'#766857']].map(([x,z,color])=>{
+      const c=character('xbot',{tint(m){m.color.set(/Joints/i.test(m.name)?'#b4aaa0':color);m.roughness=.85;m.metalness=0;}});
+      group.add(c.model);c.model.position.set(x,.03,z);c.model.rotation.y=facing(VIP_HOME[0]-x,VIP_HOME[1]-z);return {c,x,z};
+    });
+    // Small hand gestures use the actual rig, after its idle animation (no extra procedural limbs).
+    const gestureTarget=new THREE.Vector3(),gesturePole=new THREE.Vector3();
+    function gesture(c,x,z,amount){
+      if(amount<.01)return;
+      const arm=bone(c.model,'RightArm'),fore=bone(c.model,'RightForeArm'),hand=bone(c.model,'RightHand');
+      if(!arm||!fore||!hand)return;
+      const aq=arm.quaternion.clone(),fq=fore.quaternion.clone();
+      gestureTarget.set(x,1.12+Math.sin(clock*1.6)*.06,z+.55);gesturePole.set(x-.65,.8,z+.15);
+      group.localToWorld(gestureTarget);group.localToWorld(gesturePole);
+      solveTwoBone(arm,fore,hand,gestureTarget,gesturePole);
+      arm.quaternion.slerpQuaternions(aq,arm.quaternion.clone(),amount);fore.quaternion.slerpQuaternions(fq,fore.quaternion.clone(),amount);
+    }
     function updateVip(dt) {
-      if (vip.state === 'down') {
-        // Killed: fall where they were and lie still.
-        vip.fall = Math.min(1, vip.fall + dt * 2.2);
-        const k = 1 - (1 - vip.fall) ** 3;
-        vip.c.model.rotation.x = Math.PI / 2 * k; vip.c.model.position.set(vip.x, groundAt(vip.x, vip.z) + .13 * k, vip.z);
-        if (vip.fall < 1) { vip.c.setSpeed(0); vip.c.mixer.update(dt); }
-        vip.bar.set(0, 0, 0, 0, false);
-        return;
+      const threat=mode==='Take cover'||mode==='Firefight'||(mode==='Intruders'&&!surprise&&intruders.some(alive));
+      meeting.update(dt,{threat,occupants:[vip,...guards,...intruders.filter(exposed),...(player.active?[player]:[])]});
+      doorSolid.splice(0,6,...safeDoorBounds(meeting.door));city.setDoor(meeting.door,meeting.locked);
+      for(const [i,d] of delegates.entries()){
+        d.c.model.position.set(d.x,.03,d.z);d.c.setSpeed(0);d.c.mixer.update(dt);
+        if(meeting.phase==='briefing'&&meeting.dialogue?.speaker.startsWith(i===0?'CAPTAIN':'LIAISON'))gesture(d.c,d.x,d.z,.65);
       }
-      const v = vip, threat = mode === 'Take cover' || mode === 'Firefight' || (!surprise && intruders.some(exposed));
-      let top = 0, wantCrouch = 0, faceYaw = v.yaw;
-      if (threat && v.state !== 'shelter' && v.state !== 'to-shelter') {
-        v.state = 'to-shelter'; v.path = v.z > -7.3 ? VIP_SHELTER.map(p => [...p]) : [VIP_SHELTER[2]];
+      const v=vip;
+      if(v.state==='down'){
+        v.fall=Math.min(1,v.fall+dt*2.2);const k=1-(1-v.fall)**3;
+        v.c.model.rotation.x=Math.PI/2*k;v.c.model.position.set(v.x,.03+.13*k,v.z);
+        if(v.fall<1){v.c.setSpeed(0);v.c.mixer.update(dt);}v.bar.set(0,0,0,0,false);return;
       }
-      if (v.state === 'shelter') {
-        wantCrouch = .6; faceYaw = 0;
-        v.calm = threat ? 0 : v.calm + dt;
-        if (v.calm > 3) { v.state = 'return'; v.path = [[0, -8.5], [0, -6.9], [...VIP_PACE[0]]]; }
-      } else if (v.state === 'pace' && !v.path.length) {
-        // Pause at each end of the aisle, glancing side to side, then walk to the other end.
-        v.wait -= dt; faceYaw = v.yaw + Math.sin(v.wait * 2) * .02;
-        if (v.wait <= 0) { v.end = 1 - v.end; v.path = [[...VIP_PACE[v.end]]]; }
-      }
-      if (v.path.length) {
-        top = v.state === 'to-shelter' ? 3.8 : .9;
-        const [tx, tz] = v.path[0], dx = tx - v.x, dz = tz - v.z, distance = Math.hypot(dx, dz);
-        v.speed = damp(v.speed, Math.min(top, distance * 3 + .3), 5, dt);
-        const step = Math.min(distance, v.speed * dt);
-        if (distance > 1e-3) { v.x += dx / distance * step; v.z += dz / distance * step; faceYaw = facing(dx, dz); }
-        if (distance < .06) {
-          v.path.shift();
-          if (!v.path.length) {
-            v.speed = 0;
-            if (v.state === 'to-shelter') { v.state = 'shelter'; v.calm = 0; }
-            else { v.state = 'pace'; v.wait = 2 + random() * 2; }
-          }
-        }
-      } else v.speed = damp(v.speed, 0, 8, dt);
-      v.yaw += angleDelta(v.yaw, faceYaw) * (1 - Math.exp(-dt * 6));
-      v.crouch = damp(v.crouch, wantCrouch, 6, dt);
-      v.c.model.position.set(v.x, groundAt(v.x, v.z), v.z); v.c.model.rotation.y = v.yaw;
-      v.c.setSpeed(v.speed); v.c.mixer.update(dt);
-      crouch(v.c.model, v.crouch);
-      v.bar.set(v.x, groundAt(v.x, v.z) + 2.15 - v.crouch, v.z, v.hp / 100, linked);
+      if(v.state==='meeting')v.yaw=Math.PI+Math.sin(clock*.4)*.08;
+      else if(v.state==='shelter')v.yaw=facing(-v.x,-6.9-v.z);
+      v.crouch=0; // The closed armored room provides cover; keep the civilian's idle stance grounded.
+      v.c.model.position.set(v.x,.03,v.z);v.c.model.rotation.y=v.yaw;
+      v.c.setSpeed(v.speed);v.c.mixer.update(dt);crouch(v.c.model,v.crouch);
+      if(v.state==='meeting'&&meeting.dialogue?.speaker.startsWith('ENVOY'))gesture(v.c,v.x,v.z,.75);
+      v.bar.set(v.x,2.18-v.crouch,v.z,v.hp/100,linked);
     }
     function damageVip(amount) {
       if (vip.state === 'down') return;
@@ -1271,13 +1214,14 @@ export default {
     return {
       setMode: next => { if(!linked)setMode(next); },
       heartbeat: saveReport,
+      getDialogue:()=>meeting.dialogue,
       fire,
       move: moveThroughCity,
       reload() { startPlayerReload(playerMag === 0); },
       getAmmo: () => firstPerson ? { mag: playerMag, size: RIFLE_MAG, reloading: playerReload > 0 ? 1 - playerReload / playerReloadTotal : null } : null,
       getStatus() {
         const active = intruders.filter(alive).length;
-        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Night patrol. All quiet on the block." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · group ${released}/${GROUPS} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover${linked ? ` · soldiers ${guards.filter(g => g.state !== 'down').length}/${guards.length} · VIP ${vip.state === 'down' ? 'KILLED' : Math.round(vip.hp) + '%'}` : ''}` : mode === "Patrol" ? "Observe the patrols. Choose Intruders to defend the store." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'sheltering' : vip.state === 'to-shelter' ? 'running to shelter' : 'safe'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
+        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Evacuation meeting in progress. Protect Envoy Vale." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · group ${released}/${GROUPS} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover${linked ? ` · soldiers ${guards.filter(g => g.state !== 'down').length}/${guards.length} · VIP ${vip.state === 'down' ? 'KILLED' : Math.round(vip.hp) + '%'}` : ''}` : mode === "Patrol" ? "Operation Lantern · Secure the civilian evacuation corridor." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'safe room · one escort' : vip.state === 'to-shelter' ? 'moving to safe room' : vip.state === 'down' ? 'down' : 'in meeting'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
       },
       beforeRender(camera, dt) {
         updateSleet(camera, dt);
@@ -1324,7 +1268,12 @@ export default {
         readout.userData.set(`${mode.toUpperCase()}${audio ? '' : ' · tap Sound for audio'}\n${line} · you fired ${playerShots}`);
       },
       dispose() { disposed=true;if(opsStore)opsStore.releaseLive(feedSession).catch(()=>{});clearTimeout(hurtTimer); document.body.classList.remove('hurt'); },
-      interaction: () => { if(linked)return null;const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; return { label: 'Mode → ' + next, action() { setMode(next); } }; },
+      interaction: p => {
+        if(!p)return null;
+        if(Math.hypot(p.x,p.z+6.93)<2.1)return {label:meeting.locked?'Safe room secured · check radio':meeting.door>.5?'Close safe-room door':'Open safe-room door',action:()=>meeting.toggleDoor()};
+        if(meeting.phase==='briefing'&&Math.hypot(p.x-vip.x,p.z-vip.z)<2.1)return {label:'Speak to Envoy Vale',action:()=>meeting.ask()};
+        return null;
+      },
     };
   },
 };
