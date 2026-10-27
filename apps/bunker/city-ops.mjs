@@ -31,6 +31,19 @@ export function createOperation(now, seed = Math.floor(Math.random() * 2 ** 31))
   };
 }
 
+// Each envoy who leads the meeting has a name; a killed envoy is replaced from Outpost 07 between waves.
+export const ENVOYS = ['Vale', 'Okafor', 'Lindqvist', 'Sato', 'Ferreira', 'Haddad'];
+export const envoyName = n => ENVOYS[((n || 1) - 1) % ENVOYS.length];
+const ENVOY_DELAY = MINUTE;
+// A replacement envoy reaches the store a minute after the wave that killed the last one is over.
+function replaceEnvoy(op, at) {
+  if (op.vip !== 'killed' || op.phase === 'contact') return;
+  op.envoyDue ??= at + ENVOY_DELAY;
+  if (at < op.envoyDue) return;
+  op.envoy = (op.envoy || 1) + 1; op.vip = 'safe'; op.envoyDue = null;
+  note(op, at, `Envoy ${envoyName(op.envoy)} arrives from Outpost 07 and takes over the meeting.`);
+}
+
 // Each wave comes as five groups in a row; groups grow with the wave (5 → 8 intruders).
 export const GROUPS = 5, groupSize = wave => Math.min(8, 4 + wave), waveSize = wave => GROUPS * groupSize(wave);
 const GROUP_GAP = 45_000; // the next group comes once the last is nearly stopped, or after 45 s
@@ -75,6 +88,7 @@ function consume(op, random) {
 function step(op, at, random) {
   consume(op, random);
   if (op.phase !== 'contact') {
+    replaceEnvoy(op, at);
     if (at >= op.phaseEnds) startWave(op, at);
     return;
   }
@@ -89,7 +103,7 @@ function step(op, at, random) {
   if (random() < .004 * fighting()) {
     op.breaches++;
     // Intruders who get inside go for the VIP sheltering in the storeroom.
-    if (op.vip !== 'killed' && random() < .2) { op.vip = 'killed'; note(op, at, 'Intruders reached the storeroom. The VIP has been killed.'); }
+    if (op.vip !== 'killed' && random() < .1) { op.vip = 'killed'; note(op, at, 'Intruders reached the storeroom. The VIP has been killed.'); }
     else note(op, at, 'An intruder reached the store door before being stopped.');
   }
   if (op.active <= 0) {
@@ -129,14 +143,18 @@ export function applyLive(state, live, now) {
   if (live.rounds != null) { op.supplies.rifleAmmo = Math.max(0, op.supplies.rifleAmmo - Math.max(0, live.rounds - op.liveRounds)); op.liveRounds = live.rounds; }
   if (live.wounded != null) { for (let i = op.liveWounded || 0; i < live.wounded; i++) wound(op, now); op.liveWounded = Math.max(op.liveWounded || 0, live.wounded); }
   if (live.killed != null) { for (let i = op.liveKilled || 0; i < live.killed; i++) kill(op, now); op.liveKilled = Math.max(op.liveKilled || 0, live.killed); }
-  if (live.vip === 'killed' && op.vip !== 'killed') note(op, now, 'Drone: intruders reached the storeroom. The VIP has been killed.');
+  if (live.vip === 'killed' && op.vip !== 'killed' && (live.envoy ?? 1) >= (op.envoy || 1)) note(op, now, 'Drone: intruders reached the storeroom. The VIP has been killed.');
   if (live.wave > op.wave) op.down = 0;
   op.totalDown += Math.max(0, live.down - op.down);
   op.active = Math.max(0, live.active); op.down = Math.max(0, live.down);
   op.incoming = Math.min(op.active, Math.max(0, live.incoming ?? 0)); op.group = live.group ?? op.group; op.groupAt = now;
   op.wave = Math.max(op.wave, live.wave);
   op.phase = live.contact ? 'contact' : op.wave ? 'lull' : 'quiet';
-  op.vip = op.vip === 'killed' ? 'killed' : live.vip; // a dead VIP stays dead
+  // A dead envoy stays dead. Only a newer envoy (one the feed brought in) changes that.
+  const envoy = op.envoy || 1;
+  if (live.envoy > envoy) { op.envoy = live.envoy; op.envoyDue = null; op.vip = live.vip; note(op, now, `Drone: Envoy ${envoyName(op.envoy)} has arrived at the store.`); }
+  else if (live.envoy == null || live.envoy === envoy) op.vip = op.vip === 'killed' ? 'killed' : live.vip;
+  replaceEnvoy(op, now);
   return op;
 }
 

@@ -1,3 +1,12 @@
+// The nearest point at least `margin` clear of every rect (the point itself when it already is).
+export function freePoint(p,rects,margin=.3){
+  const boxes=rects.map(([a,b,c,d])=>[a-margin,b-margin,c+margin,d+margin]);
+  const free=q=>!boxes.some(r=>q[0]>r[0]&&q[0]<r[2]&&q[1]>r[1]&&q[1]<r[3]);
+  if(free(p))return [...p];
+  for(let radius=.05;radius<=3;radius+=.05)for(let k=0;k<32;k++){const q=[p[0]+Math.cos(k*Math.PI/16)*radius,p[1]+Math.sin(k*Math.PI/16)*radius];if(free(q))return q;}
+  return [...p];
+}
+
 // Visibility-graph paths around furniture. Unlike a single-obstacle detour this
 // also handles a chair, table and partition blocking the same route.
 export function plan(from,to,rects,margin=.28) {
@@ -13,6 +22,21 @@ export function plan(from,to,rects,margin=.28) {
     }
     return lo<hi&&hi>1e-6&&lo<1-1e-6;
   });
+  // Someone pressed against furniture (their body radius is a little under the margin), or a goal that
+  // lands inside it: step out to the nearest free edge first instead of finding no path at all.
+  const free=q=>!boxes.some(r=>inside(q,r));
+  const escape=p=>{
+    if(free(p))return [...p];
+    // Nearest edge of a box holding the point, else the nearest free point on widening rings.
+    const edges=boxes.filter(r=>inside(p,r)).flatMap(r=>[[r[0]-1e-3,p[1]],[r[2]+1e-3,p[1]],[p[0],r[1]-1e-3],[p[0],r[3]+1e-3]]).filter(free);
+    if(edges.length)return edges.sort((a,b)=>Math.hypot(a[0]-p[0],a[1]-p[1])-Math.hypot(b[0]-p[0],b[1]-p[1]))[0];
+    for(let radius=.15;radius<=3;radius+=.15)for(let k=0;k<24;k++){const q=[p[0]+Math.cos(k*Math.PI/12)*radius,p[1]+Math.sin(k*Math.PI/12)*radius];if(free(q))return q;}
+    return [...p];
+  };
+  const start=escape(from),goal=escape(to),moved=start[0]!==from[0]||start[1]!==from[1];
+  const route=search(start,goal);
+  return moved&&route.length?[start,...route]:route;
+  function search(from,to){
   if(clear(from,to))return [[...to]];
   const nodes=[from,to,...boxes.flatMap(([a,b,c,d])=>[[a,b],[c,b],[c,d],[a,d]]).filter(p=>!boxes.some(r=>inside(p,r)))];
   const distance=nodes.map(()=>Infinity),previous=[],done=new Set();distance[0]=0;
@@ -27,4 +51,5 @@ export function plan(from,to,rects,margin=.28) {
     }
   }
   return []; // Stay in place instead of walking through a wall when no path exists.
+  }
 }

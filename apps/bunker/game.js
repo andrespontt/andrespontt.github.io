@@ -17,7 +17,8 @@ let currentInteraction=null,controlsOpen=false;
 let triggerHeld=false,fireCooldown=0;
 const params=new URLSearchParams(location.search),devParam=params.get('dev');
 // Places with their own address (?at=…). The City operation also lives in the dev menu as dev/city.
-const PLACES={snowfield:'outside',nomad:'vehicle',bunker:'bunker',map:'bunker',city:'dev/city'};
+// ?at=meeting is the City store at the table as the evacuation meeting begins (it then reads ?at=city&view=meeting-table).
+const PLACES={snowfield:'outside',nomad:'vehicle',bunker:'bunker',map:'bunker',city:'dev/city',meeting:'dev/city'};
 const isDev=id=>String(id).startsWith('dev/');
 // Dev pages expose internals for automated checks (no effect on the normal game).
 if(devParam!==null)globalThis.bunkerDebug={get manager(){return manager;},get camera(){return camera;}};
@@ -90,7 +91,7 @@ function updateUI(){
  $('walk-outside').hidden=!overview;$('leave-area').hidden=outside;$('leave-area').textContent=droneFeed&&manager.id==='dev/city'?'Return to command center':'Return outside';
  $('overview').hidden=!outside||overview;
  const armed=!overview&&!!manager.current?.fire&&(manager.current.canFire?.()??true);$('fire').hidden=!armed;document.body.classList.toggle('has-weapon',armed);
- $('use-terminal').hidden=manager.id!=='bunker';$('weather-cycle').hidden=overview||!!manager.current?.weatherLabel;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
+ $('use-terminal').hidden=manager.id!=='bunker';$('join-meeting').hidden=!overview&&manager.id!=='bunker';$('weather-cycle').hidden=overview||!!manager.current?.weatherLabel;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
  $('weather-panel').hidden=!overview;$('scene-caption').hidden=!overview;
  $('pause').textContent=paused?'Resume':'Pause';$('pause').setAttribute('aria-pressed',String(paused));
  syncCursor();
@@ -169,6 +170,8 @@ function closeSituationTerminal(){
  tacticalTerminal?.close();terminalOpen=false;keys.clear();clearStick();updateUI();$('use-terminal').focus({preventScroll:true});
 }
 $('use-terminal').onclick=openSituationTerminal;
+// In person at the City store, standing at the table as the meeting starts (the standalone scene, not the live feed).
+$('join-meeting').onclick=async()=>{await travel('dev/city');manager.current?.setView?.('meeting-table',setPose);updateUI();};
 function interact(){if(paused||transitioning||terminalOpen||!currentInteraction)return;const action=currentInteraction;if(action.panel==='situation-map'){openSituationTerminal();return;}if(action.destination)travel(action.destination,action.entry);else action.action?.();}
 $('interact').onclick=interact;
 const movementCodes=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
@@ -271,7 +274,7 @@ function renderQuickMenu(){
   heading('Weather');const weatherGrid=grid();if(manager.current?.weatherLabel){const note=document.createElement('p');note.textContent='Local conditions: '+manager.current.weatherLabel;content.append(note);}
   for(const value of (manager.current?.weatherLabel?[]:weatherOrder))add(weatherGrid,value[0].toUpperCase()+value.slice(1),()=>{setWeather(value);renderQuickMenu();},weather===value);
   heading('Location');const locations=grid();
-  for(const id of ['enter-bunker','enter-vehicle','walk-outside','use-terminal','leave-area','overview']){const source=$(id);if(!source.hidden&&!source.disabled)add(locations,source.textContent.replace(' · M',''),()=>{closeQuickMenu();source.click();});}
+  for(const id of ['enter-bunker','enter-vehicle','walk-outside','join-meeting','use-terminal','leave-area','overview']){const source=$(id);if(!source.hidden&&!source.disabled)add(locations,source.textContent.replace(' · M',''),()=>{closeQuickMenu();source.click();});}
  }
 }
 $('quick-menu-open').onclick=()=>{if(transitioning||terminalOpen)return;releaseLook();controlsOpen=true;renderQuickMenu();quickMenu.showModal();};
@@ -321,7 +324,7 @@ function frame(now){
 }
 requestAnimationFrame(frame);
 pollCity();
-const at=params.get('at'),startView=params.get('view');
+const at=params.get('at'),startView=params.get('view')||(at==='meeting'?'meeting-table':null);
 if(at&&PLACES[at]){
  await travel(PLACES[at],undefined,{drone:at==='city'&&params.get('from')==='map'});
  if(!manager.current)await travel('outside');

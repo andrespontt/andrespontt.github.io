@@ -31,3 +31,20 @@ test('sphere hit distance is at the surface and excludes targets behind the shoo
   assert.equal(sphereEntry(o,d,{x:0,y:0,z:-5},1),Infinity);
   assert.equal(sphereEntry(o,d,{x:2,y:0,z:5},1),Infinity);
 });
+
+test('someone overlapping a solid can step back out, but never further in', async () => {
+  const { moveThroughCity } = await import('./city-space.js');
+  const box = [[0, 0, 0, 2, 1, 2]];
+  const p = { x: 1, z: 2.1 }; // .16 inside the 0.26 m body radius
+  moveThroughCity(p, 0, -.3, box); assert.equal(p.z, 2.1, 'no deeper');
+  moveThroughCity(p, 0, .3, box); assert.ok(p.z > 2.26, 'out the near side');
+});
+test('paths start from, and end beside, furniture someone is pressed against or a goal inside it', async () => {
+  const { plan, freePoint } = await import('./city-paths.js');
+  const rects = [[0, 0, 2, 2], [2, 0, 3, 1]];
+  assert.ok(plan([-.1, 1], [5, 1], rects).length, 'start pressed against a box');
+  const path = plan([-3, 1], [2.2, .5], rects); // goal where two boxes meet
+  assert.ok(path.length); const end = path.at(-1);
+  assert.ok(!rects.some(([a, b, c, d]) => end[0] > a - .28 && end[0] < c + .28 && end[1] > b - .28 && end[1] < d + .28));
+  assert.deepEqual(freePoint([5, 5], rects), [5, 5]);
+});

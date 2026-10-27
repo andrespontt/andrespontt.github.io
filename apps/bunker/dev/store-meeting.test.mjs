@@ -68,3 +68,52 @@ test('the safe room is a square, larger than the old 13.4 x 2.65 m strip, with i
   assert.ok(inSafeRoom({x:VIP_REFUGE[0],z:VIP_REFUGE[1]}));assert.ok(!inSafeRoom({x:VIP_HOME[0],z:VIP_HOME[1]}));
   assert.equal(STORE_FURNITURE.filter(inside).length,3,'radio, bench and supplies are inside');
 });
+
+test('a replacement envoy walks to the table under their own name and restarts the meeting',()=>{
+  const {vip,escort,director}=setup();
+  Object.assign(vip,{name:'Okafor',x:0,z:2.7});
+  director.arrive([[0,-.7],...plan([0,-.7],VIP_HOME,INTERIOR_BLOCKS,.28)]);
+  assert.equal(director.phase,'arriving');assert.equal(director.isEscort(escort),false);
+  for(let i=0;i<400&&director.phase==='arriving';i++)director.update(.05);
+  assert.equal(director.phase,'briefing');assert.equal(vip.state,'meeting');
+  assert.ok(Math.hypot(vip.x-VIP_HOME[0],vip.z-VIP_HOME[1])<.05);
+  assert.equal(director.dialogue.speaker,'ENVOY OKAFOR · VIP');
+});
+test('a wounded envoy is slower on the way to the safe room',()=>{
+  const time=hp=>{const {vip,escort,director}=setup();vip.hp=hp;let t=0;
+    while(director.phase==='briefing'||director.phase==='evacuating'){director.update(.05,{threat:true,occupants:[vip,escort]});t+=.05;if(t>60)break;}
+    return t;};
+  assert.ok(time(20)>time(100)*1.2);
+});
+test('test switch: the safe-room door stays open even while the envoy is locked in',()=>{
+  const {vip,escort,director}=setup();
+  director.holdOpen=true;
+  for(let i=0;i<400;i++)director.update(.05,{threat:true,occupants:[vip,escort]});
+  assert.equal(director.phase,'secure');assert.equal(director.door,1);
+  director.holdOpen=false;for(let i=0;i<40;i++)director.update(.05,{threat:true,occupants:[]});
+  assert.equal(director.door,0);
+});
+
+test('blocked VIP does not walk through people or falsely declare the refuge secure',()=>{
+  const {vip,escort}=setup(),director=createMeetingDirector(vip,escort,{moveBody(){}});
+  for(let i=0;i<600;i++)director.update(.05,{threat:true});
+  assert.equal(director.phase,'evacuating');assert.equal(vip.speed,0);
+  assert.equal(inSafeRoom(vip),false);
+});
+
+test('wounded VIP keeps the escort nearby along the evacuation route',()=>{
+  const {vip,escort,director}=setup();vip.hp=15;
+  for(let i=0;i<1000&&director.phase!=='secure';i++){
+    director.update(.05,{threat:true,occupants:[vip,escort]});
+    if(vip.z>-3.2&&escort.x>0)assert.ok(Math.hypot(escort.x-vip.x,escort.z-vip.z)<3,'escort must not abandon the envoy at the door');
+  }
+  assert.equal(director.phase,'secure');
+});
+
+test('civilian conversations are contextual and cannot restart every tap',()=>{
+  const {director}=setup();assert.equal(director.civilian('LIAISON MORGAN',false),true);
+  assert.match(director.dialogue.text,/hospital convoy/);
+  assert.equal(director.civilian('CAPTAIN REYES',true),false);
+  for(let i=0;i<145;i++)director.update(.05);
+  assert.equal(director.civilian('CAPTAIN REYES',true),true);assert.match(director.dialogue.text,/behind cover/);
+});

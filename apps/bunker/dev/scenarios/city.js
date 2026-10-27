@@ -6,10 +6,13 @@ import { aimPistol, aimRifle, crouch, bone, solveTwoBone } from '../../rig.js';
 import { glass, gunshot, impact, reload as reloadSound } from '../sound.js';
 import { createEffects, route, seeded } from '../combat.js';
 import { firstObstruction as traceCity, sphereEntry, moveThroughCity as walkCity, SOLIDS, STORE_FRONT, FIRE_BARRELS, WINDOWS } from '../city-space.js';
+import { CORDON_BARRIERS, APPROACHES, approachSteps } from '../city-exterior.js';
 import { buildStoreRoom } from '../store-room.js';
 import { INTERIOR_BLOCKS, VIP_HOME, VIP_REFUGE, SAFE_APPROACH, SAFE_INSIDE, SAFE_DOOR_X, SAFE_DOOR_Z, safeDoorBounds, inSafeRoom } from '../store-layout.js';
 import { plan } from '../city-paths.js';
+import { followRoute, navigate, friendlyInLine } from '../actor-motion.js';
 import { createMeetingDirector } from '../store-meeting.js';
+import { envoyName } from '../../city-ops.mjs';
 
 // City operation: soldiers hold a corner store on one block of a city street.
 // Only this block is built; fog hides where the city would continue.
@@ -150,13 +153,30 @@ function buildCity(group) {
 
   // Street furniture and the military cordon.
   const concrete = mat('#7d817a'), tan = mat('#8a7a58', .9), tyre = mat('#141618');
-  const barrier = (x, z, alongZ) => {
-    const [w, d] = alongZ ? [.7, 2.4] : [2.4, .7];
-    box(group, x - w / 2, 0, z - d / 2, x + w / 2, .35, z + d / 2, concrete);
-    box(group, x - (alongZ ? .16 : 1.2), .35, z - (alongZ ? 1.2 : .16), x + (alongZ ? .16 : 1.2), 1.05, z + (alongZ ? 1.2 : .16), concrete);
-  };
-  for (const side of [-1, 1]) for (const z of [5.2, 7.6, 12.6]) barrier(side * 15, z, true);
-  for (const x of [-1.3, 1.3]) barrier(x, 17.6, false);
+  const hazard = mat('#c4a765'), recess = mat('#353d3c'), reflector = new THREE.MeshBasicMaterial({color:'#f1d68d'});
+  for(const {x,z,width,depth} of CORDON_BARRIERS){
+    const alongZ=depth>width,length=alongZ?depth:width;
+    const unit=new THREE.Group();unit.position.set(x,0,z);unit.rotation.y=alongZ?Math.PI/2:0;group.add(unit);
+    // Tapered Jersey profile, broad feet and a narrow upper rail.
+    const profile=new THREE.Shape();profile.moveTo(-.35,0);profile.lineTo(.35,0);profile.lineTo(.35,.2);profile.lineTo(.16,.65);profile.lineTo(.16,1.05);profile.lineTo(-.16,1.05);profile.lineTo(-.16,.65);profile.lineTo(-.35,.2);profile.closePath();
+    const geometry=new THREE.ExtrudeGeometry(profile,{depth:length,bevelEnabled:false});
+    geometry.rotateY(Math.PI/2);geometry.translate(-length/2,0,0);
+    unit.add(new THREE.Mesh(geometry,concrete));
+    for(const face of [-1,1]){
+      box(unit,-length/2+.12,.76,face*.166-.006,length/2-.12,.92,face*.166+.006,recess);
+      for(let i=-length/2+.25;i<length/2-.1;i+=.42)box(unit,i,.77,face*.18-.006,i+.18,.91,face*.18+.006,hazard);
+      for(const end of [-1,1])box(unit,end*(length/2-.16)-.06,.96,face*.168-.008,end*(length/2-.16)+.06,1.025,face*.168+.008,reflector);
+    }
+  }
+  // Flush lane paint: readable flanking entrances without adding obstructions.
+  for(const side of [-1,1]){
+    for(const x of [side*1.65,side*2.7])box(group,x-.035,.025,16.65,x+.035,.035,19.15,hazard);
+    const arrow=new THREE.Shape();arrow.moveTo(-.12,.55);arrow.lineTo(.12,.55);arrow.lineTo(.12,-.12);arrow.lineTo(.34,-.12);arrow.lineTo(0,-.6);arrow.lineTo(-.34,-.12);arrow.lineTo(-.12,-.12);arrow.closePath();
+    const marker=new THREE.Mesh(new THREE.ShapeGeometry(arrow),new THREE.MeshBasicMaterial({color:'#bdb394',side:THREE.DoubleSide}));
+    marker.rotation.x=Math.PI/2;marker.position.set(side*2.2,.04,18.7);group.add(marker);
+    // Painted ticks frame the east/west gaps; the middle remains walkable.
+    for(const z of [9.15,10.95])box(group,side*15-.65,.025,z-.04,side*15+.65,.035,z+.04,hazard);
+  }
   const vehicle = (x, z, rotation, body) => {
     const v = new THREE.Group(); v.position.set(x, 0, z); v.rotation.y = rotation; group.add(v);
     box(v, -1.1, .55, -2.3, 1.1, 1.45, 2.3, body); box(v, -1, 1.45, -1.2, 1, 2.1, 1, body); box(v, -.95, 1.55, 1.01, .95, 2, 1.04, dark);
@@ -185,7 +205,7 @@ function buildCity(group) {
   // Sit the lights just above the roof once the model is in (it has its own light bar geometry).
   police.then(height => { if (height) for (const light of blinkers) light.position.y = height + .07; });
   // Traffic cones along the barriers.
-  for (const [x, z] of [[-4.1, 17.6], [4.1, 17.6], [-15, 3.6], [15, 3.6], [-16, 13.6], [16, 13.6], [-3.6, 18.4], [3.6, 18.4]]) {
+  for (const [x, z] of [[-1.1, 18.15], [1.1, 18.15], [-15, 3.6], [15, 3.6], [-16, 13.6], [16, 13.6]]) {
     const holder = new THREE.Group(); holder.position.set(x, groundAt(x, z), z); group.add(holder);
     dressVehicle(holder, 'cone', .5, false);
   }
@@ -296,9 +316,14 @@ export default {
   // Down in the valley it's sleet, not the mountain blizzard (the shell's weather doesn't apply here).
   weatherLabel: 'Sleet · 1 °C',
   defaultView: 'Inside store',
+  // Test switch: keep the safe-room door open; intruders who get into the store go after the VIP.
+  switches: [{ id: 'saferoom', label: 'Safe room open to intruders' }],
   views: [
-    { label: 'Overhead', x: 0, z: 15, yaw: Math.PI, pitch: -.95, eye: 21 },
+    { label: 'Overhead', x: 0, z: 24, yaw: Math.PI, pitch: -.95, eye: 25 },
     { label: 'Street', x: -6, z: 15.2, yaw: 2.77, pitch: -.04, eye: 1.7 },
+    { label: 'Front checkpoint', x: 0, z: 20.2, yaw: Math.PI, pitch: -.12, eye: 1.7 },
+    // At the table beside the envoy, for joining the meeting as it starts (?at=meeting).
+    { label: 'Meeting table', x: -.95, z: -4.1, yaw: -2.36, pitch: -.15, eye: 1.7 },
     { label: 'Inside store', x: 1.5, z: -.9, yaw: (globalThis.innerWidth||1280)<600?-2.42:-2.13, pitch: -.13, eye: 1.7 },
     { label: 'Alley', x: 8.3, z: -10.5, yaw: 0, pitch: -.04, eye: 1.7 },
     { label: 'Drone', x: 0, z: 34, yaw: Math.PI, pitch: -.85, eye: 36, orbit: { radius: 29, centerZ: 5, targetY: 1, speed: .085 } },
@@ -307,7 +332,7 @@ export default {
     const random = seeded(99);
     const city = buildCity(group);
     const doorSolid = safeDoorBounds(0), solids = [...SOLIDS,doorSolid];
-    const firstObstruction=(origin,dir,distance)=>traceCity(origin,dir,distance,solids);
+    const firstObstruction=(origin,dir,distance,boxes=solids)=>traceCity(origin,dir,distance,boxes);
     const moveThroughCity=(p,dx,dz)=>walkCity(p,dx,dz,solids);
     const fx = createEffects(group);
     // Sleet: short streaks falling around the viewer, slanting with the wind. None inside the store.
@@ -337,9 +362,11 @@ export default {
     // Live operation casualties this feed session: soldiers knocked out (wounded) and killed.
     let operation = null, lastHeartbeat = 0, sessionWounded = 0, sessionKilled = 0;
     function syncOperation(op) {
-      operation = op; linkedReady = true;
+      const walkIn = linkedReady; operation = op; linkedReady = true;
       // The VIP was already killed out there: the body lies in the storeroom.
-      if (op.vip === 'killed' && vip.state !== 'down') Object.assign(vip, { x: VIP_REFUGE[0], z: VIP_REFUGE[1], state: 'down', fall: 1, hp: 0, path: [] });
+      // A replacement envoy reached the store: at the table on joining, walking in from the street later.
+      if ((op.envoy || 1) > vip.envoy) newEnvoy(op.envoy, walkIn);
+      else if (op.vip === 'killed' && vip.state !== 'down') Object.assign(vip, { x: VIP_REFUGE[0], z: VIP_REFUGE[1], state: 'down', fall: 1, hp: 0, path: [] });
       if (op.phase === 'contact') joinWave(op);
       else { setMode('Patrol'); wave=op.wave; tally.down=op.down; waveDownBase=0; }
     }
@@ -358,12 +385,12 @@ export default {
         const op=await opsStore.reportLive({session:feedSession,
           wave, contact: mode==='Intruders' && !surprise && intruders.some(alive),
           active:intruders.filter(alive).length,incoming:waiting(),group:released,down:tally.down-waveDownBase,
-          vip:vip.state==='down'?'killed':vip.state==='shelter'||vip.state==='to-shelter'?'sheltering':'safe',
+          vip:vip.state==='down'?'killed':vip.state==='shelter'||vip.state==='to-shelter'?'sheltering':'safe',envoy:vip.envoy,
           rounds:rounds+playerShots,wounded:sessionWounded,killed:sessionKilled,
         });
         if(disposed)return;
         operation=op;
-        if(op.liveSession!==feedSession || op.wave>wave)syncOperation(op);
+        if(op.liveSession!==feedSession || op.wave>wave || (op.envoy||1)>vip.envoy)syncOperation(op);
       };
       run().catch(error=>console.warn('City report unavailable',error)).finally(()=>reportBusy=false);
     }
@@ -378,7 +405,7 @@ export default {
         if (i < remaining) return;
         if (i < Math.min(count, remaining + op.down)) {
           // Shot somewhere on the way in, before the barrier.
-          const k = 1 + Math.floor(random() * Math.max(1, it.climbAt - 1)), a = it.steps[k - 1], b = it.steps[k], t = .35 + random() * .6;
+          const k = 1 + Math.floor(random() * Math.max(1, it.crossingAt - 1)), a = it.steps[k - 1], b = it.steps[k], t = .35 + random() * .6;
           Object.assign(it, { state: 'down', fall: 1, x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, y: 0, crouch: 0 });
           it.yaw = facing(DOOR_OUT[0] - it.x, DOOR_OUT[1] - it.z); chooseFall(it);
           it.c.model.visible = true; it.pistol.visible = false;
@@ -430,6 +457,7 @@ export default {
     // Every shot: flash the light, reveal the shooter, and break any intact pane along its path.
     function shotFired(shooter, from, dir, reach) {
       muzzleLight.position.copy(from); muzzleGlow = 1;
+      if(inStore(from.x,from.z)||Math.hypot(from.x-vip.x,from.z-vip.z)<7)civilianAlarm=6;
       if (shooter) shooter.revealed = 2.5;
       contact();
       for (const pane of city.panes) {
@@ -482,25 +510,21 @@ export default {
 
     // --- Armed civilians ------------------------------------------------------
     const JACKETS = ['#3d4c5c', '#5c3d33', '#4c5338', '#3a3a42'];
-    const ENTRIES = [
-      { zone: 'east', lane: [0, 1], steps: [[27.8, 2.6], [19, 2.8], [16, 5.8], [14.1, 5.8, 'climb'], [6, 6], [1, 2.7], [0, -1.4]] },
-      { zone: 'west', lane: [0, 1], steps: [[-27.8, 12.6], [-16, 12.6], [-14.1, 12.6, 'climb'], [-6, 7], [-1, 2.7], [0, -1.2]] },
-      { zone: 'south', lane: [1, 0], steps: [[0, 34], [0, 18.5], [0, 16.6, 'climb'], [0, 6], [.5, 2.7], [.3, -1.6]] },
-    ];
+    const ENTRIES = APPROACHES;
     // They have the numbers: a pool of 40, spread over the three streets in side-by-side lanes.
     // Each wave comes as GROUPS groups in a row (5 → 8 intruders each), up to 40 in all.
     const GROUPS = 5, groupSize = w => Math.min(8, 4 + w), waveSize = w => GROUPS * groupSize(w);
-    const POOL = 40, LANES = [0, .7, -.7, .35, -.35, 1, -1, .15];
+    const POOL = 40;
     const pistolGeometry = new THREE.BoxGeometry(.04, .11, .2);
     const intruders = Array.from({ length: POOL }, (_, i) => {
-      const entry = ENTRIES[i % ENTRIES.length], lane = LANES[Math.floor(i / ENTRIES.length) % LANES.length];
-      // Each lane offsets the route sideways; the door step only slightly, so they still fit through.
-      const steps = entry.steps.map(([x, z, kind], n) => { const k = n === entry.steps.length - 2 ? lane * .4 : lane; return [x + entry.lane[0] * k, z + entry.lane[1] * k, kind]; });
+      const entry = ENTRIES[i % ENTRIES.length];
+      const steps = approachSteps(i);
       const c = character('xbot', { tint(m, name) { m.color.set(/Joints/i.test(m.name) ? '#1d1d1f' : JACKETS[i % JACKETS.length]); m.roughness = .9; m.metalness = 0; } });
       c.model.rotation.order = 'YXZ'; c.model.visible = false; group.add(c.model);
       const pistol = new THREE.Mesh(pistolGeometry, dark); pistol.visible = false; group.add(pistol);
-      return { c, entry, steps, climbAt: steps.findIndex(p => p[2] === 'climb'), pistol, state: 'wait', x: 0, z: 0, y: 0, yaw: 0, hp: 3, step: 0, speed: 0, timer: 0, aim: 0, foe: null, cooldown: 0, spotted: false, fall: 0, climbFrom: null };
+      return { id:i, c, entry, steps, crossingAt: entry.crossingAt, pistol, state: 'wait', x: 0, z: 0, y: 0, yaw: 0, hp: 3, step: 0, speed: 0, timer: 0, aim: 0, foe: null, cooldown: 0, spotted: false, fall: 0, climbFrom: null };
     });
+    // Standalone, the ambush comes 5 s after the opening briefing has been heard out.
     let wave = 0, waveTimer = 0, startupRemaining = linked ? 0 : 5;
     // Wave 1 is an ambush: soldiers keep patrolling, unaware, until first contact.
     let surprise = false, contactCheck = 0;
@@ -523,14 +547,14 @@ export default {
     // Intruders still waiting off-screen at their start point can't be targeted yet.
     const exposed = i => alive(i) && i.c.model.visible;
     // Where intruders crouch on the way in: behind wrecks outside the cordon, then the parked cars inside it.
-    // Zones keep them from cutting across the cordon: 'in' spots are only used after climbing in.
+    // Zones keep them from cutting across the cordon: 'in' spots are only used after passing the cordon.
     const INTRUDER_COVER = [
       ...[[28.2, 5.4], [26.6, 9.4], [25, 13.3]].map(p => [...p, 'east']),
       ...[[-26.6, 9.8], [-22.1, 14.3], [-24.3, 4.6]].map(p => [...p, 'west']),
-      ...[[2.15, 23.8], [-2.3, 21.5], [-1.3, 18.4], [1.3, 18.4]].map(p => [...p, 'south']),
+      ...[[2.15, 23.8], [-2.3, 21.5], [-.7, 18.4], [.7, 18.4]].map(p => [...p, 'south']),
       [-7, 7.25, 'in'], [-8.4, 7.25, 'in'], [5.5, 12.4, 'in'], [7.1, 12.4, 'in'],
     ].map(([x, z, zone]) => ({ x, z, zone, by: null }));
-    const zoneOf = it => it.step > it.climbAt ? 'in' : it.entry.zone;
+    const zoneOf = it => it.step > it.crossingAt ? 'in' : it.entry.zone;
     const doorDistance = p => Math.hypot(p.x - DOOR_OUT[0], p.z - DOOR_OUT[1]);
     // You, as something the intruders can shoot at while you're on foot.
     const player = { isPlayer: true, x: 0, z: 0, active: false, underFire: 0, hits: 0, revealed: 0 };
@@ -551,7 +575,7 @@ export default {
       intruders.forEach((it, n) => {
         if (n >= count) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; return; }
         const [x, z] = it.steps[0];
-        Object.assign(it, { state: 'sneak', x, z, y: 0, hp: 3, step: 1, speed: 0, group: Math.floor(n / size), timer: n < size ? 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5 : Infinity, suppressed: 0, mag: PISTOL_MAG, reload: 0, pushing: 0, scan: 0, calm: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
+        Object.assign(it, { state: 'sneak', navigation:null, navArrived:false, lastSeen:null, searchRefuge:false, x, z, y: 0, hp: 3, step: 1, speed: 0, group: Math.floor(n / size), timer: n < size ? 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5 : Infinity, suppressed: 0, mag: PISTOL_MAG, reload: 0, pushing: 0, scan: 0, calm: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
         it.c.model.visible = false; it.c.model.rotation.x = 0;
       });
     }
@@ -734,6 +758,28 @@ export default {
       if (meeting.isEscort(g)) {
         faceYaw = g.speed > .01 ? g.yaw : facing(SAFE_DOOR_X-g.x, SAFE_DOOR_Z-g.z);
         wantAim = .2;
+        // Standing guard over the envoy: shoot any intruder in sight within the store (close range, so more hits).
+        if (g.speed < .05) {
+          if (!g.foe || !exposed(g.foe) || !sightTo(g, g.foe)) {
+            g.foe = null; let nd = 12;
+            for (const it of intruders) if (exposed(it) && inStore(it.x, it.z) && sightTo(g, it)) { const d = Math.hypot(it.x - g.x, it.z - g.z); if (d < nd) { g.foe = it; nd = d; } }
+          }
+          if (g.foe) {
+            const f = g.foe;
+            faceYaw = facing(f.x - g.x, f.z - g.z); g.target.set(f.x, 1.2 + f.y, f.z);
+            wantAim = g.reload > 0 ? .2 : 1; wantCrouch = g.reload > 0 ? .4 : 0;
+            g.timer -= dt;
+            if (g.timer <= 0 && g.aim > .9 && g.reload <= 0) {
+              if (g.shots <= 0) g.shots = 2 + Math.floor(random() * 2);
+              g.shots--;
+              if (--g.mag <= 0) { startReload(g, RELOAD.soldier); g.shots = 0; }
+              g.timer = g.shots > 0 ? .14 : .45 + random() * .5;
+              const hit = random() < .45;
+              const target = hit ? g.target.clone() : g.target.clone().add(v.set((random() - .5) * 1.2, (random() - .5) * .6 - .3, (random() - .5) * 1.2));
+              guardShot(g, target, () => { fx.puff(target); if (hit) hitIntruder(f, 1); else f.suppressed = 1.5; });
+            }
+          }
+        }
       } else if (g.state === 'route') {
         const alert = mode === 'Alert' || (mode === 'Intruders' && !surprise);
         let targetSpeed = mode === 'Alert' ? 2.6 : r.speed;
@@ -831,6 +877,7 @@ export default {
 
     function updateIntruder(it, dt) {
       const { c } = it;
+      const previousX=it.x,previousZ=it.z;
       if (it.state === 'wait' || it.state === 'escaped') return;
       let faceYaw = it.yaw, wantAim = 0, wantCrouch = 0;
       const steps = it.steps;
@@ -860,13 +907,13 @@ export default {
           const top = fleeing ? 3.8 : it.pushing > 0 && it.foe ? 2.2 : it.spotted ? 3.4 : surprise ? 1 : 1.25;
           if (surprise) wantCrouch = .22;
           it.speed = damp(it.speed, top, 3, dt);
-          const step = Math.min(distance, it.speed * dt);
-          if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
-          if (distance < .1) {
+          const yaw = steer(it, goal[0], goal[1], it.speed * dt, dt); if (yaw != null) faceYaw = yaw;
+          if (it.navArrived || Math.hypot(goal[0] - it.x, goal[1] - it.z) < .1) {
+            it.detour = null;
             if (fleeing) { it.step--; if (it.step <= 0) { it.state = 'escaped'; c.model.visible = false; it.pistol.visible = false; tally.escaped++; } }
             else if (++it.step >= steps.length) {
               // Inside the store. In the live operation they go after the VIP; otherwise they hold the door.
-              it.state = linked && vip.state !== 'down' ? 'hunt' : 'hold'; it.path = []; it.replan = 0;
+              it.state = (linked || saferoomOpen) && vip.state !== 'down' ? 'hunt' : 'hold'; it.path = []; it.replan = 0;
               it.speed = 0; it.shotTimer = .5; if (!it.breached) { it.breached = true; tally.breached++; }
             }
           }
@@ -901,8 +948,7 @@ export default {
         // Crouched retreat toward the previous waypoint; after a moment (or on arrival) they advance again.
         const back = steps[Math.max(0, it.step - 1)], dx = back[0] - it.x, dz = back[1] - it.z, distance = Math.hypot(dx, dz);
         it.speed = damp(it.speed, 3, 5, dt); wantCrouch = .3;
-        const step = Math.min(distance, it.speed * dt);
-        if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
+        if (distance > 1e-3) { const yaw = steer(it, back[0], back[1], it.speed * dt, dt); if (yaw != null) faceYaw = yaw; }
         // Cover turns up on the way back: take it.
         const spot = (it.scan -= dt) <= 0 && (it.scan = .3, freeCover(it, 4));
         if (spot) { spot.by = it; it.cover = spot; it.state = 'tocover'; }
@@ -910,9 +956,11 @@ export default {
       } else if (it.state === 'tocover') {
         const dx = it.cover.x - it.x, dz = it.cover.z - it.z, distance = Math.hypot(dx, dz);
         it.speed = damp(it.speed, Math.min(3.6, distance * 3 + .4), 5, dt);
-        const step = Math.min(distance, it.speed * dt);
-        if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
-        if (distance < .1) { it.state = 'cover'; it.timer = .8 + random(); it.peeks = 2 + Math.floor(random() * 2); }
+        if (distance > 1e-3) { const yaw = steer(it, it.cover.x, it.cover.z, it.speed * dt, dt); if (yaw != null) faceYaw = yaw; }
+        // No way to that spot (or it takes far too long): give it up and keep advancing.
+        it.coverTime = (it.coverTime || 0) + dt;
+        if (it.lost || it.coverTime > 12) { it.cover.by = null; it.cover = null; it.coverTime = 0; it.detour = null; it.state = 'sneak'; it.cooldown = 1.5 + random(); }
+        else if (it.navArrived || distance < .1) { it.coverTime = 0; it.detour = null; it.state = 'cover'; it.timer = .8 + random(); it.peeks = 2 + Math.floor(random() * 2); }
       } else if (it.state === 'cover' || it.state === 'peek') {
         // Crouch behind cover, rise to fire a few rounds, duck again; after a few peeks move on.
         it.speed = damp(it.speed, 0, 8, dt);
@@ -946,19 +994,25 @@ export default {
         // close and in the way; otherwise keep moving.
         if (vip.state === 'down') { it.state = 'hold'; it.shotTimer = .4; }
         else {
-          if ((it.replan -= dt) <= 0 || !it.path.length) { it.replan = 1; it.path = vipPath(it); }
+          if ((it.replan -= dt) <= 0) { it.replan = 1; it.path = vipPath(it); }
           const seesVip = Math.hypot(vip.x - it.x, vip.z - it.z) < 14 && clearSight(new THREE.Vector3(it.x, 1.5, it.z), new THREE.Vector3(vip.x, 1.4 - vip.crouch, vip.z));
-          it.foe = seesVip ? vip : nearestTarget(it, 7);
+          if(seesVip)it.lastSeen={x:vip.x,z:vip.z,at:clock};
+          // A soldier close by comes first, else the VIP in sight. Either way they keep pushing toward the VIP,
+          // firing on the move, and only stand to shoot once someone is within a couple of metres.
+          const guard = nearestTarget(it, 7);
+          it.foe = guard && (!seesVip || Math.hypot(guard.x - it.x, guard.z - it.z) < 4) ? guard : seesVip ? vip : guard;
+          const closing = it.reload<=0 && it.suppressed<1.2 && !!it.foe && it.path.length > 0 && Math.hypot(it.foe.x - it.x, it.foe.z - it.z) > 2.2;
           if (it.foe) {
-            it.speed = damp(it.speed, 0, 6, dt); faceYaw = facing(it.foe.x - it.x, it.foe.z - it.z); wantAim = 1;
+            faceYaw = facing(it.foe.x - it.x, it.foe.z - it.z); wantAim = 1;
             it.shotTimer -= dt;
-            if (it.shotTimer <= 0 && it.aim > .8 && it.reload <= 0) { it.shotTimer = .4 + random() * .4; intruderShot(it); }
-          } else if (it.path.length) {
-            const [tx, tz] = it.path[0], dx = tx - it.x, dz = tz - it.z, distance = Math.hypot(dx, dz);
-            it.speed = damp(it.speed, 2.4, 5, dt);
-            const step = Math.min(distance, it.speed * dt);
-            if (distance > 1e-3) { moveThroughCity(it, dx / distance * step, dz / distance * step); faceYaw = facing(dx, dz); }
-            if (distance < .15) it.path.shift();
+            if (it.shotTimer <= 0 && it.aim > .8 && it.reload <= 0) { it.shotTimer = (closing ? .6 : .4) + random() * .4; intruderShot(it, closing); }
+          }
+          if (it.reload>0 || it.suppressed>1.2 || (it.foe && !closing)) it.speed = damp(it.speed, 0, 6, dt);
+          else if (it.path.length) {
+            const [tx, tz] = it.path[0];
+            it.speed = damp(it.speed, closing ? 1.6 : 2.4, 5, dt);
+            const yaw = steer(it, tx, tz, it.speed * dt, dt); if (yaw != null && !closing) faceYaw = yaw;
+            if (it.navArrived || Math.hypot(tx - it.x, tz - it.z) < .15) { it.path.shift(); it.detour = null; }
           }
           if (it.reload > 0) wantCrouch = .4;
         }
@@ -970,6 +1024,9 @@ export default {
         faceYaw = facing(goal[0] - x0, goal[1] - z0);
         it.speed = 1;
         if (t >= 1) { it.y = 0; it.step++; it.state = 'sneak'; }
+      } else if (it.state === 'hold' && saferoomOpen && vip.state !== 'down') {
+        // Switch turned on while they hold the store door: go after the VIP.
+        it.state = 'hunt'; it.path = []; it.replan = 0;
       } else if (it.state === 'shoot' || it.state === 'hold') {
         it.speed = damp(it.speed, 0, 6, dt);
         // Standing in the open under heavy fire: break off and find cover or fall back (not once inside the store).
@@ -991,7 +1048,7 @@ export default {
       it.aim = damp(it.aim, wantAim, 8, dt);
       c.model.position.set(it.x, it.y + groundAt(it.x, it.z), it.z);
       c.model.rotation.y = it.yaw;
-      c.setSpeed(it.state === 'climb' ? .6 : it.speed);
+      c.setSpeed(it.state === 'climb' ? .6 : Math.hypot(it.x-previousX,it.z-previousZ)/Math.max(dt,.001));
       c.mixer.update(dt);
       it.crouch = damp(it.crouch || 0, wantCrouch, 7, dt);
       crouch(c.model, it.crouch);
@@ -1003,16 +1060,35 @@ export default {
         it.pistol.lookAt(group.localToWorld(w.copy(pose.hand).addScaledVector(pose.dir, 3)));
       }
     }
+    // Walk an intruder toward (tx, tz). Straight while the way is open; if something stops them for a moment
+    // (a car, a barrier, a wall they were shoved against) they plan a route around it and follow that.
+    // Returns the yaw to face, or null when already there. Sets it.lost when there is no way through at all.
+    const walkBoxes = (a, b) => {
+      const x0 = Math.min(a[0], b[0]) - 6, x1 = Math.max(a[0], b[0]) + 6, z0 = Math.min(a[1], b[1]) - 6, z1 = Math.max(a[1], b[1]) + 6;
+      // Soldiers (and you) count too: someone holding a narrow gap closes it.
+      const bodies = [...guards.filter(g => g.state !== 'down'), ...(player.active ? [player] : [])].map(g => [g.x - .3, g.z - .3, g.x + .3, g.z + .3]);
+      return [...solids.filter(s => s[1] < 1.7 && s[4] > .25).map(s => [s[0], s[2], s[3], s[5]]), ...bodies].filter(r => r[2] > x0 && r[0] < x1 && r[3] > z0 && r[1] < z1);
+    };
+    function steer(it, tx, tz, step, dt) {
+      return navigate(it,tx,tz,step,dt,{move:moveThroughCity,rects:walkBoxes});
+    }
+
     // Route inside the store to just beside the VIP, through the storeroom door if they're in back.
     function vipPath(it) {
-      const inBack = inSafeRoom(vip), goal = [vip.x + (vip.x < it.x ? 1.2 : -1.2), vip.z + (inBack ? .3 : 1.2)];
-      if (inBack && !inSafeRoom(it)) {
-        // A sealed refuge cannot be entered or fired through; intruders hold outside it.
-        if(meeting.door<.96)return plan([it.x,it.z],SAFE_APPROACH,INTERIOR_BLOCKS);
-        return [...plan([it.x,it.z],SAFE_APPROACH,INTERIOR_BLOCKS),[...SAFE_INSIDE],goal];
+      const known=it.lastSeen&&clock-it.lastSeen.at<12?it.lastSeen:{x:VIP_HOME[0],z:VIP_HOME[1]};
+      // After reaching an empty meeting table, search the refuge. Spread along its frontage.
+      if(Math.hypot(it.x-VIP_HOME[0],it.z-VIP_HOME[1])<2)it.searchRefuge=true;
+      const refuge=it.searchRefuge||inSafeRoom(known);
+      const target=refuge&&!inSafeRoom(known)?{x:VIP_REFUGE[0],z:VIP_REFUGE[1]}:known;
+      if(refuge&&!inSafeRoom(it)){
+        const stack=[SAFE_DOOR_X+[-.65,0,.65][it.id%3],SAFE_APPROACH[1]+Math.floor(it.id%6/3)*.8];
+        if(meeting.door<.96)return plan([it.x,it.z],stack,INTERIOR_BLOCKS);
+        const approach=plan([it.x,it.z],SAFE_APPROACH,INTERIOR_BLOCKS);
+        return approach.length?[...approach,[...SAFE_INSIDE],...plan(SAFE_INSIDE,[target.x,target.z],INTERIOR_BLOCKS)]:[];
       }
-      return plan([it.x, it.z], goal, INTERIOR_BLOCKS);
+      return plan([it.x,it.z],[target.x+(it.id%2?.8:-.8),target.z+.8],INTERIOR_BLOCKS);
     }
+
     // Nearest soldier in sight, or you if you're on foot, in sight and closer.
     function nearestTarget(it, range) {
       const guard = nearestGuard(it, range);
@@ -1062,8 +1138,9 @@ export default {
     function intruderShot(it, moving = false) {
       if (it.mag <= 0 || it.reload > 0) return;
       if (it.foe?.state === 'down') { it.foe = null; return; }
-      if (--it.mag <= 0) startReload(it, RELOAD.intruder);
       const f = it.foe;
+      if(!f||friendlyInLine(it,f,intruders.filter(exposed)))return;
+      if (--it.mag <= 0) startReload(it, RELOAD.intruder);
       const muzzle = it.pistol.position.clone().addScaledVector(w.set(0, 0, 1).applyQuaternion(it.pistol.quaternion), .14);
       const range = Math.hypot(f.x - it.x, f.z - it.z), spread = 1.2 + range * .15;
       // Firing on the move halves what little accuracy they have.
@@ -1094,14 +1171,81 @@ export default {
     const vip = (() => {
       const c=character('xbot',{tint(m){m.color.set(/Joints/i.test(m.name)?'#b9b1a3':'#535e68');m.roughness=.8;m.metalness=0;}});
       group.add(c.model);c.model.rotation.order='YXZ';
-      return {c,isVip:true,x:VIP_HOME[0],z:VIP_HOME[1],yaw:Math.PI,speed:0,crouch:0,state:'meeting',path:[],hp:100,fall:0,hits:0,bar:healthBar()};
+      return {c,isVip:true,envoy:1,name:envoyName(1),x:VIP_HOME[0],z:VIP_HOME[1],yaw:Math.PI,speed:0,crouch:0,flinch:0,state:'meeting',path:[],hp:100,fall:0,hits:0,bar:healthBar()};
     })();
-    const meeting=createMeetingDirector(vip,guards[0]);
-    // Two unarmed delegates remain at the briefing table; only the envoy and their escort enter the safe room.
-    const delegates=[[-3,-1.55,'#4b655c'],[-5.35,-4.1,'#766857']].map(([x,z,color])=>{
+    const meeting=createMeetingDirector(vip,guards[0],{moveBody:moveThroughCity});
+    // A replacement envoy: walks in from the street (or is already at the table when the feed opens).
+    let envoyTimer = 0;
+    function newEnvoy(n, walk) {
+      Object.assign(vip, { envoy: n, name: envoyName(n), hp: 100, fall: 0, hits: 0, flinch: 0, crouch: 0, speed: 0 });
+      vip.c.model.rotation.x = 0; envoyTimer = 0;
+      if (walk) { [vip.x, vip.z] = DOOR_OUT; meeting.arrive([[...DOOR_IN], ...plan(DOOR_IN, VIP_HOME, INTERIOR_BLOCKS, .28)]); }
+      else { [vip.x, vip.z] = VIP_HOME; meeting.arrive([[...VIP_HOME]]); }
+    }
+    // Two unarmed delegates stay at the briefing table; only the envoy and their escort enter the safe room.
+    // When contact starts they run for the storeroom corner and crouch there; once the street is clear they
+    // come back. A delegate hit by your fire goes down and is back on their feet (treated) after a quiet spell.
+    const DELEGATES = [
+      { home: [-3, -1.4], hide: [-6.15, -9.15], color: '#4b655c', role: 'CAPTAIN' },
+      { home: [-4.75, -4.1], hide: [-3.95, -9.15], color: '#766857', role: 'LIAISON' },
+    ];
+    const delegates=DELEGATES.map(({home:[x,z],hide,color,role})=>{
       const c=character('xbot',{tint(m){m.color.set(/Joints/i.test(m.name)?'#b4aaa0':color);m.roughness=.85;m.metalness=0;}});
-      group.add(c.model);c.model.position.set(x,.03,z);c.model.rotation.y=facing(VIP_HOME[0]-x,VIP_HOME[1]-z);return {c,x,z};
+      group.add(c.model);c.model.rotation.order='YXZ';
+      return {c,x,z,home:[x,z],hide,role,yaw:facing(VIP_HOME[0]-x,VIP_HOME[1]-z),state:'seated',path:[],speed:0,crouch:0,react:0,fall:0,quiet:0,hits:0};
     });
+    let civiliansHit = 0, saferoomOpen = false, civilianAlarm=0;
+    function walkDelegate(d, dt, speed) {
+      const index=delegates.indexOf(d);
+      const arrived=followRoute(d,dt,{speed,move:moveThroughCity,peers:[vip,guards[0],...delegates.slice(0,index),...(player.active?[player]:[])]});
+      // Replan at a bounded rate if a route was lost or furniture/people held us up.
+      d.repath=Math.max(0,(d.repath||0)-dt);
+      if((!d.path.length||d.blockedFor>1.5)&&!arrived&&d.repath===0){
+        d.path=plan([d.x,d.z],d.state==='flee'?d.hide:d.home,INTERIOR_BLOCKS,.28);d.repath=1.5;
+      }
+      return arrived;
+    }
+
+    function updateDelegate(d, i, dt, threat) {
+      let wantCrouch = 0;
+      if(!['flee','return'].includes(d.state))d.speed=d.motionSpeed=0;
+      d.reassured=Math.max(0,(d.reassured||0)-dt);
+      if (d.state === 'down') {
+        d.fall = Math.min(1, d.fall + dt * 2.2); const k = 1 - (1 - d.fall) ** 3;
+        d.c.model.rotation.x = Math.PI / 2 * k; d.c.model.position.set(d.x, .03 + .13 * k, d.z);
+        if (d.fall < 1) { d.c.setSpeed(0); d.c.mixer.update(dt); }
+        d.quiet = threat ? 0 : d.quiet + dt;
+        if (d.quiet > 12) { Object.assign(d, { state: 'return', fall: 0, path: plan([d.x, d.z], d.home, INTERIOR_BLOCKS, .28) }); d.c.model.rotation.x = 0; }
+        return;
+      }
+      if (threat && (d.state === 'seated' || d.state === 'return')) { d.state = 'startled'; d.react = .25 + i * .35 + random() * .3; }
+      if (d.state === 'startled') {
+        // A beat of shock facing the storefront, then run.
+        d.yaw += angleDelta(d.yaw, facing(-d.x, 1.5 - d.z)) * (1 - Math.exp(-dt * 8)); wantCrouch = .2;
+        if ((d.react -= dt) <= 0) { d.state = 'flee'; d.path = plan([d.x, d.z], d.hide, INTERIOR_BLOCKS, .28); }
+      } else if (d.state === 'flee') {
+        wantCrouch = .08;
+        if (walkDelegate(d, dt, 2.6)) d.state = 'hidden';
+      } else if (d.state === 'hidden') {
+        // Huddled low in the corner, glancing at the storefront.
+        wantCrouch = .3; d.yaw += angleDelta(d.yaw, facing(-d.x, -d.z) + Math.sin(clock * .7 + i) * .35) * (1 - Math.exp(-dt * 3));
+        d.quiet = threat ? 0 : d.quiet + dt;
+        if (d.quiet > 6 && d.reassured===0 && (meeting.phase === 'returning' || meeting.phase === 'briefing')) { d.state = 'return'; d.path = plan([d.x, d.z], d.home, INTERIOR_BLOCKS, .28); }
+      } else if (d.state === 'return') {
+        if (walkDelegate(d, dt, 1.2)) { d.state = 'seated'; d.quiet = 0; }
+      } else {
+        d.yaw += angleDelta(d.yaw, facing(vip.x - d.x, vip.z - d.z)) * (1 - Math.exp(-dt * 3));
+      }
+      d.crouch = damp(d.crouch, wantCrouch, 6, dt);
+      d.c.model.position.set(d.x, .03, d.z); d.c.model.rotation.y = d.yaw;
+      d.c.setSpeed(d.speed); d.c.mixer.update(dt); crouch(d.c.model, d.crouch);
+      if (d.state === 'seated' && meeting.phase === 'briefing' && meeting.dialogue?.speaker.startsWith(d.role)) gesture(d.c, d.x, d.z, .65);
+    }
+    function hitDelegate(d) {
+      if (d.state === 'down') return;
+      Object.assign(d, { state: 'down', fall: 0, quiet: 0, path: [], speed: 0, crouch: 0 }); d.hits++; civiliansHit++;
+      meeting.radio('CAPTAIN REYES', 'Civilian hit! Check your fire!', 4);
+    }
     // Small hand gestures use the actual rig, after its idle animation (no extra procedural limbs).
     const gestureTarget=new THREE.Vector3(),gesturePole=new THREE.Vector3();
     function gesture(c,x,z,amount){
@@ -1109,28 +1253,38 @@ export default {
       const arm=bone(c.model,'RightArm'),fore=bone(c.model,'RightForeArm'),hand=bone(c.model,'RightHand');
       if(!arm||!fore||!hand)return;
       const aq=arm.quaternion.clone(),fq=fore.quaternion.clone();
-      gestureTarget.set(x,1.12+Math.sin(clock*1.6)*.06,z+.55);gesturePole.set(x-.65,.8,z+.15);
+      const forwardX=-Math.sin(c.model.rotation.y),forwardZ=-Math.cos(c.model.rotation.y);
+      gestureTarget.set(x+forwardX*.5,1.12+Math.sin(clock*1.6)*.06,z+forwardZ*.5);gesturePole.set(x+forwardZ*.55,.8,z-forwardX*.55);
       group.localToWorld(gestureTarget);group.localToWorld(gesturePole);
       solveTwoBone(arm,fore,hand,gestureTarget,gesturePole);
       arm.quaternion.slerpQuaternions(aq,arm.quaternion.clone(),amount);fore.quaternion.slerpQuaternions(fq,fore.quaternion.clone(),amount);
     }
     function updateVip(dt) {
-      const threat=mode==='Take cover'||mode==='Firefight'||(mode==='Intruders'&&!surprise&&intruders.some(alive));
-      meeting.update(dt,{threat,occupants:[vip,...guards,...intruders.filter(exposed),...(player.active?[player]:[])]});
-      doorSolid.splice(0,6,...safeDoorBounds(meeting.door));city.setDoor(meeting.door,meeting.locked);
-      for(const [i,d] of delegates.entries()){
-        d.c.model.position.set(d.x,.03,d.z);d.c.setSpeed(0);d.c.mixer.update(dt);
-        if(meeting.phase==='briefing'&&meeting.dialogue?.speaker.startsWith(i===0?'CAPTAIN':'LIAISON'))gesture(d.c,d.x,d.z,.65);
-      }
+      civilianAlarm=Math.max(0,civilianAlarm-dt);
+      const threat=civilianAlarm>0||mode==='Take cover'||mode==='Firefight'||(mode==='Intruders'&&!surprise&&intruders.some(alive));
+      // Intruders never hold the safe-room door open; it shuts them out instead (see below).
+      meeting.update(dt,{threat,occupants:[vip,...guards,...(player.active?[player]:[])]});
+      doorSolid.splice(0,6,...safeDoorBounds(meeting.door));
+      for(const it of intruders){
+        if(!exposed(it)||it.x<doorSolid[0]-.26||it.x>doorSolid[3]+.26||it.z<doorSolid[2]-.26||it.z>doorSolid[5]+.26)continue;
+        it.z=it.z>SAFE_DOOR_Z?doorSolid[5]+.27:doorSolid[2]-.27;it.detour=null;
+      }city.setDoor(meeting.door,meeting.locked);
+      for(const [i,d] of delegates.entries())updateDelegate(d,i,dt,threat);
       const v=vip;
       if(v.state==='down'){
+        // Standalone, a new envoy comes in once the street has been clear for a while (the live feed
+        // follows the operation instead, see syncOperation).
+        envoyTimer=threat?0:envoyTimer+dt;
+        if(!linked&&envoyTimer>15){newEnvoy(v.envoy+1,true);return;}
         v.fall=Math.min(1,v.fall+dt*2.2);const k=1-(1-v.fall)**3;
         v.c.model.rotation.x=Math.PI/2*k;v.c.model.position.set(v.x,.03+.13*k,v.z);
         if(v.fall<1){v.c.setSpeed(0);v.c.mixer.update(dt);}v.bar.set(0,0,0,0,false);return;
       }
-      if(v.state==='meeting')v.yaw=Math.PI+Math.sin(clock*.4)*.08;
+      if(v.state==='meeting'){const speaker=delegates.find(d=>meeting.dialogue?.speaker.startsWith(d.role));const target=speaker?facing(speaker.x-v.x,speaker.z-v.z):Math.PI+Math.sin(clock*.4)*.08;v.yaw+=angleDelta(v.yaw,target)*(1-Math.exp(-dt*3));}
       else if(v.state==='shelter')v.yaw=facing(SAFE_DOOR_X-v.x,SAFE_DOOR_Z-v.z);
-      v.crouch=0; // The closed armored room provides cover; keep the civilian's idle stance grounded.
+      // Running for the safe room the envoy keeps low; a hit makes them flinch. Inside the armored room they stand.
+      v.flinch=Math.max(0,v.flinch-dt*2.5);
+      v.crouch=damp(v.crouch,(v.state==='to-shelter'?.08:0)+v.flinch*.15,7,dt);
       v.c.model.position.set(v.x,.03,v.z);v.c.model.rotation.y=v.yaw;
       v.c.setSpeed(v.speed);v.c.mixer.update(dt);crouch(v.c.model,v.crouch);
       if(v.state==='meeting'&&meeting.dialogue?.speaker.startsWith('ENVOY'))gesture(v.c,v.x,v.z,.75);
@@ -1140,6 +1294,7 @@ export default {
       if (vip.state === 'down') return;
       vip.hp = Math.max(0, vip.hp - amount);
       if (vip.hp <= 0) Object.assign(vip, { state: 'down', fall: 0, path: [], speed: 0, crouch: 0 });
+      else { vip.flinch = 1; meeting.hurt(); }
     }
     // Keep bodies from overlapping: push apart from each other and step off soldiers, never into walls.
     function separateIntruders() {
@@ -1182,10 +1337,15 @@ export default {
         const distance = sphereEntry(o,d,{x:it.x,y,z:it.z},radius);
         if(distance < best){best=distance;victim=it;damage=dmg;}
       }
+      let civilian = null;
+      for (const dl of delegates) if (dl.state !== 'down') for (const [y, radius] of [[1.62 - dl.crouch, .14], [1.15 - dl.crouch, .32]]) {
+        const distance = sphereEntry(o,d,{x:dl.x,y,z:dl.z},radius);
+        if (distance < best) { best = distance; victim = null; civilian = dl; }
+      }
       let vipHit = false;
       for (const [y, radius] of [[1.62 - vip.crouch, .14], [1.15 - vip.crouch, .32]]) {
         const distance = sphereEntry(o,d,{x:vip.x,y,z:vip.z},radius);
-        if (distance < best) { best = distance; victim = null; vipHit = true; }
+        if (distance < best) { best = distance; victim = null; civilian = null; vipHit = true; }
       }
       const end = o.clone().addScaledVector(d,best), shotEpoch = epoch;
       const from = muzzle ? muzzle.clone() : o.clone();
@@ -1194,6 +1354,7 @@ export default {
       fx.tracer(from, end, () => {
         if (shotEpoch !== epoch) return;
         if (vipHit) { vip.hits++; if (linked) damageVip(30); fx.puff(end); }
+        else if (civilian) { hitDelegate(civilian); fx.puff(end); }
         else if (victim) { hitIntruder(victim, damage); fx.puff(end); }
         else { fx.puff(end); impact(audio, listener, end.x, end.z); }
       });
@@ -1221,7 +1382,7 @@ export default {
       getAmmo: () => firstPerson ? { mag: playerMag, size: RIFLE_MAG, reloading: playerReload > 0 ? 1 - playerReload / playerReloadTotal : null } : null,
       getStatus() {
         const active = intruders.filter(alive).length;
-        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? "Evacuation meeting in progress. Protect Envoy Vale." : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · group ${released}/${GROUPS} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover${linked ? ` · soldiers ${guards.filter(g => g.state !== 'down').length}/${guards.length} · VIP ${vip.state === 'down' ? 'KILLED' : Math.round(vip.hp) + '%'}` : ''}` : mode === "Patrol" ? "Operation Lantern · Secure the civilian evacuation corridor." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'safe room · one escort' : vip.state === 'to-shelter' ? 'moving to safe room' : vip.state === 'down' ? 'down' : 'in meeting'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
+        return { mode: mode === "Intruders" && surprise ? "Patrol" : mode, title: mode === "Intruders" && !surprise ? "Defend the market" : "City operation", detail: startupRemaining > 0 || (mode === "Intruders" && surprise) ? `Evacuation meeting in progress. Protect Envoy ${vip.name}.` : mode === "Intruders" ? `${wave === 1 ? "Ambush! " : ""}Wave ${wave} · group ${released}/${GROUPS} · ${active} active · ${tally.down} stopped · ${tally.breached} breached · ${guards.filter(g=>g.state === "engage").length} in cover${linked ? ` · soldiers ${guards.filter(g => g.state !== 'down').length}/${guards.length} · VIP ${vip.state === 'down' ? 'KILLED' : Math.round(vip.hp) + '%'}` : ''}` : mode === "Patrol" ? "Operation Lantern · Secure the civilian evacuation corridor." : mode === "Alert" ? "Patrols are moving at alert pace." : "Eastern contact. Use the barriers and broken storefront as cover.", stats: `${playerShots} shots fired · VIP ${vip.state === 'shelter' ? 'safe room · one escort' : vip.state === 'to-shelter' ? 'moving to safe room' : vip.state === 'down' ? 'down' : vip.state === 'arrive' ? `Envoy ${vip.name} arriving` : 'in meeting'}${vip.hits ? ` (hit by you ${vip.hits}×)` : ''}${civiliansHit ? ` · civilians hit by you ${civiliansHit}×` : ''}${saferoomOpen ? ' · SAFE ROOM OPEN (test)' : ''}${mode === 'Intruders' ? ` · you were hit ${player.hits}× · soldiers hit ${tally.soldiersHit}×` : ''}${!linked && waveTimer > 0 ? " · Next wave in " + Math.ceil(6-waveTimer) + "s" : ""}` };
       },
       beforeRender(camera, dt) {
         updateSleet(camera, dt);
@@ -1241,7 +1402,7 @@ export default {
           joinWave({...operation,phase:'contact',wave:nextWave,active:waveSize(nextWave),down:0});
           operation={...operation,phase:'contact',wave:nextWave};
         }
-        if (startupRemaining > 0) { startupRemaining = Math.max(0,startupRemaining-dt); if (startupRemaining === 0) setMode('Intruders'); }
+        if (startupRemaining > 0 && meeting.briefed) { startupRemaining = Math.max(0,startupRemaining-dt); if (startupRemaining === 0) setMode('Intruders'); }
         city.update(clock);
         saveReport(dt);
         muzzleGlow = Math.max(0, muzzleGlow - dt * 16); muzzleLight.intensity = muzzleGlow * 14;
@@ -1257,7 +1418,7 @@ export default {
         releaseGroups(dt);
         separateIntruders();
         hostileFire(dt);
-        if (mode === 'Intruders' && wave > 0 && startupRemaining === 0 && !intruders.some(alive)) { if(waveTimer===0)for(const g of guards)backToRoute(g); waveTimer += dt; if (!linked && waveTimer > 6) { waveTimer = 0; startWave(); } } else waveTimer = 0;
+        if (mode === 'Intruders' && wave > 0 && startupRemaining === 0 && !intruders.some(alive)) { if(waveTimer===0)for(const g of guards)backToRoute(g); waveTimer += dt; if (!linked && waveTimer > 6 && (meeting.phase === 'briefing' || vip.state === 'down')) { waveTimer = 0; startWave(); } } else waveTimer = 0;
         fx.update(dt);
         const counts = guards.reduce((c, g) => (c[g.state] = (c[g.state] || 0) + 1, c), {});
         const line = mode === 'Intruders'
@@ -1267,11 +1428,16 @@ export default {
             : `${counts.sprint || 0} moving · ${counts.cover || 0} in cover · ${counts.peek || 0} firing`;
         readout.userData.set(`${mode.toUpperCase()}${audio ? '' : ' · tap Sound for audio'}\n${line} · you fired ${playerShots}`);
       },
+      isOn: id => id === 'saferoom' && saferoomOpen,
+      toggle(id) { if (id !== 'saferoom') return; saferoomOpen = !saferoomOpen; meeting.holdOpen = saferoomOpen; },
       dispose() { disposed=true;if(opsStore)opsStore.releaseLive(feedSession).catch(()=>{});clearTimeout(hurtTimer); document.body.classList.remove('hurt'); },
       interaction: p => {
         if(!p)return null;
         if(Math.hypot(p.x-SAFE_DOOR_X,p.z-SAFE_DOOR_Z)<2.1)return {label:meeting.locked?'Safe room secured · check radio':meeting.door>.5?'Close safe-room door':'Open safe-room door',action:()=>meeting.toggleDoor()};
-        if(meeting.phase==='briefing'&&Math.hypot(p.x-vip.x,p.z-vip.z)<2.1)return {label:'Speak to Envoy Vale',action:()=>meeting.ask()};
+        const canTalk=a=>clearSight(new THREE.Vector3(p.x,1.5,p.z),new THREE.Vector3(a.x,1.5,a.z));
+        if(meeting.phase==='briefing'&&vip.state!=='down'&&canTalk(vip)&&Math.hypot(p.x-vip.x,p.z-vip.z)<2.1)return {label:`Speak to Envoy ${vip.name}`,action:()=>meeting.ask()};
+        const civilian=delegates.filter(d=>d.state!=='down'&&Math.hypot(p.x-d.x,p.z-d.z)<1.9&&canTalk(d)).sort((a,b)=>Math.hypot(p.x-a.x,p.z-a.z)-Math.hypot(p.x-b.x,p.z-b.z))[0];
+        if(civilian){const hiding=civilian.state!=='seated';return {label:hiding?'Reassure civilian · stay in cover':civilian.role==='LIAISON'?'Ask Morgan about the convoy':'Ask Reyes about the route',action(){if(meeting.civilian(civilian.role==='LIAISON'?'LIAISON MORGAN':'CAPTAIN REYES',hiding))civilian.reassured=hiding?8:0;}};}
         return null;
       },
     };

@@ -1,3 +1,4 @@
+import { CORDON_SOLIDS } from './city-exterior.js';
 import { SAFE_WALL, STORE_FURNITURE } from './store-layout.js';
 // Solid city geometry shared by walking, sight lines and projectiles.
 // Boxes are [minX, minY, minZ, maxX, maxY, maxZ]. Door openings remain open.
@@ -36,8 +37,7 @@ export const SOLIDS = [
   // Police car and ambulance at the cordon.
   [4.2,0,13.85,8.8,1.4,15.75],[-14.7,0,13.75,-9.3,2.4,15.85],
   [7.6,0,-9,9.2,1.3,-7.2],
-  ...[-15,15].flatMap(x=>[5.2,7.6,12.6].map(z=>[x-.35,0,z-1.2,x+.35,1.05,z+1.2])),
-  ...[-1.3,1.3].map(x=>[x-1.2,0,17.25,x+1.2,1.05,17.95]),
+  ...CORDON_SOLIDS,
 ];
 
 export function firstObstruction(origin,dir,maxDistance=60,boxes=SOLIDS) {
@@ -64,7 +64,11 @@ export function sphereEntry(origin,dir,center,radius){
 export function moveThroughCity(p,dx,dz,boxes=SOLIDS){
   const radius=.26;
   const blocked=(x,z)=>Math.abs(x)>31||z< -21||z>34||boxes.some(b=>b[1]<1.7&&b[4]>.25&&x>b[0]-radius&&x<b[3]+radius&&z>b[2]-radius&&z<b[5]+radius);
+  // How far a body overlaps the deepest box: someone already inside one (landed by a vault, or a door
+  // closing on them) may still move as long as the overlap shrinks, so they can always step back out.
+  const depth=(x,z)=>{let d=0;for(const b of boxes){if(!(b[1]<1.7&&b[4]>.25))continue;const ox=Math.min(x-b[0]+radius,b[3]+radius-x),oz=Math.min(z-b[2]+radius,b[5]+radius-z);if(ox>0&&oz>0)d=Math.max(d,Math.min(ox,oz));}return d;};
+  const ok=(x,z)=>!blocked(x,z)||(Math.abs(x)<=31&&z>=-21&&z<=34&&depth(x,z)<depth(p.x,p.z)-1e-9);
   const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.08));
-  for(let i=0;i<steps;i++){if(!blocked(p.x+dx/steps,p.z))p.x+=dx/steps;if(!blocked(p.x,p.z+dz/steps))p.z+=dz/steps;}
+  for(let i=0;i<steps;i++){if(ok(p.x+dx/steps,p.z))p.x+=dx/steps;if(ok(p.x,p.z+dz/steps))p.z+=dz/steps;}
   return p;
 }

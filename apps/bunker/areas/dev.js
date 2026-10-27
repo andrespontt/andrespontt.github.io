@@ -79,6 +79,8 @@ export async function createArea(saved = {}, { variant, linked = false } = {}) {
       { label: 'Slow motion on/off', isActive: () => timeScale !== 1, action() { timeScale = timeScale === 1 ? .25 : 1; } },
       { label: 'Freeze on/off', isActive: () => frozen, action() { frozen = !frozen; } },
       // Scenarios can declare named modes; each gets its own button.
+      // Scenario switches: { id, label }; the instance answers isOn(id) and toggle(id). Also in the live feed.
+      ...(scenario.switches || []).map(s => ({ label: s.label, isActive: () => !!instance?.isOn?.(s.id), action() { instance?.toggle?.(s.id); } })),
       ...(linked ? [] : scenario.modes || []).map(mode => ({ label: mode, isActive: () => instance?.getStatus?.().mode === mode, action() { instance?.setMode?.(mode); } })),
       ...(views.some(view=>view.orbit) ? [{label:'Hold drone orbit',isActive:()=>orbitPaused,action(){orbitPaused=!orbitPaused;}}] : []),
     ],

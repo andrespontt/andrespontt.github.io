@@ -122,3 +122,19 @@ test('a wave comes as five groups in a row, each once the last is nearly stopped
   assert.deepEqual([...groups], [1, 2, 3, 4, 5]);
   assert.equal(op.incoming, 0); assert.ok(op.log.some(e => /Group 5 of 5/.test(e.text)));
 });
+
+test('a killed envoy is replaced a minute after the wave ends, and old reports cannot kill the new one', () => {
+  let op = advance(createOperation(t0, 3), t0 + 2 * MINUTE);
+  op = applyLive(op, { session: 'a', wave: 1, contact: true, active: 6, down: 6, vip: 'killed', envoy: 1 }, t0 + 2 * MINUTE);
+  op = applyLive(op, { session: 'a', wave: 1, contact: false, active: 0, down: 12, vip: 'killed', envoy: 1 }, t0 + 3 * MINUTE);
+  assert.equal(op.vip, 'killed');
+  op = applyLive(op, { session: 'a', wave: 1, contact: false, active: 0, down: 12, vip: 'killed', envoy: 1 }, t0 + 4 * MINUTE + 1000);
+  assert.equal(op.vip, 'safe'); assert.equal(op.envoy, 2);
+  assert.ok(op.log.some(e => /Envoy Okafor arrives/.test(e.text)));
+  op = applyLive(op, { session: 'a', wave: 1, contact: false, active: 0, down: 12, vip: 'killed', envoy: 1 }, t0 + 4 * MINUTE + 3000);
+  assert.equal(op.vip, 'safe', 'a late report about the old envoy is ignored');
+  // Off-screen, a save that already lost its envoy gets one back between waves.
+  const old = { ...createOperation(t0, 1), phase: 'lull', wave: 2, vip: 'killed', phaseEnds: t0 + 10 * MINUTE };
+  const later = advance(old, t0 + 2 * MINUTE);
+  assert.equal(later.vip, 'safe'); assert.equal(later.envoy, 2);
+});
