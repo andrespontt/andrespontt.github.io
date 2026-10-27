@@ -7,7 +7,7 @@ import { glass, gunshot, impact, reload as reloadSound } from '../sound.js';
 import { createEffects, route, seeded } from '../combat.js';
 import { firstObstruction as traceCity, sphereEntry, moveThroughCity as walkCity, SOLIDS, STORE_FRONT, FIRE_BARRELS, WINDOWS } from '../city-space.js';
 import { buildStoreRoom } from '../store-room.js';
-import { INTERIOR_BLOCKS, VIP_HOME, SAFE_APPROACH, SAFE_INSIDE, safeDoorBounds } from '../store-layout.js';
+import { INTERIOR_BLOCKS, VIP_HOME, VIP_REFUGE, SAFE_APPROACH, SAFE_INSIDE, SAFE_DOOR_X, SAFE_DOOR_Z, safeDoorBounds, inSafeRoom } from '../store-layout.js';
 import { plan } from '../city-paths.js';
 import { createMeetingDirector } from '../store-meeting.js';
 
@@ -339,7 +339,7 @@ export default {
     function syncOperation(op) {
       operation = op; linkedReady = true;
       // The VIP was already killed out there: the body lies in the storeroom.
-      if (op.vip === 'killed' && vip.state !== 'down') Object.assign(vip, { x: -3.9, z: -8.9, state: 'down', fall: 1, hp: 0, path: [] });
+      if (op.vip === 'killed' && vip.state !== 'down') Object.assign(vip, { x: VIP_REFUGE[0], z: VIP_REFUGE[1], state: 'down', fall: 1, hp: 0, path: [] });
       if (op.phase === 'contact') joinWave(op);
       else { setMode('Patrol'); wave=op.wave; tally.down=op.down; waveDownBase=0; }
     }
@@ -460,8 +460,8 @@ export default {
     // --- Soldiers -----------------------------------------------------------
     // Five soldiers: two inside the store, one at the door, one on each side of the cordon.
     const ROUTES = [
-      { pts: [[-5.55, -6.15], [-5.55, -.9], [-.25, -.9], [-.25, -6.15]], dir: 1, speed: 1.1, pause: .5 },
-      { pts: [[1.6, -.9], [1.6, -5.6], [4.75, -5.6], [4.75, -.9]], dir: -1, speed: 1.1, pause: .5 },
+      { pts: [[-5.55, -6.15], [-5.55, -.9], [-.22, -.9], [-.22, -6.15]], dir: 1, speed: 1.1, pause: .5 },
+      { pts: [[1.6, -.9], [1.6, -2.5], [4.75, -2.5], [4.75, -.9]], dir: -1, speed: 1.1, pause: .5 },
       { pts: [[-3.2, 3], [-1.5, 3]], speed: .8, pause: 1 },
       { pts: [[-13.6, 5.2], [-13.6, 8.4]], speed: .9, pause: .8 },
       { pts: [[13.6, 11.6], [13.6, 13.4]], speed: .9, pause: .8 },
@@ -732,7 +732,7 @@ export default {
       g.underFire = Math.max(0, g.underFire - dt);
       const indoor = inStore(g.x, g.z);
       if (meeting.isEscort(g)) {
-        faceYaw = g.speed > .01 ? g.yaw : facing(-g.x, -6.9-g.z);
+        faceYaw = g.speed > .01 ? g.yaw : facing(SAFE_DOOR_X-g.x, SAFE_DOOR_Z-g.z);
         wantAim = .2;
       } else if (g.state === 'route') {
         const alert = mode === 'Alert' || (mode === 'Intruders' && !surprise);
@@ -1005,10 +1005,10 @@ export default {
     }
     // Route inside the store to just beside the VIP, through the storeroom door if they're in back.
     function vipPath(it) {
-      const inBack = vip.z < -7.05, goal = [vip.x + (vip.x < it.x ? 1.2 : -1.2), vip.z + (inBack ? .3 : 1.2)];
-      if (inBack && it.z > -7.05) {
+      const inBack = inSafeRoom(vip), goal = [vip.x + (vip.x < it.x ? 1.2 : -1.2), vip.z + (inBack ? .3 : 1.2)];
+      if (inBack && !inSafeRoom(it)) {
         // A sealed refuge cannot be entered or fired through; intruders hold outside it.
-        if(meeting.door<.96)return plan([it.x,it.z],[0,-6.25],INTERIOR_BLOCKS);
+        if(meeting.door<.96)return plan([it.x,it.z],SAFE_APPROACH,INTERIOR_BLOCKS);
         return [...plan([it.x,it.z],SAFE_APPROACH,INTERIOR_BLOCKS),[...SAFE_INSIDE],goal];
       }
       return plan([it.x, it.z], goal, INTERIOR_BLOCKS);
@@ -1129,7 +1129,7 @@ export default {
         if(v.fall<1){v.c.setSpeed(0);v.c.mixer.update(dt);}v.bar.set(0,0,0,0,false);return;
       }
       if(v.state==='meeting')v.yaw=Math.PI+Math.sin(clock*.4)*.08;
-      else if(v.state==='shelter')v.yaw=facing(-v.x,-6.9-v.z);
+      else if(v.state==='shelter')v.yaw=facing(SAFE_DOOR_X-v.x,SAFE_DOOR_Z-v.z);
       v.crouch=0; // The closed armored room provides cover; keep the civilian's idle stance grounded.
       v.c.model.position.set(v.x,.03,v.z);v.c.model.rotation.y=v.yaw;
       v.c.setSpeed(v.speed);v.c.mixer.update(dt);crouch(v.c.model,v.crouch);
@@ -1270,7 +1270,7 @@ export default {
       dispose() { disposed=true;if(opsStore)opsStore.releaseLive(feedSession).catch(()=>{});clearTimeout(hurtTimer); document.body.classList.remove('hurt'); },
       interaction: p => {
         if(!p)return null;
-        if(Math.hypot(p.x,p.z+6.93)<2.1)return {label:meeting.locked?'Safe room secured · check radio':meeting.door>.5?'Close safe-room door':'Open safe-room door',action:()=>meeting.toggleDoor()};
+        if(Math.hypot(p.x-SAFE_DOOR_X,p.z-SAFE_DOOR_Z)<2.1)return {label:meeting.locked?'Safe room secured · check radio':meeting.door>.5?'Close safe-room door':'Open safe-room door',action:()=>meeting.toggleDoor()};
         if(meeting.phase==='briefing'&&Math.hypot(p.x-vip.x,p.z-vip.z)<2.1)return {label:'Speak to Envoy Vale',action:()=>meeting.ask()};
         return null;
       },

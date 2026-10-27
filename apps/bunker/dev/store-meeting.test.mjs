@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createMeetingDirector} from './store-meeting.js';
-import {safeDoorBounds,VIP_HOME,VIP_REFUGE,INTERIOR_BLOCKS} from './store-layout.js';
+import {safeDoorBounds,VIP_HOME,VIP_REFUGE,INTERIOR_BLOCKS,SAFE_APPROACH,SAFE_WALL,SAFE_ROOM,STORE_FURNITURE,inSafeRoom} from './store-layout.js';
 import {SOLIDS,firstObstruction,moveThroughCity} from './city-space.js';
 import {plan} from './city-paths.js';
 
@@ -35,20 +35,20 @@ test('meeting pauses with game time, alarm interrupts dialogue, and VIP waits fo
 test('door blocks walking and bullets when closed and clears the same opening when open',()=>{
   for(const [fraction,pass] of [[0,false],[1,true]]){
     const solids=[...SOLIDS,safeDoorBounds(fraction)];
-    const p={x:0,z:-6.2};moveThroughCity(p,0,-2,solids);
-    assert.equal(p.z<-7.5,pass);
-    const hit=firstObstruction({x:0,y:1.4,z:-6.2},{x:0,y:0,z:-1},2,solids);
+    const p={x:3.6,z:-2.7};moveThroughCity(p,0,-2,solids);
+    assert.equal(p.z<-4,pass);
+    const hit=firstObstruction({x:3.6,y:1.4,z:-2.7},{x:0,y:0,z:-1},2,solids);
     assert.equal(hit===2,pass);
   }
 });
 test('door waits for an occupant instead of closing through them',()=>{
   const {director}=setup();director.toggleDoor();director.update(1);assert.equal(director.door,1);
-  director.toggleDoor();director.update(1,{occupants:[{x:0,z:-6.9}]});assert.equal(director.door,1);
+  director.toggleDoor();director.update(1,{occupants:[{x:3.6,z:-3.4}]});assert.equal(director.door,1);
   director.update(1,{occupants:[]});assert.equal(director.door,0);
 });
 test('escort evacuation paths avoid the new meeting table and chairs',()=>{
-  for(const from of [[-5.55,-.9],[-.25,-.9],[-5.55,-6.15],[-5.55,-4.8],[-.25,-3.35],VIP_HOME]){
-    const path=plan(from,[0,-6.15],INTERIOR_BLOCKS,.28);assert.ok(path.length);
+  for(const from of [[-5.55,-.9],[-.22,-.9],[-5.55,-6.15],[-5.55,-4.8],[-.22,-3.35],[1.6,-.9],[4.75,-2.5],VIP_HOME]){
+    const path=plan(from,SAFE_APPROACH,INTERIOR_BLOCKS,.28);assert.ok(path.length);
     let prev=from;
     for(const point of path){
       for(let i=1;i<=100;i++){
@@ -58,4 +58,13 @@ test('escort evacuation paths avoid the new meeting table and chairs',()=>{
       prev=point;
     }
   }
+});
+test('the safe room is a square, larger than the old 13.4 x 2.65 m strip, with its furniture inside',()=>{
+  const w=SAFE_ROOM.x1-SAFE_ROOM.x0,d=SAFE_ROOM.z1-SAFE_ROOM.z0;
+  assert.ok(Math.abs(w-d)<.01,'square');assert.ok(w*d>13.4*2.65);
+  const inside=b=>b[0]>=SAFE_ROOM.x0&&b[3]<=SAFE_ROOM.x1&&b[2]>=SAFE_ROOM.z0&&b[5]<=SAFE_ROOM.z1;
+  const overlaps=(a,b)=>a[0]<b[3]&&a[3]>b[0]&&a[2]<b[5]&&a[5]>b[2]&&a[1]<b[4]&&a[4]>b[1];
+  for(const f of STORE_FURNITURE)for(const wall of SAFE_WALL)assert.ok(!overlaps(f,wall),'furniture clear of the safe-room walls');
+  assert.ok(inSafeRoom({x:VIP_REFUGE[0],z:VIP_REFUGE[1]}));assert.ok(!inSafeRoom({x:VIP_HOME[0],z:VIP_HOME[1]}));
+  assert.equal(STORE_FURNITURE.filter(inside).length,3,'radio, bench and supplies are inside');
 });

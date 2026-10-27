@@ -1,5 +1,5 @@
 import { plan } from './city-paths.js';
-import { INTERIOR_BLOCKS, VIP_HOME, VIP_REFUGE, ESCORT_REFUGE, SAFE_APPROACH, SAFE_INSIDE, inDoorway } from './store-layout.js';
+import { INTERIOR_BLOCKS, VIP_HOME, VIP_REFUGE, ESCORT_REFUGE, SAFE_APPROACH, SAFE_INSIDE, SAFE_DOOR_Z, inDoorway, inSafeRoom } from './store-layout.js';
 
 const BRIEFING = [
   ['ENVOY VALE · VIP','The hospital has forty civilians waiting. We open the north corridor before dawn.',6],
@@ -17,14 +17,15 @@ export function createMeetingDirector(vip,escort) {
   const say=(speaker,text,seconds=5)=>{line={speaker,text};remaining=seconds;};
   const announce=lines=>{queue=lines.slice(1);say(...lines[0]);};
   const pathToEntry=actor=>plan([actor.x,actor.z],SAFE_APPROACH,INTERIOR_BLOCKS,.28);
-  const routeIn=(actor,end)=>actor.z< -7.4 ? [[...end]] : [...pathToEntry(actor),[...SAFE_INSIDE],[...end]];
+  const routeIn=(actor,end)=>inSafeRoom(actor) ? [[...end]] : [...pathToEntry(actor),[...SAFE_INSIDE],[...end]];
   const routeOut=(actor,end)=>[...plan([actor.x,actor.z],SAFE_INSIDE,INTERIOR_BLOCKS,.28),[...SAFE_APPROACH],...plan(SAFE_APPROACH,end,INTERIOR_BLOCKS,.28)];
   function move(actor,dt,speed) {
     if(actor.state==='down'){actor.speed=0;return;}
     const next=actor.path?.[0];if(!next){actor.speed=0;return;}
     const [x,z]=next,dx=x-actor.x,dz=z-actor.z,d=Math.hypot(dx,dz);
     // Wait for the leaf to clear before crossing the threshold.
-    if(door<.96 && ((actor.z>-6.5&&z<-7)||(actor.z<-7.35&&z>-6.6)) && Math.abs(actor.z+6.93)<1.1){actor.speed=0;return;}
+    const front=SAFE_DOOR_Z+.43,back=SAFE_DOOR_Z-.43; // either side of the door leaf
+    if(door<.96 && ((actor.z>front&&z<back)||(actor.z<back&&z>front)) && Math.abs(actor.z-SAFE_DOOR_Z)<1.1){actor.speed=0;return;}
     const step=Math.min(d,speed*dt);actor.speed=dt>0?step/dt:0;
     if(d>.001){actor.x+=dx/d*step;actor.z+=dz/d*step;actor.yaw=Math.atan2(dx,dz)+Math.PI;}
     if(d<=step+.02)actor.path.shift();
