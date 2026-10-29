@@ -131,5 +131,5 @@ export function buildStoreRoom(store) {
   for(const [material,geos] of batches){const merged=mergeGeometries(geos);for(const geo of geos)geo.dispose();if(merged)store.add(new THREE.Mesh(merged,material));}
   // The source geometries are no longer referenced by a renderable, except the shared cube.
   for(const geo of new Set(old.map(n=>n.geometry)))if(geo!==cube)geo.dispose();
-  return {ceiling,setDoor(fraction,locked){door.position.x=DX+fraction*2.08;lampMat.color.set(locked?'#ecad65':'#87d5b4');}};
+  return {ceiling,setDoor(fraction,locked,breached=false){door.position.x=DX+fraction*2.08;lampMat.color.set(breached?'#ff4a32':locked?'#ecad65':'#87d5b4');}};
 }

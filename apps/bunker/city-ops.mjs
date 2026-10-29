@@ -44,8 +44,8 @@ function replaceEnvoy(op, at) {
   note(op, at, `Envoy ${envoyName(op.envoy)} arrives from Outpost 07 and takes over the meeting.`);
 }
 
-// Each wave comes as five groups in a row; groups grow with the wave (5 → 8 intruders).
-export const GROUPS = 5, groupSize = wave => Math.min(8, 4 + wave), waveSize = wave => GROUPS * groupSize(wave);
+// Each wave comes as five groups in a row; groups grow with the wave (10 → 16 intruders).
+export const GROUPS = 5, groupSize = wave => Math.min(16, 2 * (4 + wave)), waveSize = wave => GROUPS * groupSize(wave);
 const GROUP_GAP = 45_000; // the next group comes once the last is nearly stopped, or after 45 s
 function note(op, at, text) { op.log.push({ at, text }); if (op.log.length > LOG_SIZE) op.log.splice(0, op.log.length - LOG_SIZE); }
 

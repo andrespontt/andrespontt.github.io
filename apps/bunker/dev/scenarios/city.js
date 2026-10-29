@@ -8,7 +8,7 @@ import { createEffects, route, seeded } from '../combat.js';
 import { firstObstruction as traceCity, sphereEntry, moveThroughCity as walkCity, SOLIDS, STORE_FRONT, FIRE_BARRELS, WINDOWS } from '../city-space.js';
 import { CORDON_BARRIERS, APPROACHES, approachSteps } from '../city-exterior.js';
 import { buildStoreRoom } from '../store-room.js';
-import { INTERIOR_BLOCKS, VIP_HOME, VIP_REFUGE, SAFE_APPROACH, SAFE_INSIDE, SAFE_DOOR_X, SAFE_DOOR_Z, safeDoorBounds, inSafeRoom } from '../store-layout.js';
+import { INTERIOR_BLOCKS, STORE_FURNITURE, VIP_HOME, VIP_REFUGE, SAFE_APPROACH, SAFE_INSIDE, SAFE_DOOR_X, SAFE_DOOR_Z, safeDoorBounds, inSafeRoom } from '../store-layout.js';
 import { plan } from '../city-paths.js';
 import { followRoute, navigate, friendlyInLine } from '../actor-motion.js';
 import { createMeetingDirector } from '../store-meeting.js';
@@ -316,7 +316,8 @@ export default {
   // Down in the valley it's sleet, not the mountain blizzard (the shell's weather doesn't apply here).
   weatherLabel: 'Sleet · 1 °C',
   defaultView: 'Inside store',
-  // Test switch: keep the safe-room door open; intruders who get into the store go after the VIP.
+  // Test switch: keep the safe-room door open (intruders who get into the store always go after the VIP and
+  // will shoot a closed door down; this just lets them straight in).
   switches: [{ id: 'saferoom', label: 'Safe room open to intruders' }],
   views: [
     { label: 'Overhead', x: 0, z: 24, yaw: Math.PI, pitch: -.95, eye: 25 },
@@ -512,9 +513,9 @@ export default {
     const JACKETS = ['#3d4c5c', '#5c3d33', '#4c5338', '#3a3a42'];
     const ENTRIES = APPROACHES;
     // They have the numbers: a pool of 40, spread over the three streets in side-by-side lanes.
-    // Each wave comes as GROUPS groups in a row (5 → 8 intruders each), up to 40 in all.
-    const GROUPS = 5, groupSize = w => Math.min(8, 4 + w), waveSize = w => GROUPS * groupSize(w);
-    const POOL = 40;
+    // Each wave comes as GROUPS groups in a row (10 → 16 intruders each), up to 80 in all: enough to overrun the VIP.
+    const GROUPS = 5, groupSize = w => Math.min(16, 2 * (4 + w)), waveSize = w => GROUPS * groupSize(w);
+    const POOL = 80;
     const pistolGeometry = new THREE.BoxGeometry(.04, .11, .2);
     const intruders = Array.from({ length: POOL }, (_, i) => {
       const entry = ENTRIES[i % ENTRIES.length];
@@ -575,7 +576,7 @@ export default {
       intruders.forEach((it, n) => {
         if (n >= count) { it.state = 'wait'; it.c.model.visible = false; it.pistol.visible = false; return; }
         const [x, z] = it.steps[0];
-        Object.assign(it, { state: 'sneak', navigation:null, navArrived:false, lastSeen:null, searchRefuge:false, x, z, y: 0, hp: 3, step: 1, speed: 0, group: Math.floor(n / size), timer: n < size ? 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5 : Infinity, suppressed: 0, mag: PISTOL_MAG, reload: 0, pushing: 0, scan: 0, calm: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
+        Object.assign(it, { state: 'sneak', navigation:null, navArrived:false, lastSeen:null, searchRefuge:false, indoor:null, doorTimer:.4, x, z, y: 0, hp: 3, step: 1, speed: 0, group: Math.floor(n / size), timer: n < size ? 1.2 * Math.floor(n / ENTRIES.length) + random() * 2.5 : Infinity, suppressed: 0, mag: PISTOL_MAG, reload: 0, pushing: 0, scan: 0, calm: 0, aim: 0, foe: null, cooldown: 2, spotted: false, fall: 0, breached: false, shotTimer: .5, crouch: 0, cover: null, peeks: 0 });
         it.c.model.visible = false; it.c.model.rotation.x = 0;
       });
     }
@@ -912,8 +913,8 @@ export default {
             it.detour = null;
             if (fleeing) { it.step--; if (it.step <= 0) { it.state = 'escaped'; c.model.visible = false; it.pistol.visible = false; tally.escaped++; } }
             else if (++it.step >= steps.length) {
-              // Inside the store. In the live operation they go after the VIP; otherwise they hold the door.
-              it.state = (linked || saferoomOpen) && vip.state !== 'down' ? 'hunt' : 'hold'; it.path = []; it.replan = 0;
+              // Inside the store: go after the VIP (fighting any soldier inside from cover on the way).
+              it.state = vip.state !== 'down' ? 'hunt' : 'hold'; it.path = []; it.replan = 0;
               it.speed = 0; it.shotTimer = .5; if (!it.breached) { it.breached = true; tally.breached++; }
             }
           }
@@ -992,7 +993,8 @@ export default {
       } else if (it.state === 'hunt') {
         // Hunting the VIP: re-plan toward them every second; shoot the VIP on sight, or a soldier who is
         // close and in the way; otherwise keep moving.
-        if (vip.state === 'down') { it.state = 'hold'; it.shotTimer = .4; }
+        if (vip.state === 'down') { it.state = 'hold'; it.shotTimer = .4; if (it.indoor) { it.indoor.spot.by = null; it.indoor = null; } }
+        else if (fightFromCover(it, dt)) { faceYaw = it.coverFace; wantAim = it.coverAim; wantCrouch = it.coverCrouch; }
         else {
           if ((it.replan -= dt) <= 0) { it.replan = 1; it.path = vipPath(it); }
           const seesVip = Math.hypot(vip.x - it.x, vip.z - it.z) < 14 && clearSight(new THREE.Vector3(it.x, 1.5, it.z), new THREE.Vector3(vip.x, 1.4 - vip.crouch, vip.z));
@@ -1014,6 +1016,12 @@ export default {
             const yaw = steer(it, tx, tz, it.speed * dt, dt); if (yaw != null && !closing) faceYaw = yaw;
             if (it.navArrived || Math.hypot(tx - it.x, tz - it.z) < .15) { it.path.shift(); it.detour = null; }
           }
+          // Shut out of the safe room: shoot the door down.
+          if (!it.foe && meeting.door < .96 && !meeting.breached && Math.abs(it.x - SAFE_DOOR_X) < 1.8 && it.z > SAFE_DOOR_Z && it.z < SAFE_DOOR_Z + 2.4) {
+            faceYaw = facing(SAFE_DOOR_X - it.x, SAFE_DOOR_Z - it.z); wantAim = 1;
+            it.doorTimer = (it.doorTimer ?? .4) - dt;
+            if (it.doorTimer <= 0 && it.aim > .8 && it.reload <= 0) { it.doorTimer = .45 + random() * .45; shootDoor(it); }
+          }
           if (it.reload > 0) wantCrouch = .4;
         }
       } else if (it.state === 'climb') {
@@ -1024,8 +1032,8 @@ export default {
         faceYaw = facing(goal[0] - x0, goal[1] - z0);
         it.speed = 1;
         if (t >= 1) { it.y = 0; it.step++; it.state = 'sneak'; }
-      } else if (it.state === 'hold' && saferoomOpen && vip.state !== 'down') {
-        // Switch turned on while they hold the store door: go after the VIP.
+      } else if (it.state === 'hold' && it.breached && vip.state !== 'down') {
+        // Holding inside the store while an envoy is alive (a replacement walked in): go after them.
         it.state = 'hunt'; it.path = []; it.replan = 0;
       } else if (it.state === 'shoot' || it.state === 'hold') {
         it.speed = damp(it.speed, 0, 6, dt);
@@ -1073,6 +1081,81 @@ export default {
       return navigate(it,tx,tz,step,dt,{move:moveThroughCity,rects:walkBoxes});
     }
 
+    // Indoor cover: spots beside the store's furniture (table, counter, shelving, crates, chairs), outside the
+    // safe room, each with the direction it faces away from its piece of furniture.
+    const INDOOR_COVER = (() => {
+      const spots = [];
+      for (const [x0, , z0, x1, h, z1] of STORE_FURNITURE) {
+        if (h < .8 || inSafeRoom({ x: (x0 + x1) / 2, z: (z0 + z1) / 2 })) continue;
+        const add = (x, z, nx, nz) => { if (inStore(x, z) && !inSafeRoom({ x, z })) spots.push({ x, z, nx, nz, low: h < 1.3, by: null }); };
+        const along = (a, b, f) => { const n = Math.max(1, Math.round((b - a) / 1.1)); for (let k = 0; k < n; k++) f(a + (b - a) * (k + .5) / n); };
+        along(x0, x1, x => { add(x, z0 - .45, 0, -1); add(x, z1 + .45, 0, 1); });
+        along(z0, z1, z => { add(x0 - .45, z, -1, 0); add(x1 + .45, z, 1, 0); });
+      }
+      return spots;
+    })();
+    // A soldier (or you) in sight inside the store: get behind furniture between you and them, stay low, pop up
+    // to shoot, duck again. Returns false when there is nobody to fight (or no cover), so the hunt goes on.
+    function fightFromCover(it, dt) {
+      const release = () => { if (it.indoor) { it.indoor.spot.by = null; it.indoor = null; it.path = []; it.replan = 0; } return false; };
+      if (!inStore(it.x, it.z) || inSafeRoom(it)) return release();
+      const seen = nearestTarget(it, 13);
+      if (!seen || seen.state === 'down') return release();
+      // Stick with the soldier already being fought while they are still up and close.
+      const old = it.indoor?.foe, foe = old && old.state !== 'down' && Math.hypot(old.x - it.x, old.z - it.z) < 15 ? old : seen;
+      let f = it.indoor;
+      if (!f || f.foe !== foe) {
+        if (f) f.spot.by = null;
+        let best = null, bestDistance = 7;
+        for (const s of INDOOR_COVER) {
+          if (s.by && s.by !== it && alive(s.by) && s.by.indoor?.spot === s) continue;
+          if ((foe.x - s.x) * s.nx + (foe.z - s.z) * s.nz > -.6) continue; // the furniture must be between them
+          const d = Math.hypot(s.x - it.x, s.z - it.z);
+          if (d < bestDistance) { best = s; bestDistance = d; }
+        }
+        if (!best) { it.indoor = null; return false; }
+        best.by = it;
+        f = it.indoor = { foe, spot: best, path: plan([it.x, it.z], [best.x, best.z], INTERIOR_BLOCKS), phase: 'move', timer: 0 };
+      }
+      const s = f.spot;
+      it.foe = foe;
+      if (f.phase === 'move') {
+        const next = f.path[0];
+        if (next && Math.hypot(s.x - it.x, s.z - it.z) > .25) {
+          it.speed = damp(it.speed, 2.6, 6, dt);
+          const yaw = steer(it, next[0], next[1], it.speed * dt, dt);
+          if (it.navArrived || Math.hypot(next[0] - it.x, next[1] - it.z) < .15) { f.path.shift(); it.detour = null; }
+          it.coverFace = yaw ?? facing(foe.x - it.x, foe.z - it.z); it.coverAim = .4; it.coverCrouch = .3;
+          return true;
+        }
+        f.phase = 'hide'; f.timer = .5 + random() * .7;
+      }
+      it.speed = damp(it.speed, 0, 8, dt);
+      it.coverFace = facing(foe.x - it.x, foe.z - it.z);
+      f.timer -= dt;
+      if (f.phase === 'hide') {
+        it.coverAim = .3; it.coverCrouch = s.low ? .8 : .55;
+        if (f.timer <= 0 && it.reload <= 0) { f.phase = 'peek'; f.timer = .9 + random() * .9; it.shotTimer = .25; }
+      } else {
+        // Up over the furniture, aim, a few rounds, back down.
+        it.coverAim = 1; it.coverCrouch = s.low ? .12 : 0;
+        it.shotTimer -= dt;
+        if (it.shotTimer <= 0 && it.aim > .8) { it.shotTimer = .35 + random() * .35; intruderShot(it); }
+        if (f.timer <= 0 || it.reload > 0 || it.suppressed > 1.5) { f.phase = 'hide'; f.timer = .8 + random() * 1.2; }
+      }
+      return true;
+    }
+    // A round into the closed safe-room door.
+    function shootDoor(it) {
+      if (it.mag <= 0 || it.reload > 0) return;
+      if (--it.mag <= 0) startReload(it, RELOAD.intruder);
+      const muzzle = it.pistol.position.clone().addScaledVector(w.set(0, 0, 1).applyQuaternion(it.pistol.quaternion), .14);
+      const end = new THREE.Vector3(SAFE_DOOR_X + meeting.door * 2.08 + (random() - .5) * 1.4, .5 + random() * 1.6, SAFE_DOOR_Z + .1), shotEpoch = epoch;
+      fx.flash(muzzle, .35);
+      fx.tracer(muzzle, end, () => { if (shotEpoch !== epoch) return; fx.puff(end); impact(audio, listener, end.x, end.z); });
+      gunshot(audio, listener, it.x, it.z, { pistol: true });
+      meeting.batter(5 + random() * 4);
+    }
     // Route inside the store to just beside the VIP, through the storeroom door if they're in back.
     function vipPath(it) {
       const known=it.lastSeen&&clock-it.lastSeen.at<12?it.lastSeen:{x:VIP_HOME[0],z:VIP_HOME[1]};
@@ -1268,7 +1351,7 @@ export default {
       for(const it of intruders){
         if(!exposed(it)||it.x<doorSolid[0]-.26||it.x>doorSolid[3]+.26||it.z<doorSolid[2]-.26||it.z>doorSolid[5]+.26)continue;
         it.z=it.z>SAFE_DOOR_Z?doorSolid[5]+.27:doorSolid[2]-.27;it.detour=null;
-      }city.setDoor(meeting.door,meeting.locked);
+      }city.setDoor(meeting.door,meeting.locked,meeting.breached);
       for(const [i,d] of delegates.entries())updateDelegate(d,i,dt,threat);
       const v=vip;
       if(v.state==='down'){

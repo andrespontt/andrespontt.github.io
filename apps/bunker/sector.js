@@ -1,5 +1,10 @@
 // Shared fictional survey: one coordinate system for the terminal and wall screen.
-export const SECTOR = { width: 120, depth: 90, metersPerUnit: 50 };
+export const SECTOR = { width: 200, depth: 160, centerX:20, centerZ:20, metersPerUnit: 50 };
+export const CITY = { x:15, z:13, districtWidth:24.6, districtDepth:19, columns:3, rows:3 };
+const districtNames=['Market Ward','North Quarter','Eastgate','Riverside','Civic Center','Foundry','Southbank','Rail Quarter','Southgate'];
+export const CITY_DISTRICTS=districtNames.map((name,i)=>({id:i+1,name,x:CITY.x+(i%3)*CITY.districtWidth,z:CITY.z+Math.floor(i/3)*CITY.districtDepth,width:CITY.districtWidth,depth:CITY.districtDepth}));
+export const CITY_BUILDINGS=CITY_DISTRICTS.flatMap(d=>Array.from({length:24},(_,i)=>({district:d.id,x:d.x+2.45+(i%6)*3.9,z:d.z+2.6+Math.floor(i/6)*4.5,width:2.6,depth:2.8,height:1.1+(i%6+Math.floor(i/6)+d.id-1)%3*.6})));
+export function surveyPoint(x,z,width=1600,height=1280){return [(x-SECTOR.centerX+SECTOR.width/2)/SECTOR.width*width,(z-SECTOR.centerZ+SECTOR.depth/2)/SECTOR.depth*height];}
 export function surveyScale(metersPerPixel, maxPixels = 100) {
   const limit=metersPerPixel*maxPixels, power=10**Math.floor(Math.log10(limit));
   const meters=[5,2,1].map(n=>n*power).find(n=>n<=limit) || power;
@@ -15,7 +20,7 @@ export const SITES = {
   nomad: { name: 'NOMAD', short: 'Nomad', x: -3, z: -9, color: '#b7e5e2', type: 'EXPEDITION CARRIER', status: 'Parked · intermittent radio', description: 'The carrier is sheltered below the western ridge. Follow the access road north.' },
   relay: { name: 'RELAY 03', short: 'Relay 03', x: 31, z: -26, color: '#b7e5e2', type: 'WEATHER STATION', status: 'Battery 18% · transmitting', description: 'A remote weather relay on the high ground. The eastern crossing is exposed to wind.' },
   // Nearby valley city, on the same geographic survey as the mountain bunker.
-  city: { name: 'KESTREL FALLS', short: 'Kestrel Falls', x: 26, z: 23, color: '#ff8e72', type: 'VALLEY CITY · 3 KM SE', distanceKm: 3, status: 'Army cordon · Corner Market 24', description: 'Three kilometres down the mountain road, Kestrel Falls occupies the eastern valley. Soldiers are holding a corner store; armed civilians have been trying to get in. A drone is on station over the block.' },
+  city: { name: 'KESTREL FALLS', short: 'Kestrel Falls', x: 26, z: 23, color: '#ff8e72', type: 'VALLEY CITY · 9 DISTRICTS', distanceKm: 3, status: 'Army cordon · Corner Market 24', description: 'Nine districts spread across the eastern valley. The original market ward lies three kilometres down the mountain road. Soldiers hold Corner Market 24 in district 01; the drone and conflict marker remain over that block.' },
   echo: { name: 'UNKNOWN CONTACT', short: 'Echo 03', x: 22, z: 11, color: '#ff8e72', type: 'THERMAL RETURN', status: 'Three pulses · motion detected', description: 'An intermittent heat signature in the eastern ravine. Its source is unresolved.' },
 };
 export const WEATHER = { flurries: [5,160], snowfall: [24,90], blizzard: [78,35], whiteout: [120,12] };
@@ -27,16 +32,16 @@ export function elevation(x,z) {
 export function routeTo(id) {
   const a=SITES.shelter,b=SITES[id]; if(!b||id==='shelter')return [];
   return id==='city'?[[a.x,a.z],[-18,2],[-12,12],[0,19],[18,23],[b.x,b.z]]:id==='nomad'?[[a.x,a.z],[-18,2],[-17,-1],[b.x,b.z]]:
-    id==='relay'?[[a.x,a.z],[-22,7],[-17,-1],[-3,-9],[11,-14],[19,-23],[b.x,b.z]]:
+    id==='relay'?[[a.x,a.z],[-18,2],[-3,-9],[11,-14],[b.x,b.z]]:
     [[a.x,a.z],[-13,19],[0,16],[11,14],[b.x,b.z]];
 }
 let base;
 export function surveyCanvas() {
   if(base)return base;
-  const c=document.createElement('canvas');c.width=1200;c.height=900;const ctx=c.getContext('2d');
+  const c=document.createElement('canvas');c.width=1600;c.height=1280;const ctx=c.getContext('2d');
   const im=ctx.createImageData(c.width,c.height);
   for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){
-    const wx=x/10-60,wz=y/10-45,h=elevation(wx,wz);
+    const wx=x/c.width*SECTOR.width+SECTOR.centerX-SECTOR.width/2,wz=y/c.height*SECTOR.depth+SECTOR.centerZ-SECTOR.depth/2,h=elevation(wx,wz);
     const dx=elevation(wx+.2,wz)-h,dz=elevation(wx,wz+.2)-h;
     const shade=Math.max(0,Math.min(1,.69-dx*.95-dz*.65));
     const contour=(h*1.8)%1<.08?-.18:0;
@@ -49,23 +54,28 @@ export function surveyCanvas() {
     for(let channel=0;channel<3;channel++)im.data[i+channel]=(valley[channel]*(1-snow)+peak[channel]*snow)*v;
     im.data[i+3]=255;
   }ctx.putImageData(im,0,0);
-  const project=([x,z])=>[(x+60)*10,(z+45)*10];
+  const project=([x,z])=>surveyPoint(x,z,c.width,c.height);
   function line(points,color,width,dash=[]){ctx.beginPath();points.map(project).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dash);ctx.stroke();ctx.setLineDash([]);}
-  const river=[];for(let z=-45;z<=45;z+=1)river.push([8+Math.sin(z*.09)*5+Math.sin(z*.2)*1.6,z]);
+  const river=[];for(let z=SECTOR.centerZ-SECTOR.depth/2;z<=SECTOR.centerZ+SECTOR.depth/2;z+=1)river.push([8+Math.sin(z*.09)*5+Math.sin(z*.2)*1.6,z]);
   line(river,'#344f54',16);line(river,'#597c82',9);line(river,'#88a9ad',2);
-  const road=[[-25,-8],[-18,2],[-12,12],[0,19],[18,23],[26,23],[44,23],[60,31]];
+  const road=[[-25,-8],[-18,2],[-12,12],[0,19],[18,23],[26,23],[44,23],[90,23],[120,31]];
   line([[-18,2],[-3,-9],[11,-14],[31,-26]],'#8c998f',5);
   line(road,'#657170',8);line(road,'#c4b9a0',4);line(road,'#f3e0b6',1,[9,7]);
-  ctx.strokeStyle='#253f4028';ctx.lineWidth=1;for(let x=0;x<=1200;x+=100){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,900);ctx.stroke();}for(let y=0;y<=900;y+=100){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(1200,y);ctx.stroke();}
-  ctx.fillStyle='#304c53';ctx.font='600 20px monospace';ctx.fillText('BLACK RIDGE',120,170);ctx.fillStyle='#d4ddc7';ctx.fillText('KESTREL VALLEY',740,830);ctx.fillText('EASTERN CUT',850,160);ctx.fillText('VALLEY ACCESS ROAD',380,650);
-  ctx.font='14px monospace';ctx.fillText('SUMMIT / 2180 m',150,199);ctx.fillText('780 m',875,190);
+  ctx.strokeStyle='#253f4028';ctx.lineWidth=1;for(let x=0;x<=c.width;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,c.height);ctx.stroke();}for(let y=0;y<=c.height;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();}
+  function label(text,x,z,color='#d4ddc7',size=17){ctx.fillStyle=color;ctx.font='600 '+size+'px monospace';ctx.fillText(text,...project([x,z]));}
+  label('BLACK RIDGE',-48,-33,'#304c53',20);label('SUMMIT / 2180 m',-48,-29,'#304c53',13);
+  label('KESTREL VALLEY',-5,83);label('EASTERN CUT',28,-43);label('VALLEY ACCESS ROAD',-31,27,'#d4ddc7',13);
   // Wet asphalt throughout the city grid, with no snow on the streets or roofs.
-  const [cityX,cityY]=project([15,13]);ctx.fillStyle='#343c3b';ctx.fillRect(cityX,cityY,246,190);
-  ctx.fillStyle='#d3d9c4';ctx.font='600 17px monospace';ctx.fillText('VALLEY / SLEET +1°C',cityX,cityY+220);
-  ctx.fillStyle='#324a53';ctx.fillText('HIGH COUNTRY / SNOW −24°C',70,230);
-  for(let row=0;row<4;row++)for(let col=0;col<6;col++){
-    const [px,py]=project([16+col*3.9,14+row*4.5]);ctx.fillStyle='#283a3f';ctx.fillRect(px,py,29,32);
-    ctx.strokeStyle='#91aaa4';ctx.lineWidth=2;ctx.strokeRect(px,py,29,32);
+  const [cityX,cityY]=project([CITY.x,CITY.z]),scale=c.width/SECTOR.width;
+  ctx.fillStyle='#343c3b';ctx.fillRect(cityX,cityY,CITY.districtWidth*3*scale,CITY.districtDepth*3*scale);
+  ctx.fillStyle='#d3d9c4';ctx.font='600 17px monospace';ctx.fillText('KESTREL FALLS / 9 DISTRICTS / SLEET +1°C',cityX,cityY+CITY.districtDepth*3*scale+30);
+  label('HIGH COUNTRY / SNOW −24°C',-65,-44,'#324a53',14);
+  for(const d of CITY_DISTRICTS){
+    const [px,py]=project([d.x,d.z]);ctx.strokeStyle='#c4b9a0';ctx.lineWidth=3;ctx.strokeRect(px,py,d.width*scale,d.depth*scale);
+  }
+  for(const b of CITY_BUILDINGS){
+    const [px,py]=project([b.x-b.width/2,b.z-b.depth/2]);ctx.fillStyle=b.district%2?'#405351':'#4b5350';ctx.fillRect(px,py,b.width*scale,b.depth*scale);
+    ctx.strokeStyle='#91aaa4';ctx.lineWidth=1;ctx.strokeRect(px,py,b.width*scale,b.depth*scale);
   }
   const [mx,my]=project([26,23]);ctx.fillStyle='#d99a68';ctx.fillRect(mx-12,my-12,24,24);
   ctx.strokeStyle='#e7af7e';ctx.setLineDash([8,5]);ctx.lineWidth=3;ctx.strokeRect(mx-34,my-32,68,64);ctx.setLineDash([]);
@@ -85,7 +95,7 @@ export function drawCityPlan(ctx,x,y,w,h,op=null){
   ctx.fillStyle='#1d2b32';ctx.fillRect(4*s,44*s,w-8*s,h-48*s);
   ctx.strokeStyle='#3f6270';ctx.lineWidth=14*s;ctx.beginPath();ctx.moveTo(w*.08,h);ctx.bezierCurveTo(w*.2,h*.62,w*.12,h*.4,w*.32,h*.16);ctx.stroke();
   // Street grid: blocks with lit windows.
-  const left=w*.3,top=56*s,cols=6,rows=4,bw=(w-left-14*s)/cols,bh=(h-top-14*s)/rows,gap=7*s;
+  const left=w*.3,top=56*s,cols=18,rows=12,bw=(w-left-14*s)/cols,bh=(h-top-14*s)/rows,gap=7*s;
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
    const bx=left+c*bw+gap/2,by=top+r*bh+gap/2,market=r===1&&c===3;
    ctx.fillStyle=market?(contact?'#ff5a3c':'#d9b47a'):'#34444d';ctx.fillRect(bx,by,bw-gap,bh-gap);
@@ -103,11 +113,12 @@ export function drawCityPlan(ctx,x,y,w,h,op=null){
   ctx.restore();
 }
 export function wallSurvey(state={}) {
-  const c=document.createElement('canvas');c.width=1200;c.height=900;const ctx=c.getContext('2d');ctx.drawImage(surveyCanvas(),0,0);
-  const route=routeTo(state.route);if(route.length){ctx.strokeStyle='#ffcb70';ctx.lineWidth=7;ctx.setLineDash([14,10]);ctx.beginPath();route.forEach(([x,z],i)=>i?ctx.lineTo((x+60)*10,(z+45)*10):ctx.moveTo((x+60)*10,(z+45)*10));ctx.stroke();ctx.setLineDash([]);}
+  const c=document.createElement('canvas');c.width=1600;c.height=1280;const ctx=c.getContext('2d');ctx.drawImage(surveyCanvas(),0,0);
+  for(const d of CITY_DISTRICTS){const [x,y]=surveyPoint(d.x+.8,d.z+.2);ctx.fillStyle='#17282ee8';ctx.fillRect(x,y,182,22);ctx.fillStyle='#e4cf9e';ctx.font='bold 13px monospace';ctx.fillText(String(d.id).padStart(2,'0')+' / '+d.name.toUpperCase(),x+5,y+16);}
+  const route=routeTo(state.route);if(route.length){ctx.strokeStyle='#ffcb70';ctx.lineWidth=7;ctx.setLineDash([14,10]);ctx.beginPath();route.forEach(([x,z],i)=>i?ctx.lineTo(...surveyPoint(x,z)):ctx.moveTo(...surveyPoint(x,z)));ctx.stroke();ctx.setLineDash([]);}
   // Kestrel Falls under attack: a red ring and a CONTACT tag on the wall map.
-  if(state.cityContact){const x=(SITES.city.x+60)*10,y=(SITES.city.z+45)*10;ctx.strokeStyle='#ff5a3c';ctx.lineWidth=6;for(const r of [26,40])ctx.beginPath(),ctx.arc(x,y,r,0,Math.PI*2),ctx.stroke();ctx.fillStyle='#ff5a3c';ctx.font='bold 22px monospace';ctx.fillText('CONTACT',x+28,y-26);}
-  for(const [id,s] of Object.entries(SITES)){if(id==='echo'&&!state.scanned)continue;const x=(s.x+60)*10,y=(s.z+45)*10;ctx.fillStyle='#12222c';ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fill();ctx.strokeStyle=s.color;ctx.lineWidth=5;ctx.stroke();ctx.fillStyle='#12222c';ctx.fillRect(x+20,y-18,200,36);ctx.fillStyle=s.color;ctx.font='bold 19px monospace';ctx.fillText(s.short.toUpperCase(),x+28,y+7);}
+  if(state.cityContact){const [x,y]=surveyPoint(SITES.city.x,SITES.city.z);ctx.strokeStyle='#ff5a3c';ctx.lineWidth=6;for(const r of [26,40])ctx.beginPath(),ctx.arc(x,y,r,0,Math.PI*2),ctx.stroke();ctx.fillStyle='#ff5a3c';ctx.font='bold 22px monospace';ctx.fillText('CONTACT',x+28,y-26);}
+  for(const [id,s] of Object.entries(SITES)){if(id==='echo'&&!state.scanned)continue;const [x,y]=surveyPoint(s.x,s.z);ctx.fillStyle='#12222c';ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fill();ctx.strokeStyle=s.color;ctx.lineWidth=5;ctx.stroke();ctx.fillStyle='#12222c';ctx.fillRect(x+20,y-18,200,36);ctx.fillStyle=s.color;ctx.font='bold 19px monospace';ctx.fillText(s.short.toUpperCase(),x+28,y+7);}
   // Kestrel Falls inset (bottom right) and a reminder that this survey is the high country.
   ctx.fillStyle='#182a31e8';ctx.fillRect(750,55,420,84);ctx.fillStyle=state.cityContact?'#ffad8e':'#c3dacf';ctx.font='bold 18px monospace';ctx.fillText(state.cityContact?'KESTREL FALLS / ACTIVE CONTACT':'KESTREL FALLS / CORDON',770,87);ctx.font='16px monospace';ctx.fillText('3 km SE · linked by valley road',770,118);
   ctx.fillStyle='#304c53';ctx.font='600 18px monospace';ctx.fillText('HIGH COUNTRY · 1,300–1,900 m',40,40);

@@ -19,6 +19,9 @@ const ARRIVAL = [['{ENVOY} · VIP','The last envoy did not make it. I have the a
 // Only the designated escort is accepted here; no other guard can receive a refuge route.
 export function createMeetingDirector(vip,escort,{moveBody}={}) {
   let phase='briefing',door=0,manualOpen=false,quiet=0,brief=0,delay=0,holdOpen=false;
+  // The safe-room door can be shot down. Broken, it hangs open until it is repaired (new envoy / street clear).
+  const DOOR_HP=240;let doorHp=DOOR_HP,breached=false,warned=false;
+  const repairDoor=()=>{doorHp=DOOR_HP;breached=false;warned=false;};
   let queue=[],line=null,remaining=0;
   // vip.name is the current envoy (a replacement takes over when one is killed).
   const named=t=>t.replaceAll('{ENVOY}','ENVOY '+(vip.name||'Vale').toUpperCase()).replaceAll('{NAME}',vip.name||'Vale');
@@ -47,11 +50,20 @@ export function createMeetingDirector(vip,escort,{moveBody}={}) {
     get dialogue(){return line;},
     // Test switch: the door stays open whatever happens (intruders can get into the safe room).
     get holdOpen(){return holdOpen;},set holdOpen(value){holdOpen=!!value;},
+    get breached(){return breached;},get doorHealth(){return doorHp/DOOR_HP;},
+    // Intruders shooting the closed door. Returns true on the shot that breaks it.
+    batter(amount){
+      if(breached)return false;
+      doorHp=Math.max(0,doorHp-amount);
+      if(!doorHp){breached=true;announce([['ESCORT · RADIO','The door is down! They are coming in!',4]]);return true;}
+      if(!warned&&doorHp<DOOR_HP*.6){warned=true;announce([['ESCORT · RADIO','They are shooting the safe-room door! It will not hold long!',4]]);}
+      return false;
+    },
     // The opening briefing has been heard to the end (the standalone ambush waits for it).
     get briefed(){return phase!=='briefing'||(brief>=BRIEFING.length-1&&!line&&!queue.length);},
     isEscort:g=>g===escort&&phase!=='briefing'&&phase!=='arriving'&&g.state!=='down',
     // A new envoy walks in from the street along `path` and restarts the briefing at the table.
-    arrive(path){phase='arriving';vip.state='arrive';vip.path=path;manualOpen=false;brief=0;quiet=0;queue=[];line=null;remaining=1.5;},
+    arrive(path){repairDoor();phase='arriving';vip.state='arrive';vip.path=path;manualOpen=false;brief=0;quiet=0;queue=[];line=null;remaining=1.5;},
     radio(speaker,text,seconds=4){say(speaker,text,seconds);},
     hurt(){if(vip.state==='down'||hurtCooldown>0)return;hurtCooldown=3;say('{ENVOY} · VIP',HURT[hurtLine++%HURT.length],3);},
     ask(){if(phase==='briefing'&&interactionCooldown<=0){interactionCooldown=8;announce([['{ENVOY} · VIP','This meeting decides whether those families get out tonight. Keep this route open for us.',6],['CAPTAIN REYES','We have three approaches to cover. Stay clear of the windows when contact starts.',5]]);}},
@@ -89,11 +101,11 @@ export function createMeetingDirector(vip,escort,{moveBody}={}) {
       }else if(phase==='returning'){
         move(vip,dt,1.25*pace());move(escort,dt,1.35);
         if(!vip.path.length&&(escort.state==='down'||!escort.path.length)){
-          phase='briefing';vip.state='meeting';vip.yaw=Math.PI;manualOpen=false;brief=2;
+          phase='briefing';vip.state='meeting';vip.yaw=Math.PI;manualOpen=false;brief=2;repairDoor();
           if(escort.state!=='down'){escort.state='route';escort.dist=0;escort.wait=1;}
         }
       }
-      let open=holdOpen||phase==='evacuating'||phase==='returning'||(phase==='briefing'&&manualOpen);
+      let open=holdOpen||breached||phase==='evacuating'||phase==='returning'||(phase==='briefing'&&manualOpen);
       // Never close through a person in the doorway (including the player).
       if(!open&&occupants.some(inDoorway))open=true;
       door=Math.max(0,Math.min(1,door+(open?1:-1)*dt*1.5));

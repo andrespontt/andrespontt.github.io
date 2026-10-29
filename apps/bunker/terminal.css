@@ -59,3 +59,123 @@ body[data-area=bunker]>.vignette{opacity:.45}body[data-area=bunker] #cabin-statu
  .ops-scale{bottom:194px}.ops-zoom{bottom:222px}
 }
 .terminal-open #quick-menu-open,.terminal-open #debug-toggle,.terminal-open #debug-panel,.terminal-open #fps-counter{visibility:hidden!important}
+
+/* Truck runs (trade.mjs): the card replaces the site card while Trucks is on; trucks drive on the map. */
+#ops-trade{display:none;position:absolute;left:24px;bottom:24px;z-index:4;width:380px;max-width:calc(100% - 48px);padding:14px;background:#14242cf5;border:1px solid #7e9196;border-left:2px solid #d4b680;box-shadow:0 8px 25px #07101650;backdrop-filter:blur(12px)}
+.trade-mode #ops-trade{display:block}.trade-mode .ops-selection{display:none}.trade-mode .ops-help{display:none}
+#ops-trade{max-height:calc(100% - 90px);overflow-y:auto;overscroll-behavior:contain}
+.trade-mission{margin-top:10px;padding:10px;background:#203731;border:1px solid #71d5ba55}
+.trade-mission>div{display:flex;justify-content:space-between;gap:8px;font:12px monospace;color:#e0eee6}
+.trade-mission progress{display:block;width:100%;height:6px;margin:8px 0;accent-color:#71d5ba}
+.trade-mission p{margin:6px 0;font:12px/1.35 Arial;color:#c2d1d7}
+.trade-mission button{width:100%;min-height:44px;border:1px solid #9cdec1;background:#315d4d;color:#f0fff6;font:600 12px monospace}
+.trade-mission button:disabled{opacity:.65;cursor:default}
+.trade-help summary{padding-top:8px;font:11px monospace;color:#baccc8;cursor:pointer}
+.trade-recruit{margin-top:10px;border:1px solid #819aaa66;background:#1b2e38;color:#dbe6eb}
+.trade-recruit summary{min-height:44px;padding:12px 10px;cursor:pointer;font:12px monospace}
+.trade-recruit summary span{float:right;color:#e8c98f;font-size:11px}
+.trade-recruit p{margin:8px 10px;font:12px/1.4 Arial;color:#c2d1d7}
+.trade-recruit progress{width:calc(100% - 20px);margin:0 10px;height:6px;accent-color:#e8c98f}
+.trade-recruit button{margin:4px 10px 10px;width:calc(100% - 20px);min-height:44px;background:#d5b57d;color:#18222a;border:1px solid #f0d9ad;font:600 12px monospace}
+.trade-recruit button:disabled{opacity:.55;cursor:default}
+.ops-truck.rescue{background:#69c59c;border-color:#d7ffe9}
+.trade-stock{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.trade-res{padding:8px 10px;background:#0f1d24;border-left:2px solid #71d5ba}.trade-res.warn{border-left-color:#ff8e72}
+.trade-res b{display:block;font:600 22px monospace;color:#f2d7b2}.trade-res small{display:block;margin-top:2px;font:9px monospace;letter-spacing:.5px;color:#9fb3b4;text-transform:uppercase}.trade-res span{display:block;margin-top:2px;font:11px monospace;color:#c2d1d7}.trade-res.warn b{color:#ffb39f}
+#trade-status{margin:10px 0 8px;min-height:2.9em;font:12px/1.45 Arial;color:#c2d1d7;max-width:none}
+.trade-truck{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:center;padding:6px 0;border-top:1px solid #9bb4c322;font:12px monospace}
+.trade-truck b{color:#e3e9e7}.trade-truck span{color:#9fb3b4;text-align:right}.trade-truck.out span{color:#f2d7b2}
+.trade-truck i{grid-column:1/-1;height:3px;background:#9bb4c322}.trade-truck u{display:block;height:100%;width:0;background:#d4b680;text-decoration:none}
+.trade-routes{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-top:4px}
+.trade-route{min-height:40px;padding:6px 4px;background:#172630;border:1px solid #71828b;color:#c2d1d7;font:600 12px monospace}
+.trade-route[aria-pressed=true]{background:#d5b57d;border-color:#f0d9ad;color:#18222a}.trade-route[data-route=""][aria-pressed=true]{background:#34444b;border-color:#9bb4c3;color:#e3e9e7}
+#trade-legend{margin:8px 0 0;max-width:none;font:11px/1.45 Arial;color:#9fb3b4}
+.ops-truck{position:absolute;z-index:2;pointer-events:none;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#d4b680;border:2px solid #fff3d6;box-shadow:0 0 0 4px #d4b68044,0 4px 10px #0007}
+.ops-truck i{font-style:normal;font-size:17px;line-height:1}.ops-truck span{position:absolute;right:-6px;top:-6px;min-width:16px;height:16px;border-radius:8px;background:#18222a;color:#f2d7b2;font:600 10px/16px monospace;text-align:center}
+@media(max-width:700px){
+ #ops-trade{left:8px;right:8px;width:auto;max-width:none;bottom:max(8px,env(safe-area-inset-bottom));padding:10px}
+ #ops-trade{max-height:52dvh}
+ .trade-mode .ops-zoom,.trade-mode .ops-scale{display:none}
+ .trade-res b{font-size:19px}#trade-status{min-height:0;font-size:12px;margin:8px 0 4px}
+ .trade-route{min-height:44px;font-size:12px}#trade-legend{font-size:10px}
+}
+
+/* Command dashboard: a dedicated map viewport and a readable management desk. */
+#situation-terminal{--ops-bg:#0c191e;--ops-panel:#14262c;--ops-line:#314950;--ops-text:#edf3ee;--ops-muted:#a0b8bc;--ops-gold:#e5bd78;--ops-green:#8cdec0;background:var(--ops-bg);color:var(--ops-text);font-family:'Segoe UI',Arial,sans-serif}
+#situation-terminal .ops-top{min-height:70px;padding:12px 24px;background:var(--ops-bg);border-color:var(--ops-line)}
+#situation-terminal .ops-title h2{font:600 24px/1.1 'Segoe UI',Arial;letter-spacing:-.8px}
+#situation-terminal .ops-title small{font-size:9px;color:var(--ops-muted);letter-spacing:2px}
+#situation-terminal .ops-close{border-radius:8px;background:#1b3037;border-color:var(--ops-line);color:var(--ops-text)}
+.ops-workspace{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding:0 18px 18px}
+.trade-mode .ops-workspace{grid-template-columns:minmax(0,1fr) 360px}
+#situation-terminal #ops-viewport{border:1px solid var(--ops-line);border-radius:14px;min-height:0;background:#16242b}
+#situation-terminal .ops-stockbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:12px 18px 16px;margin:0;flex:none}
+#situation-terminal .trade-res{background:linear-gradient(125deg,#1c3439,#15272d);border:1px solid var(--ops-line);border-radius:10px;padding:12px 18px;min-width:0;text-align:left;box-shadow:none}
+#situation-terminal .trade-res small{font:600 10px 'Segoe UI',Arial;letter-spacing:1.5px;color:var(--ops-muted);margin:0 0 5px}
+#situation-terminal .trade-res b{font:600 34px/1.1 'Segoe UI',Arial;color:var(--ops-text);font-variant-numeric:tabular-nums;letter-spacing:-1px}
+#situation-terminal .trade-res span{font:11px 'Segoe UI',Arial;color:var(--ops-green);margin-top:5px}
+#situation-terminal .trade-res.warn{border-color:#c57960}.trade-res.warn span{color:#ffc0a8!important}
+#situation-terminal .squad-stat{cursor:pointer;border-color:#8d7953}.squad-stat:hover{background:#254047!important}
+#situation-terminal #ops-trade{position:relative;inset:auto;width:auto;max-width:none;max-height:none;min-height:0;overflow:auto;padding:20px;border:1px solid var(--ops-line);border-radius:14px;background:var(--ops-panel);backdrop-filter:none;box-shadow:none}
+.command-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.command-heading small{font:9px monospace;letter-spacing:1.7px;color:var(--ops-muted)}
+.command-heading h3{font:600 22px 'Segoe UI',Arial;letter-spacing:-.5px;margin:4px 0 0;color:var(--ops-text)}
+.command-live{font:9px monospace;letter-spacing:1px;color:var(--ops-green);padding:6px 8px;background:#244037;border-radius:4px}
+.command-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;background:#0b1b20;padding:4px;border-radius:9px;margin-bottom:18px}
+#situation-terminal .command-tabs button{font:600 12px 'Segoe UI',Arial;min-height:44px;padding:8px 6px;border:0;border-radius:6px;background:transparent;color:var(--ops-muted)}
+#situation-terminal .command-tabs button[aria-selected=true]{background:#e5bd78;color:#18262b;box-shadow:0 2px 6px #0003}
+.command-panel[hidden]{display:none!important}.command-panel{min-height:0}
+#situation-terminal .trade-mission{margin:0;border-radius:10px;border:1px solid #3e6258;background:linear-gradient(140deg,#254338,#182f2c);padding:18px}
+#situation-terminal .trade-mission>div{display:block;font-family:'Segoe UI',Arial}
+#situation-terminal #rescue-title{display:block;font:600 14px 'Segoe UI',Arial;color:#b2d6c7}
+#situation-terminal #rescue-count{display:block;font:600 42px/1.2 'Segoe UI',Arial;letter-spacing:-1.5px;margin:10px 0;color:#f0fff6}
+#situation-terminal .trade-mission progress{height:8px;margin:12px 0;border-radius:10px;overflow:hidden}
+#situation-terminal .trade-mission p{font:13px/1.6 'Segoe UI',Arial;margin:12px 0 18px}
+#situation-terminal .trade-mission button{border-radius:7px;min-height:48px;background:#a5e0c5;border-color:#b5efd6;color:#142e24;font:600 13px 'Segoe UI',Arial}
+.mission-steps{display:flex;flex-direction:column;gap:12px;padding:20px 4px 6px;color:var(--ops-muted);font:11px monospace}
+#situation-terminal #trade-status{border-top:1px solid var(--ops-line);padding:14px 0 0;margin:18px 0 0;min-height:0;font:12px/1.5 'Segoe UI',Arial;color:var(--ops-muted)}
+.command-intro{font:600 16px 'Segoe UI',Arial;margin:0 0 16px;color:var(--ops-text)}.command-intro span{display:block;font:12px/1.5 'Segoe UI',Arial;color:var(--ops-muted);margin-top:5px}
+#situation-terminal .trade-truck{background:#1a3037;border:1px solid var(--ops-line);border-radius:9px;padding:14px;margin:0 0 12px;display:flex;flex-wrap:wrap;gap:9px;font-family:'Segoe UI',Arial}
+#situation-terminal .trade-truck b{font-size:15px}.trade-truck span{width:100%;text-align:left!important;font-size:12px;line-height:1.5}
+#situation-terminal .trade-truck i{width:100%;height:4px;border-radius:4px;overflow:hidden}.trade-routes{width:100%}
+#situation-terminal .trade-route{border-radius:5px;min-height:44px;font:600 11px 'Segoe UI',Arial;border-color:#496069}
+.trade-help summary{min-height:44px;padding:12px 4px;color:var(--ops-muted)}
+#situation-terminal .trade-recruit{margin:0;border:0;background:transparent}.roster-heading{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}
+#squad-count{font:600 23px 'Segoe UI',Arial;letter-spacing:-.5px}#squad-summary{font:11px monospace;color:var(--ops-gold)}
+#situation-terminal .trade-recruit p{margin:14px 0;font:13px/1.6 'Segoe UI',Arial}.trade-recruit progress{width:100%;margin:0;height:8px}
+#situation-terminal .trade-recruit button{margin:6px 0 0;width:100%;border-radius:7px;min-height:48px;font:600 13px 'Segoe UI',Arial}
+.squad-formation{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.squad-formation span{height:64px;display:grid;place-items:center;background:#0e2027;border:1px dashed #426069;border-radius:8px}.squad-formation svg{width:25px;height:31px;fill:#39515b}.squad-formation .filled{border:1px solid #638d7f;background:#28493e}.squad-formation .filled svg{fill:#a5e0c5}.squad-formation .training{border:1px solid var(--ops-gold)}.squad-formation .training svg{fill:var(--ops-gold)}
+#situation-terminal .ops-coordinate{display:none}#situation-terminal .ops-tools{top:14px;left:14px;gap:5px}
+#situation-terminal .ops-tools button{border-radius:6px;min-height:40px;padding:7px 9px;border-color:#63787c;font-size:12px}#situation-terminal .ops-tools button span{font-size:11px}
+#situation-terminal .ops-north{top:66px;right:14px;border-radius:5px;width:30px}.ops-north span{font-size:25px}
+#situation-terminal .ops-scale{bottom:14px;right:14px;border-radius:5px}#situation-terminal .ops-zoom{bottom:70px;right:14px;border-radius:6px;overflow:hidden}
+#situation-terminal .trade-mode .ops-zoom{display:flex}.ops-marker span{border-radius:5px}
+#situation-terminal button:focus-visible,#situation-terminal summary:focus-visible{outline:2px solid #c8e9df;outline-offset:3px}
+@media(max-width:900px){.trade-mode .ops-workspace{grid-template-columns:minmax(0,1fr) 320px}#situation-terminal .ops-weather{font-size:9px}.ops-tools button span{display:none}}
+@media(max-width:700px){
+ #situation-terminal .ops-top{min-height:58px;padding:10px 12px;gap:6px;flex-wrap:nowrap}#situation-terminal .ops-title{min-width:0}#situation-terminal .ops-title h2{font-size:21px}#situation-terminal .ops-title small{font-size:7px;letter-spacing:1.2px}#situation-terminal .ops-weather{display:none}#situation-terminal .ops-close{padding:7px 10px;font-size:10px}#situation-terminal .ops-close b{margin-left:5px}
+ #situation-terminal .ops-stockbar{gap:6px;padding:0 10px 10px}#situation-terminal .trade-res{padding:10px;border-radius:8px}#situation-terminal .trade-res small{font-size:8px;letter-spacing:.5px;white-space:nowrap}#situation-terminal .trade-res b{font-size:26px}#situation-terminal .trade-res span{font-size:9px;line-height:1.35;min-height:12px}
+ .ops-workspace{gap:10px;padding:0 10px 10px;grid-template-columns:1fr}.trade-mode .ops-workspace{grid-template-columns:1fr;grid-template-rows:minmax(180px,.85fr) minmax(230px,1.15fr)}
+ #situation-terminal #ops-trade{padding:14px;border-radius:10px}#situation-terminal #ops-viewport{border-radius:10px}
+ .command-heading{display:none}.command-tabs{position:sticky;top:-14px;z-index:3;margin:0 0 12px;padding:4px;background:#0b1b20}.command-tabs button{min-height:44px}
+ #situation-terminal .trade-mission{padding:14px}.trade-mission>div{display:flex!important;align-items:center;justify-content:space-between}#situation-terminal #rescue-count{font-size:30px;margin:0}#situation-terminal .trade-mission p{font-size:12px;margin:8px 0 12px;line-height:1.4}.mission-steps{display:none}
+ #situation-terminal #trade-status{font-size:11px;margin-top:12px;padding-top:10px}
+ #situation-terminal .ops-tools{top:9px;left:9px;gap:4px}#situation-terminal .ops-tools button{min-width:36px;min-height:36px;padding:5px}#situation-terminal .ops-north{display:none}#situation-terminal .ops-marker i{width:32px;height:32px;font-size:17px}#situation-terminal .ops-marker span{font-size:9px;padding:4px;max-width:92px}.ops-marker{transform:translate(-16px,-16px);gap:4px}.ops-marker.label-left{transform:translate(calc(-100% + 16px),-16px)}
+ #situation-terminal .ops-zoom{display:none}#situation-terminal .ops-scale{display:none}.squad-formation{grid-template-columns:repeat(8,1fr);gap:4px;margin-bottom:12px}.squad-formation span{height:37px;border-radius:4px}.squad-formation svg{width:17px;height:23px}#squad-count{font-size:20px}#situation-terminal .trade-recruit p{font-size:12px;margin:10px 0}
+}
+@media(max-height:550px) and (min-width:701px){#situation-terminal .ops-top{min-height:45px;padding:6px 18px}#situation-terminal .ops-stockbar{padding-top:6px;padding-bottom:8px}.trade-res{padding:6px 12px!important}.trade-res b{font-size:24px!important}.command-heading{display:none}}
+/* Keep primary actions above the fold on ordinary laptop and phone screens. */
+@media(min-width:701px){.command-heading{margin-bottom:12px}.command-tabs{margin-bottom:14px}.squad-formation{gap:7px;margin-bottom:14px}.squad-formation span{height:50px}#situation-terminal .trade-recruit p{margin:10px 0;font-size:12px}.mission-steps{gap:8px;padding:14px 4px 0}}
+#situation-terminal progress{-webkit-appearance:none;appearance:none;border:0;background:#3a514e;border-radius:8px;overflow:hidden}
+#situation-terminal progress::-webkit-progress-bar{background:#3a514e;border-radius:8px}
+#situation-terminal progress::-webkit-progress-value{background:#a5e0c5;border-radius:8px}
+#situation-terminal progress::-moz-progress-bar{background:#a5e0c5;border-radius:8px}
+@media(max-width:700px){#situation-terminal .ops-tools button{min-width:44px;min-height:44px}}
+@media(max-width:700px){
+ .command-intro{font-size:14px;margin:0 0 10px}.command-intro span{display:none}
+ #situation-terminal .trade-truck{padding:10px;margin-bottom:8px;gap:5px}.trade-truck span{font-size:11px;line-height:1.3}
+ #situation-terminal .trade-truck b{font-size:14px}.trade-routes{margin-top:2px}
+}
+
+#situation-terminal #ops-city-view span{display:inline;margin-left:3px}

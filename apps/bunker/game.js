@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { AreaManager } from './area-manager.mjs';
-import { createTerminal } from './terminal.js?v=room2';
+import { createTerminal } from './terminal.js?v=routes1';
+import { createTrade, advance as advanceTrade, setRoute, dispatchRescue, newEvacuation, recruitSoldier, squadStatus, VERSION as TRADE_VERSION } from './trade.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('scene');
@@ -18,7 +19,7 @@ let triggerHeld=false,fireCooldown=0;
 const params=new URLSearchParams(location.search),devParam=params.get('dev');
 // Places with their own address (?at=…). The City operation also lives in the dev menu as dev/city.
 // ?at=meeting is the City store at the table as the evacuation meeting begins (it then reads ?at=city&view=meeting-table).
-const PLACES={snowfield:'outside',nomad:'vehicle',bunker:'bunker',map:'bunker',city:'dev/city',meeting:'dev/city'};
+const PLACES={snowfield:'outside',nomad:'vehicle',bunker:'bunker',map:'bunker',trucks:'bunker',city:'dev/city',meeting:'dev/city'};
 const isDev=id=>String(id).startsWith('dev/');
 // Dev pages expose internals for automated checks (no effect on the normal game).
 if(devParam!==null)globalThis.bunkerDebug={get manager(){return manager;},get camera(){return camera;}};
@@ -32,7 +33,7 @@ let droneFeed=false;
 function placeOf(id){
  if(id==='outside')return overview?null:'snowfield';
  if(id==='vehicle')return 'nomad';
- if(id==='bunker')return terminalOpen?'map':'bunker';
+ if(id==='bunker')return terminalOpen?(tacticalTerminal?.tradeOpen?'trucks':'map'):'bunker';
  if(id==='dev/city')return 'city';
  return null;
 }
@@ -91,7 +92,7 @@ function updateUI(){
  $('walk-outside').hidden=!overview;$('leave-area').hidden=outside;$('leave-area').textContent=droneFeed&&manager.id==='dev/city'?'Return to command center':'Return outside';
  $('overview').hidden=!outside||overview;
  const armed=!overview&&!!manager.current?.fire&&(manager.current.canFire?.()??true);$('fire').hidden=!armed;document.body.classList.toggle('has-weapon',armed);
- $('use-terminal').hidden=manager.id!=='bunker';$('join-meeting').hidden=!overview&&manager.id!=='bunker';$('weather-cycle').hidden=overview||!!manager.current?.weatherLabel;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
+ $('use-terminal').hidden=manager.id!=='bunker';renderTruckButton();$('join-meeting').hidden=!overview&&manager.id!=='bunker';$('weather-cycle').hidden=overview||!!manager.current?.weatherLabel;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
  $('weather-panel').hidden=!overview;$('scene-caption').hidden=!overview;
  $('pause').textContent=paused?'Resume':'Pause';$('pause').setAttribute('aria-pressed',String(paused));
  syncCursor();
@@ -106,7 +107,7 @@ async function travel(id,entry,{drone=false}={}){
  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
  try{
   const changed=await manager.go(id,{linked:drone});
-  if(changed){droneFeed=drone;pollCity.wall=null;if(id!=='bunker'&&tacticalTerminal){tacticalTerminal.dispose();tacticalTerminal=null;}overview=id==='outside'&&!entry;setPose(manager.current.entrySpawns?.[entry]||manager.current.spawn);if(overview){yaw=0;pitch=0;}paused=false;currentInteraction=null;if(id==='bunker')manager.current.setMapState?.({weather});updateUI();syncUrl();}
+  if(changed){droneFeed=drone;pollCity.wall=null;if(id!=='bunker'&&tacticalTerminal){tacticalTerminal.dispose();tacticalTerminal=null;}overview=id==='outside'&&!entry;setPose(manager.current.entrySpawns?.[entry]||manager.current.spawn);if(overview){yaw=0;pitch=0;}paused=false;currentInteraction=null;if(id==='bunker')manager.current.setMapState?.({weather});updateUI();syncUrl();if(id==='bunker'&&!drone&&firstTrade&&!openTrucks.shown){openTrucks.shown=true;setTimeout(openTrucks);}}
   $('error').hidden=true;
  }catch(error){console.error(error);$('error').hidden=false;$('error-message').textContent='This area could not load. Your current area is preserved. Retry the entrance when ready.';}
  finally{transitioning=false;for(const b of document.querySelectorAll('#area-actions button'))b.disabled=false;$('transition').hidden=true;if(manager.current&&!overview)lockLook();}
@@ -129,12 +130,37 @@ function openSituationTerminal(focus){
  tacticalTerminal??=createTerminal($('situation-terminal'),{
   onClose:closeSituationTerminal,
   onState(next){manager.current?.setMapState?.(next);},
+  onTrade(){syncUrl();},
+  onRescue(){trade=dispatchRescue(trade,Date.now());saveTrade();tacticalTerminal?.setTrade(trade);renderTruckButton();},
+  onNewEvacuation(){trade=newEvacuation(trade,Date.now());saveTrade();tacticalTerminal?.setTrade(trade);renderTruckButton();},
+  onRecruit(){trade=recruitSoldier(trade,Date.now());saveTrade();tacticalTerminal?.setTrade(trade);renderTruckButton();},
+  onRoute(truck,route){const now=Date.now();trade=setRoute(advanceTrade(trade,now),truck,route,now);saveTrade();tacticalTerminal?.setTrade(trade);renderTruckButton();},
   // City marker → drone feed: load the operation and circle it from the air.
   async onDrone(){closeSituationTerminal();await travel('dev/city',undefined,{drone:true});manager.current?.setView?.('drone',setPose);updateUI();}
  });
  tacticalTerminal.open({...manager.current.snapshot?.(),weather,...(focus?.selected?{selected:focus.selected}:{})});
+ tacticalTerminal.setTrade(trade);tacticalTerminal.showTrade(!focus?.selected);
  if(cityOp)tacticalTerminal.setCity(cityOp);pollCity();
 }
+// Trade routes (trade.mjs): the game loop. Outpost 07 makes power cells and needs food; each truck is given a
+// standing route once and keeps driving it on the map's roads. It runs on real time, saved in this browser, and is played on the situation terminal (M, T,
+// the operations workstation, or the Trucks button), which opens on the trucks card.
+const TRADE_KEY='bunker-trade';
+let trade=(()=>{try{const s=JSON.parse(localStorage.getItem(TRADE_KEY));if(s?.version===TRADE_VERSION)return advanceTrade(s,Date.now());}catch{}return null;})();
+const firstTrade=!trade;trade??=createTrade(Date.now());
+function saveTrade(){try{localStorage.setItem(TRADE_KEY,JSON.stringify(trade));}catch{}}
+saveTrade();
+setInterval(()=>{trade=advanceTrade(trade,Date.now());saveTrade();if(terminalOpen)tacticalTerminal?.setTrade(trade);renderTruckButton();},1000);
+function openTrucks(){
+ if(manager.id!=='bunker'||transitioning)return;
+ openSituationTerminal();tacticalTerminal?.showTrade(true);
+}
+function renderTruckButton(){
+ const b=$('truck-runs');b.hidden=manager.id!=='bunker'||overview;
+ const routed=trade.trucks.filter(t=>t.route).length;
+ b.querySelector('small').textContent=`⚡ ${trade.cells} · 🥫 ${trade.food} · ${squadStatus(trade).soldiers} soldiers · ${routed?routed+' route'+(routed>1?'s':'')+' running':'no routes set'} · ${trade.evacuation?.rescued||0}/24 rescued`;
+}
+$('truck-runs').onclick=openTrucks;
 // Kestrel Falls runs from the moment the game opens, wherever you are (city-ops.mjs, stored in IndexedDB by
 // city-store.js). Every few seconds it catches up; in the command center its status and each new event show in a
 // strip (tap it for the map), and the wall map marks the city during contact. While the drone feed is open the
@@ -172,7 +198,7 @@ function closeSituationTerminal(){
 $('use-terminal').onclick=openSituationTerminal;
 // In person at the City store, standing at the table as the meeting starts (the standalone scene, not the live feed).
 $('join-meeting').onclick=async()=>{await travel('dev/city');manager.current?.setView?.('meeting-table',setPose);updateUI();};
-function interact(){if(paused||transitioning||terminalOpen||!currentInteraction)return;const action=currentInteraction;if(action.panel==='situation-map'){openSituationTerminal();return;}if(action.destination)travel(action.destination,action.entry);else action.action?.();}
+function interact(){if(paused||transitioning||terminalOpen||!currentInteraction)return;const action=currentInteraction;if(action.panel==='situation-map'){openSituationTerminal();return;}if(action.trucks){openTrucks();return;}if(action.destination)travel(action.destination,action.entry);else action.action?.();}
 $('interact').onclick=interact;
 const movementCodes=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
 addEventListener('keydown',e=>{
@@ -181,6 +207,7 @@ addEventListener('keydown',e=>{
  if(e.target instanceof HTMLInputElement)return;
  if(terminalOpen){if(e.code==='Escape'){e.preventDefault();closeSituationTerminal();}return;}
  if(e.code==='KeyM'&&manager.id==='bunker'&&!e.repeat){openSituationTerminal();return;}
+ if(e.code==='KeyT'&&manager.id==='bunker'&&!e.repeat){openTrucks();return;}
  if(!overview&&!terminalOpen&&movementCodes.includes(e.code)){e.preventDefault();keys.add(e.code);}
  if(e.code==='Escape'){if(terminalOpen){closeSituationTerminal();return;}releaseLook();return;}
  if(e.code==='Tab'&&!overview&&!terminalOpen){e.preventDefault();if(!e.repeat)$('cursor-toggle').click();}
@@ -274,7 +301,7 @@ function renderQuickMenu(){
   heading('Weather');const weatherGrid=grid();if(manager.current?.weatherLabel){const note=document.createElement('p');note.textContent='Local conditions: '+manager.current.weatherLabel;content.append(note);}
   for(const value of (manager.current?.weatherLabel?[]:weatherOrder))add(weatherGrid,value[0].toUpperCase()+value.slice(1),()=>{setWeather(value);renderQuickMenu();},weather===value);
   heading('Location');const locations=grid();
-  for(const id of ['enter-bunker','enter-vehicle','walk-outside','join-meeting','use-terminal','leave-area','overview']){const source=$(id);if(!source.hidden&&!source.disabled)add(locations,source.textContent.replace(' · M',''),()=>{closeQuickMenu();source.click();});}
+  for(const id of ['enter-bunker','enter-vehicle','walk-outside','join-meeting','truck-runs','use-terminal','leave-area','overview']){const source=$(id);if(!source.hidden&&!source.disabled)add(locations,source.textContent.replace(' · M',''),()=>{closeQuickMenu();source.click();});}
  }
 }
 $('quick-menu-open').onclick=()=>{if(transitioning||terminalOpen)return;releaseLook();controlsOpen=true;renderQuickMenu();quickMenu.showModal();};
@@ -300,7 +327,9 @@ function frame(now){
   if(!overview){const f=-touchMoveY+Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown')),r=touchMoveX+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));const magnitude=Math.hypot(f,r),speed=(area.walkSpeed||(manager.id==='outside'?3.8:2.2))*dt/Math.max(1,magnitude);area.move(walker,(Math.sin(yaw)*f-Math.cos(yaw)*r)*speed,(Math.cos(yaw)*f+Math.sin(yaw)*r)*speed);}
   area.update?.(dt,{weather,position:walker,yaw,audio:soundOn&&audioSfx?{context:audio,output:audioSfx}:null,listener:{x:walker.x,z:walker.z,yaw}});
  }
- currentInteraction=overview?null:area.getInteraction?.(walker);$('interact').hidden=!currentInteraction||paused;if(currentInteraction)$('interact').textContent='E · '+currentInteraction.label;
+ currentInteraction=overview?null:area.getInteraction?.(walker);
+ // The operations workstation (east wall) dispatches the trucks.
+ if(!currentInteraction&&!overview&&manager.id==='bunker'&&walker.x>1.7&&walker.z>-3.6&&walker.z<.4)currentInteraction={label:'Truck runs',trucks:true};$('interact').hidden=!currentInteraction||paused;if(currentInteraction)$('interact').textContent='E · '+currentInteraction.label;
  if(overview){camera.fov=48;camera.position.set(13+Math.sin(yaw)*distance,7+pitch*distance,4+Math.cos(yaw)*distance);camera.lookAt(13,2,4);}
  else{camera.fov=70;camera.position.set(walker.x,(area.heightAt?.(walker.x,walker.z)||0)+area.eyeHeight,walker.z);camera.lookAt(walker.x+Math.sin(yaw)*Math.cos(pitch),camera.position.y+Math.sin(pitch),walker.z+Math.cos(yaw)*Math.cos(pitch));}
  // A 5 cm near plane is needed on foot (the rifle sits close to the eye); from high up it wastes depth
@@ -330,6 +359,7 @@ if(at&&PLACES[at]){
  if(!manager.current)await travel('outside');
  else if(at==='snowfield'){overview=false;setPose(manager.current.spawn);updateUI();}
  else if(at==='map')openSituationTerminal();
+ else if(at==='trucks')openTrucks();
  if(startView)manager.current?.setView?.(startView,setPose);
  updateUI();
 }else if(devParam&&devParam!=='menu'){

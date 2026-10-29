@@ -10,7 +10,7 @@ test('starts quiet, ambushes after a few minutes, and clears waves over time', (
   op = advance(op, t0 + MINUTE);
   assert.equal(op.phase, 'quiet');
   op = advance(op, t0 + 1.5 * MINUTE);
-  assert.equal(op.phase, 'contact'); assert.equal(op.wave, 1); assert.equal(op.active, 25); assert.equal(op.incoming, 20, 'four more groups of five behind the first');
+  assert.equal(op.phase, 'contact'); assert.equal(op.wave, 1); assert.equal(op.active, 50); assert.equal(op.incoming, 40, 'four more groups of ten behind the first');
   assert.match(op.log.at(-1).text, /Ambush/);
   op = advance(op, t0 + 60 * MINUTE);
   assert.ok(op.wave >= 2, 'more waves follow');
