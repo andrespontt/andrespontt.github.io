@@ -30,25 +30,70 @@ Pointer lock is used when the browser supports it. Embedded browsers without it
 use viewport-limited mouse-look. Native pointer capture must be tested in a
 browser that supports that API; mobile hardware/audio were not verified.
 
-## Trade routes (game loop)
+## Protectorate (game loop)
 
-Outpost 07 **makes power cells ⚡** (+1 every 20 s) and **needs food 🥫** (−1 every 30 s). The generator only
-runs while there is food, so cells must be traded for food. Give each of the two trucks a **standing route** once
-and it runs it on its own, over and over: out along the survey roads, trade or salvage, home, unload, straight
-back out. You watch them on the situation terminal's map.
+Outpost 07 protects nearby settlements. In return their own trucks bring supplies and their volunteers can be
+trained as soldiers. Raiders attack settlements; a lost settlement is occupied until you liberate it.
 
-| Route | Stops | Each trip | Time |
-|---|---|---|---|
-| Market | Kestrel Falls | takes up to 4 ⚡; every 2 ⚡ become 3 🥫 | 54 s |
-| Salvage | Relay 03 | +3 ⚡ | 67 s |
-| Both | Relay 03, then Kestrel Falls | takes up to 4 ⚡, salvages 3, trades it all | 83 s |
-| Off | — | parks after the trip under way | |
+Protect → receive supplies → recruit → train → deploy → defend → expand. When protection fails: attacked →
+soldiers lost → occupied → deliveries stop → liberation → protected again.
 
-A Market truck waits at the outpost until there are at least 2 ⚡ to sell. Changing a route takes effect from the
-next trip. The terminal opens on the trucks card (`?at=trucks`): M, T, the operations workstation (E) or the
-**Trucks** button (Menu → Location on phones). Rules are in `trade.mjs` (pure functions on real time; routes keep
-running while you are away, caught up for up to 2 h). Saved in `localStorage` (`bunker-trade`, version 2).
-Tests: `node --test apps/bunker/trade.test.mjs`.
+Play it on the situation terminal's **command desk**: M, T, the operations workstation (E) or the **Command**
+button (Menu → Location on phones). A first-time player is taken there on entering the bunker. Address:
+`?at=command` (`?at=trucks` still works).
+
+| Start | |
+|---|---|
+| Soldiers | 500 available, training capacity 250 |
+| Resources | 5,000 food, 2,500 metal, 1,000 components, 5,000 fuel |
+
+| Settlement | Population | Delivers | Recommended garrison | Volunteers | Start |
+|---|---:|---|---:|---:|---|
+| Millbrook | 7500 | 1500 food | 250 | 200 | Protected |
+| Greyvein | 20000 | 1000 metal | 300 | 400 | Protected |
+| Ironford | 45000 | 750 components | 400 | 600 | Neutral |
+| Greenhaven | 12000 | 1800 food | 200 | 300 | Neutral |
+| Stonebridge | 18000 | 1200 metal | 250 | 350 | Neutral |
+| Ember Junction | 24000 | 1000 fuel | 300 | 400 | Neutral |
+| Westhaven | 32000 | 900 components | 350 | 500 | Neutral |
+| Lakewatch | 16000 | 1500 food | 250 | 300 | Neutral |
+
+**Time.** One game day is 60 s at 1×; the desk has Pause, 1× and 3×. Game time runs only while the page is open
+and visible and the game is not paused (there is no offline catch-up). An attack drops 3× back to 1×.
+
+**Settlements.** Assign soldiers (they leave the bunker at once and join the garrison on arrival, 12–30 s) or recall
+them (back after the same trip). Under-protecting is allowed but invites raids. Each protected settlement sends its
+own supply truck every 2 days; you never dispatch it. Trucks are visible on the map: tap one for origin, cargo,
+destination and ETA. An attacked settlement holds its next truck; a truck already on the road always finishes.
+
+**Recruit and train.** Recruit volunteers from protected settlements (pools refill by 50 every 2 days, daily at
+confidence ≥ 70%). Start training moves recruits into the training center (capacity 250): each is issued 3 metal and
+1 component and eats 2 food per training day; training takes 3 days and pauses without food. Soldiers eat 0.5 food
+a day each. Each departure from the bunker costs 100 fuel (with empty tanks soldiers march, 1.5× slower).
+
+**Attacks.** The first raid hits Greyvein on day 5 (450 hostiles). From day 7 a midnight check may raid a protected
+settlement: more likely when its garrison is below the recommended size, never twice within 2 days anywhere or
+4 days at the same place. A priority alert gives 40 s before the fight: **send reinforcements** (only those that
+arrive in time fight), **hold position**, or **order retreat** (about a fifth of the garrison is lost covering the
+withdrawal; the settlement is given up).
+
+**Combat.** Each side's strength is its head count × a 0.8–1.2 roll; whoever holds the settlement fights from cover
+(×1.25). The stronger side wins. Winners lose up to 35% in a close fight, few in a rout; losers lose 30–70% and the
+survivors fall back to the bunker. Deaths are permanent. A combat report shows the outcome.
+
+**Occupation and liberation.** An occupied settlement stops deliveries and recruiting, and its hostile garrison
+grows by one every 3 days. Launch a liberation force from the Operations tab (the desk shows success chance and
+risk). Success clears it; the survivors stay as its garrison and deliveries resume on the next cycle. Failure
+brings the survivors home and weakens the enemy for the next attempt.
+
+**Expansion.** Ironford talks once you have repelled an attack or liberated a settlement: send at least 3 soldiers
+to sign a protection agreement; they stay as its first garrison.
+
+The rules are in `protectorate.mjs` (pure functions, seeded random events, fixed 250 ms steps, so the same
+orders give the same game); `command.js` renders the desk; `terminal.js` draws settlements, trucks and troop
+movements on the map. Saved in `localStorage` (`bunker-protectorate`, version 1); **New campaign** in the Log tab
+starts over. Tests: `node --test apps/bunker/protectorate.test.mjs` (soldier accounting, deliveries, training,
+combat, occupation, liberation, agreements, and a full scripted playthrough).
 
 ## Areas
 
@@ -94,7 +139,7 @@ See [AREA-CONTRACT.md](AREA-CONTRACT.md) for adding another area.
 Run:
 
 ```
-node --test apps/bunker/area-manager.test.mjs apps/bunker/movement.test.mjs apps/bunker/areas/bunker-movement.test.mjs
+node --test apps/bunker/area-manager.test.mjs apps/bunker/movement.test.mjs apps/bunker/areas/bunker-movement.test.mjs apps/bunker/protectorate.test.mjs
 ```
 
 Tests cover lazy loading, failed imports, overlapping transitions, restored state,
@@ -119,7 +164,7 @@ Every place has its own address, so a refresh returns there:
 | `?at=nomad` | Nomad crew compartment |
 | `?at=bunker` | Bunker situation room |
 | `?at=map` | Situation room with the map open |
-| `?at=trucks` | Situation room with evacuation and truck controls open |
+| `?at=command` | Situation room with the command desk open (`?at=trucks` also works) |
 | `?at=city` (`&view=drone`, `street`, `inside-store`…) | City operation, Kestrel Falls |
 | `?dev=<id>`, `?dev` | Other dev scenarios, scenarios menu |
 
@@ -146,39 +191,19 @@ scenarios menu (`?dev=city`, or `?at=city` without `&from=map`) always starts fr
 **Outpost 07 command** (made-up figures, stored with the operation): 500 personnel, 5 of them in Kestrel Falls;
 120,000 rifle rounds, 18,000 L diesel, 45,000 meals, 600 med kits, 14 vehicles, 3 drones. Rations and diesel run
 down with time (1,500 meals and 900 L a day); contact costs ammunition (the drone feed charges the rounds it
-actually fired); each wounded soldier uses two med kits and is replaced from the outpost. Shown under **Forces**
-on the map; the map and wall also carry a Kestrel Falls inset, since the city is off the mountain survey.
+actually fired); each wounded soldier uses two med kits and is replaced from the outpost. These figures belong to the
+city operation's own simulation; the command desk's soldiers and resources are the separate protectorate game.
 
-## Hospital evacuation: a short playable loop
-
-The truck panel now gives you a concrete objective: bring 24 civilians from Kestrel Falls to the bunker in
-three groups (6, 8, 10). Use only two resources, food and power cells. Market trades cells for food, Salvage
-brings back cells, and Both visits the relay before trading. Both can recover an empty outpost without a reset.
-The generator makes cells while the crew has food; meals keep consuming food during rescue runs.
-
-Rescue dispatch reserves the shown supplies once and assigns the first available truck. A busy truck finishes
-its current trip first. Civilians count only on arrival at the bunker, and the truck then resumes its standing
-route. Balance food deliveries with Salvage to save enough cells for each successive rescue. A fresh-start
-simulation finishes in about six minutes; progress persists through reloads and completed evacuations can be
-repeated without resetting supplies. This is a logistics objective; it does not yet change the separate city combat simulation.
-
-Trucks use the surveyed road junctions, including the relay-to-city leg. Offline simulation is capped at two
-hours with departures shifted consistently, so a long absence cannot generate spurious historical deliveries.
-Run `node --test apps/bunker/trade.test.mjs` for route, recovery, queue, save, and full-evacuation checks.
-
-The truck panel also shows the **convoy squad**, starting at 2 soldiers with 8 positions. Expand Soldiers to
-recruit one at a time: 2 cells + 3 food, then 30 seconds of training while food is available. Training pauses
-when food runs out and survives reloads. Every two soldiers above the initial pair add one cell to each
-relay salvage pickup (up to +3). This roster supports convoy logistics; it does not spawn additional room
-meshes or change the separate regional combat roster. Existing saves gain the initial squad without a reset.
-
-The command dashboard keeps food, cells and convoy headcount visible above the map. Mission, Convoys and
-Soldiers tabs separate rescue actions, route assignments and recruitment. The soldiers card opens the squad
-tab directly; the roster shows filled, training and vacant positions. On desktop, the dashboard sits beside
-the map; on phones it sits below a dedicated map viewport. Tab sections also support Left/Right and Home/End.
+## Regional map
 
 The command survey covers **10 × 8 km**. Kestrel Falls has a 3 × 3 layout of nine named districts, each the
 size of the original 24-block neighborhood (216 blocks total). District 01 retains the market, drone and
 conflict marker; the other districts extend east and south. The City button fits all nine districts, and
-Fit sector restores the whole mountain/valley survey. Buildings use one instanced draw call. This enlarges
+Fit sector restores the whole mountain/valley survey. Millbrook (south-west, farm track), Greyvein (past Relay 03)
+and Ironford (east end of the valley road) are drawn on the survey with their roads; the wall map shows them in
+their status colours. Buildings use one instanced draw call. This enlarges
 the strategic map and wall survey; the separate first-person combat scene still covers the market block.
+
+Regional scale: quantity controls adjust by 50 or select All. Map units represent formations, not individual soldiers. Version 1 saves migrate troop/resource quantities by 50 and retain campaign progress; the five new towns start neutral.
+
+Bunker recruitment: 25 initial volunteers, +10 at each game midnight, pool cap 100. Military → Bunker recruitment → Enlist transfers them to untrained recruits. Works with all towns occupied; normal training costs still apply. Existing saves receive the initial pool once.

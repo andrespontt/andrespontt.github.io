@@ -90,6 +90,7 @@ body.hurt:before{content:"";position:fixed;inset:0;z-index:3;pointer-events:none
 @media(max-width:600px){#scene-dialogue{bottom:calc(200px + env(safe-area-inset-bottom));width:calc(100vw - 32px);padding:10px 13px}#scene-dialogue p{font-size:13px}#scene-dialogue strong{font-size:9px}.inside[data-area="dev/city"] #interact{bottom:calc(178px + env(safe-area-inset-bottom));font-size:11px;min-height:44px;z-index:6}body:has(#interact:not([hidden])) #scene-dialogue{bottom:calc(234px + env(safe-area-inset-bottom))}}
 @media(max-height:500px) and (min-width:601px){#scene-dialogue{bottom:105px;width:46vw;padding:8px 12px}#scene-dialogue p{font-size:12px}}
 
-/* Trucks button in the bunker (trade.mjs). */
-#truck-runs{border-color:#d9b47a!important;color:#fff0cc!important}#truck-runs small{display:block;margin-top:4px;font:11px monospace;color:#a9c3b4}
+/* Command desk button in the bunker (protectorate.mjs); it pulses while a settlement is under attack. */
+#open-command{border-color:#d9b47a!important;color:#fff0cc!important}#open-command small{display:block;margin-top:4px;font:11px monospace;color:#a9c3b4}#open-command.alert{border-color:#ff8a5c!important;background:#3a1d17e6!important;animation:command-alert 1.2s ease-in-out infinite}#open-command.alert small{color:#ffc3a8}
+@keyframes command-alert{50%{box-shadow:0 0 0 6px #ff8a5c33}}@media(prefers-reduced-motion:reduce){#open-command.alert{animation:none}}
 body[data-area=bunker] #area-toolbox{top:340px}

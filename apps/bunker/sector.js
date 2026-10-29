@@ -35,6 +35,28 @@ export function routeTo(id) {
     id==='relay'?[[a.x,a.z],[-18,2],[-3,-9],[11,-14],[b.x,b.z]]:
     [[a.x,a.z],[-13,19],[0,16],[11,14],[b.x,b.z]];
 }
+// Protectorate settlements (protectorate.mjs) and the roads their trucks and our soldiers drive, bunker first.
+export const SETTLEMENT_SITES = {
+  orchard: { x: -22, z: 72, road: [[-25,-8],[-18,2],[-12,12],[-28,28],[-22,72]] },
+  quarry: { x: -62, z: -12, road: [[-25,-8],[-45,-4],[-62,-12]] },
+  refinery: { x: 99, z: -24, road: [[-25,-8],[-18,2],[-3,-9],[31,-26],[52,-38],[99,-24]] },
+  depot: { x: -58, z: 85, road: [[-25,-8],[-18,2],[-12,12],[-28,28],[-52,44],[-58,85]] },
+  lakeside: { x: 103, z: 82, road: [[-25,-8],[-18,2],[-12,12],[0,19],[26,23],[90,23],[103,82]] },
+  farm: { x: -52, z: 44, road: [[-25,-8],[-18,2],[-12,12],[-28,28],[-52,44]] },
+  mine: { x: 52, z: -38, road: [[-25,-8],[-18,2],[-3,-9],[11,-14],[31,-26],[42,-34],[52,-38]] },
+  works: { x: 106, z: 27, road: [[-25,-8],[-18,2],[-12,12],[0,19],[18,23],[26,23],[44,23],[90,23],[106,27]] },
+};
+// The point a fraction k (0–1) of the way along a road, by distance.
+export function roadPoint(road, k) {
+  const lengths = road.slice(1).map((p, i) => Math.hypot(p[0] - road[i][0], p[1] - road[i][1]));
+  let d = Math.max(0, Math.min(1, k)) * lengths.reduce((a, b) => a + b, 0);
+  for (const [i, len] of lengths.entries()) {
+    if (d <= len || i === lengths.length - 1) { const u = len ? Math.min(1, d / len) : 0, a = road[i], b = road[i + 1]; return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; }
+    d -= len;
+  }
+  return road.at(-1);
+}
+const SETTLEMENT_STATUS_COLORS = { protected: '#8cdec0', under_attack: '#ff9a4a', occupied: '#ff5a4c', neutral: '#a9b8bb' };
 let base;
 export function surveyCanvas() {
   if(base)return base;
@@ -60,6 +82,9 @@ export function surveyCanvas() {
   line(river,'#344f54',16);line(river,'#597c82',9);line(river,'#88a9ad',2);
   const road=[[-25,-8],[-18,2],[-12,12],[0,19],[18,23],[26,23],[44,23],[90,23],[120,31]];
   line([[-18,2],[-3,-9],[11,-14],[31,-26]],'#8c998f',5);
+  // Farm track to Millbrook and the mine road past Relay 03 to Greyvein.
+  line([[-12,12],[-28,28],[-52,44]],'#8c998f',5);line([[31,-26],[42,-34],[52,-38]],'#8c998f',5);
+  for (const site of Object.values(SETTLEMENT_SITES)) line(site.road,'#8c998f',4);
   line(road,'#657170',8);line(road,'#c4b9a0',4);line(road,'#f3e0b6',1,[9,7]);
   ctx.strokeStyle='#253f4028';ctx.lineWidth=1;for(let x=0;x<=c.width;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,c.height);ctx.stroke();}for(let y=0;y<=c.height;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();}
   function label(text,x,z,color='#d4ddc7',size=17){ctx.fillStyle=color;ctx.font='600 '+size+'px monospace';ctx.fillText(text,...project([x,z]));}
@@ -79,6 +104,16 @@ export function surveyCanvas() {
   }
   const [mx,my]=project([26,23]);ctx.fillStyle='#d99a68';ctx.fillRect(mx-12,my-12,24,24);
   ctx.strokeStyle='#e7af7e';ctx.setLineDash([8,5]);ctx.lineWidth=3;ctx.strokeRect(mx-34,my-32,68,64);ctx.setLineDash([]);
+  // Settlement footprints: Millbrook's fields, Greyvein's spoil heaps and pithead, Ironford's works.
+  const [fx,fy]=project([-52,44]);ctx.save();ctx.translate(fx,fy);ctx.rotate(-.3);
+  for(let i=0;i<6;i++){ctx.fillStyle=i%2?'#7f8a5a':'#93915f';ctx.fillRect(-70+(i%3)*48,-50+Math.floor(i/3)*52,44,48);ctx.strokeStyle='#5d6643';ctx.lineWidth=1;for(let r=0;r<44;r+=6){ctx.beginPath();ctx.moveTo(-70+(i%3)*48+r,-50+Math.floor(i/3)*52);ctx.lineTo(-70+(i%3)*48+r,-2+Math.floor(i/3)*52);ctx.stroke();}}
+  ctx.fillStyle='#5b4c3f';for(const [x,y] of [[-8,-8],[6,-4],[-2,8]])ctx.fillRect(x,y,10,9);ctx.restore();
+  const [mx2,my2]=project([52,-38]);ctx.fillStyle='#4b4a48';for(const [x,y,r] of [[-26,-10,16],[-8,14,12],[20,-16,10]]){ctx.beginPath();ctx.arc(mx2+x,my2+y,r,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='#6d5a48';ctx.fillRect(mx2-6,my2-8,16,14);ctx.strokeStyle='#2f2b28';ctx.lineWidth=3;ctx.strokeRect(mx2-6,my2-8,16,14);
+  const [wx,wy]=project([106,27]);ctx.fillStyle='#3d4446';ctx.fillRect(wx-46,wy-30,92,64);
+  for(let i=0;i<8;i++){ctx.fillStyle=i%3?'#59605e':'#6a6058';ctx.fillRect(wx-40+(i%4)*21,wy-24+Math.floor(i/4)*29,17,23);}
+  ctx.fillStyle='#2b3132';for(const x of [-30,24])ctx.fillRect(wx+x,wy-46,6,18);
+  for (const id of ['orchard','quarry','refinery','depot','lakeside']) { const site=SETTLEMENT_SITES[id], [x,y]=project([site.x,site.z]); for(let i=0;i<6;i++){ctx.fillStyle=i%2?'#64736b':'#485750';ctx.fillRect(x-24+(i%3)*18,y-16+Math.floor(i/3)*20,14,16);} }
   const [bx,by]=project([-25,-8]);ctx.strokeStyle='#17272c';ctx.lineWidth=20;ctx.beginPath();ctx.moveTo(bx-70,by-42);ctx.lineTo(bx,by);ctx.stroke();
   ctx.strokeStyle='#dfbd7b';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#dfbd7b';ctx.fillRect(bx-9,by-9,18,18);
   ctx.fillStyle='#223c40';ctx.font='bold 16px monospace';ctx.fillText('MOUNTAIN BUNKER',bx-95,by-60);
@@ -118,6 +153,11 @@ export function wallSurvey(state={}) {
   const route=routeTo(state.route);if(route.length){ctx.strokeStyle='#ffcb70';ctx.lineWidth=7;ctx.setLineDash([14,10]);ctx.beginPath();route.forEach(([x,z],i)=>i?ctx.lineTo(...surveyPoint(x,z)):ctx.moveTo(...surveyPoint(x,z)));ctx.stroke();ctx.setLineDash([]);}
   // Kestrel Falls under attack: a red ring and a CONTACT tag on the wall map.
   if(state.cityContact){const [x,y]=surveyPoint(SITES.city.x,SITES.city.z);ctx.strokeStyle='#ff5a3c';ctx.lineWidth=6;for(const r of [26,40])ctx.beginPath(),ctx.arc(x,y,r,0,Math.PI*2),ctx.stroke();ctx.fillStyle='#ff5a3c';ctx.font='bold 22px monospace';ctx.fillText('CONTACT',x+28,y-26);}
+  // Protectorate settlements in their status colours (state.settlements: [{id,name,status}]).
+  for(const p of state.settlements||[]){const site=SETTLEMENT_SITES[p.id];if(!site)continue;const [x,y]=surveyPoint(site.x,site.z),color=SETTLEMENT_STATUS_COLORS[p.status]||'#a9b8bb';
+    ctx.fillStyle='#12222c';ctx.fillRect(x-14,y-14,28,28);ctx.strokeStyle=color;ctx.lineWidth=5;ctx.strokeRect(x-14,y-14,28,28);
+    const label=p.name.toUpperCase()+(p.status==='occupied'?' · HOSTILE':p.status==='under_attack'?' · ATTACK':p.status==='neutral'?' · NEUTRAL':'');
+    ctx.font='bold 19px monospace';const w=ctx.measureText(label).width+16,left=x+w+40>1600?x-24-w:x+22;ctx.fillStyle='#12222c';ctx.fillRect(left,y-18,w,36);ctx.fillStyle=color;ctx.fillText(label,left+8,y+7);}
   for(const [id,s] of Object.entries(SITES)){if(id==='echo'&&!state.scanned)continue;const [x,y]=surveyPoint(s.x,s.z);ctx.fillStyle='#12222c';ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fill();ctx.strokeStyle=s.color;ctx.lineWidth=5;ctx.stroke();ctx.fillStyle='#12222c';ctx.fillRect(x+20,y-18,200,36);ctx.fillStyle=s.color;ctx.font='bold 19px monospace';ctx.fillText(s.short.toUpperCase(),x+28,y+7);}
   // Kestrel Falls inset (bottom right) and a reminder that this survey is the high country.
   ctx.fillStyle='#182a31e8';ctx.fillRect(750,55,420,84);ctx.fillStyle=state.cityContact?'#ffad8e':'#c3dacf';ctx.font='bold 18px monospace';ctx.fillText(state.cityContact?'KESTREL FALLS / ACTIVE CONTACT':'KESTREL FALLS / CORDON',770,87);ctx.font='16px monospace';ctx.fillText('3 km SE · linked by valley road',770,118);

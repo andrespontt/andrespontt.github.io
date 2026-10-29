@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { AreaManager } from './area-manager.mjs';
-import { createTerminal } from './terminal.js?v=routes1';
-import { createTrade, advance as advanceTrade, setRoute, dispatchRescue, newEvacuation, recruitSoldier, squadStatus, VERSION as TRADE_VERSION } from './trade.mjs';
+import { createTerminal } from './terminal.js?v=protect1';
+import { createGame, advance as advanceGame, act, military, clock, restoreGame } from './protectorate.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('scene');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 const camera=new THREE.PerspectiveCamera(70,1,.05,240);
-const manager=new AreaManager({outside:()=>import('./areas/outside.js'),vehicle:()=>import('./areas/vehicle.js'),bunker:()=>import('./areas/bunker.js?v=room2'),dev:()=>import('./areas/dev.js')},{onDispose(){renderer.renderLists.dispose();}});
+const manager=new AreaManager({outside:()=>import('./areas/outside.js'),vehicle:()=>import('./areas/vehicle.js'),bunker:()=>import('./areas/bunker.js?v=room3'),dev:()=>import('./areas/dev.js')},{onDispose(){renderer.renderLists.dispose();}});
 const names={outside:'Snowfield / Outpost 07',vehicle:'Nomad / Crew compartment',bunker:'Bunker 07 / Situation room',dev:'Dev / Scenarios'};
 let overview=true,paused=false,transitioning=false,terminalOpen=false,weather='blizzard',yaw=0,pitch=0,distance=38,drag=null,fallbackLook=false,last=performance.now(),diagnosticTime=0;
 const walker={x:0,z:0},keys=new Set(),fine=matchMedia('(pointer:fine)');
@@ -19,7 +19,7 @@ let triggerHeld=false,fireCooldown=0;
 const params=new URLSearchParams(location.search),devParam=params.get('dev');
 // Places with their own address (?at=…). The City operation also lives in the dev menu as dev/city.
 // ?at=meeting is the City store at the table as the evacuation meeting begins (it then reads ?at=city&view=meeting-table).
-const PLACES={snowfield:'outside',nomad:'vehicle',bunker:'bunker',map:'bunker',trucks:'bunker',city:'dev/city',meeting:'dev/city'};
+const PLACES={snowfield:'outside',nomad:'vehicle',bunker:'bunker',map:'bunker',command:'bunker',trucks:'bunker',city:'dev/city',meeting:'dev/city'};
 const isDev=id=>String(id).startsWith('dev/');
 // Dev pages expose internals for automated checks (no effect on the normal game).
 if(devParam!==null)globalThis.bunkerDebug={get manager(){return manager;},get camera(){return camera;}};
@@ -33,7 +33,7 @@ let droneFeed=false;
 function placeOf(id){
  if(id==='outside')return overview?null:'snowfield';
  if(id==='vehicle')return 'nomad';
- if(id==='bunker')return terminalOpen?(tacticalTerminal?.tradeOpen?'trucks':'map'):'bunker';
+ if(id==='bunker')return terminalOpen?(tacticalTerminal?.commandOpen?'command':'map'):'bunker';
  if(id==='dev/city')return 'city';
  return null;
 }
@@ -74,7 +74,8 @@ async function lockLook(){
  if(typeof canvas.requestPointerLock!=='function'){fallbackLook=true;syncCursor();return;}
  try{await canvas.requestPointerLock();}catch{fallbackLook=true;syncCursor();}
 }
-document.addEventListener('pointerlockchange',syncCursor);document.addEventListener('pointerlockerror',syncCursor);
+// A lock requested on entering an area can be granted after a panel (the terminal) has opened on top; give it back.
+document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===canvas&&(terminalOpen||devMenuOpen||controlsOpen))document.exitPointerLock();syncCursor();});document.addEventListener('pointerlockerror',syncCursor);
 function setPose(spawn){walker.x=spawn.x;walker.z=spawn.z;yaw=spawn.yaw||0;pitch=spawn.pitch||0;}
 function updateUI(){
  if(manager.current?.wantsCursor?.()&&locked())releaseLook();
@@ -92,7 +93,7 @@ function updateUI(){
  $('walk-outside').hidden=!overview;$('leave-area').hidden=outside;$('leave-area').textContent=droneFeed&&manager.id==='dev/city'?'Return to command center':'Return outside';
  $('overview').hidden=!outside||overview;
  const armed=!overview&&!!manager.current?.fire&&(manager.current.canFire?.()??true);$('fire').hidden=!armed;document.body.classList.toggle('has-weapon',armed);
- $('use-terminal').hidden=manager.id!=='bunker';renderTruckButton();$('join-meeting').hidden=!overview&&manager.id!=='bunker';$('weather-cycle').hidden=overview||!!manager.current?.weatherLabel;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
+ $('use-terminal').hidden=manager.id!=='bunker';renderCommandButton();$('join-meeting').hidden=!overview&&manager.id!=='bunker';$('weather-cycle').hidden=overview||!!manager.current?.weatherLabel;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
  $('weather-panel').hidden=!overview;$('scene-caption').hidden=!overview;
  $('pause').textContent=paused?'Resume':'Pause';$('pause').setAttribute('aria-pressed',String(paused));
  syncCursor();
@@ -107,7 +108,7 @@ async function travel(id,entry,{drone=false}={}){
  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
  try{
   const changed=await manager.go(id,{linked:drone});
-  if(changed){droneFeed=drone;pollCity.wall=null;if(id!=='bunker'&&tacticalTerminal){tacticalTerminal.dispose();tacticalTerminal=null;}overview=id==='outside'&&!entry;setPose(manager.current.entrySpawns?.[entry]||manager.current.spawn);if(overview){yaw=0;pitch=0;}paused=false;currentInteraction=null;if(id==='bunker')manager.current.setMapState?.({weather});updateUI();syncUrl();if(id==='bunker'&&!drone&&firstTrade&&!openTrucks.shown){openTrucks.shown=true;setTimeout(openTrucks);}}
+  if(changed){droneFeed=drone;pollCity.wall=null;if(id!=='bunker'&&tacticalTerminal){tacticalTerminal.dispose();tacticalTerminal=null;}overview=id==='outside'&&!entry;setPose(manager.current.entrySpawns?.[entry]||manager.current.spawn);if(overview){yaw=0;pitch=0;}paused=false;currentInteraction=null;if(id==='bunker')manager.current.setMapState?.({weather});updateUI();syncUrl();if(id==='bunker'&&!drone&&firstGame&&!openCommand.shown){openCommand.shown=true;setTimeout(openCommand);}}
   $('error').hidden=true;
  }catch(error){console.error(error);$('error').hidden=false;$('error-message').textContent='This area could not load. Your current area is preserved. Retry the entrance when ready.';}
  finally{transitioning=false;for(const b of document.querySelectorAll('#area-actions button'))b.disabled=false;$('transition').hidden=true;if(manager.current&&!overview)lockLook();}
@@ -130,37 +131,54 @@ function openSituationTerminal(focus){
  tacticalTerminal??=createTerminal($('situation-terminal'),{
   onClose:closeSituationTerminal,
   onState(next){manager.current?.setMapState?.(next);},
-  onTrade(){syncUrl();},
-  onRescue(){trade=dispatchRescue(trade,Date.now());saveTrade();tacticalTerminal?.setTrade(trade);renderTruckButton();},
-  onNewEvacuation(){trade=newEvacuation(trade,Date.now());saveTrade();tacticalTerminal?.setTrade(trade);renderTruckButton();},
-  onRecruit(){trade=recruitSoldier(trade,Date.now());saveTrade();tacticalTerminal?.setTrade(trade);renderTruckButton();},
-  onRoute(truck,route){const now=Date.now();trade=setRoute(advanceTrade(trade,now),truck,route,now);saveTrade();tacticalTerminal?.setTrade(trade);renderTruckButton();},
+  onCommand(){syncUrl();},
+  onAction:command,
+  onReset(){game=createGame();saveGame();refreshGame();},
   // City marker → drone feed: load the operation and circle it from the air.
   async onDrone(){closeSituationTerminal();await travel('dev/city',undefined,{drone:true});manager.current?.setView?.('drone',setPose);updateUI();}
  });
  tacticalTerminal.open({...manager.current.snapshot?.(),weather,...(focus?.selected?{selected:focus.selected}:{})});
- tacticalTerminal.setTrade(trade);tacticalTerminal.showTrade(!focus?.selected);
+ tacticalTerminal.showCommand(!focus?.selected);tacticalTerminal.setGame(game);
  if(cityOp)tacticalTerminal.setCity(cityOp);pollCity();
 }
-// Trade routes (trade.mjs): the game loop. Outpost 07 makes power cells and needs food; each truck is given a
-// standing route once and keeps driving it on the map's roads. It runs on real time, saved in this browser, and is played on the situation terminal (M, T,
-// the operations workstation, or the Trucks button), which opens on the trucks card.
-const TRADE_KEY='bunker-trade';
-let trade=(()=>{try{const s=JSON.parse(localStorage.getItem(TRADE_KEY));if(s?.version===TRADE_VERSION)return advanceTrade(s,Date.now());}catch{}return null;})();
-const firstTrade=!trade;trade??=createTrade(Date.now());
-function saveTrade(){try{localStorage.setItem(TRADE_KEY,JSON.stringify(trade));}catch{}}
-saveTrade();
-setInterval(()=>{trade=advanceTrade(trade,Date.now());saveTrade();if(terminalOpen)tacticalTerminal?.setTrade(trade);renderTruckButton();},1000);
-function openTrucks(){
+// Protectorate (protectorate.mjs): the strategic game played on the situation terminal's command desk (M, T, the
+// operations workstation or the Command button). One saved state; game time runs only while this page is open and
+// visible, at the speed chosen on the desk, and stops while the game is paused. Orders go through command().
+const GAME_KEY='bunker-protectorate';
+const savedGame=(()=>{try{const s=JSON.parse(localStorage.getItem(GAME_KEY));return restoreGame(s);}catch{}return null;})();
+// A first-time commander is taken straight to the command desk on entering the bunker.
+const firstGame=!savedGame;let game=savedGame??createGame();
+function saveGame(){try{localStorage.setItem(GAME_KEY,JSON.stringify(game));}catch{}}
+saveGame();
+function refreshGame(){if(terminalOpen)tacticalTerminal?.setGame(game);renderCommandButton();syncWallSettlements();}
+function command(action){const next=act(game,action);if(next===game)return;game=next;saveGame();refreshGame();}
+let gameClock=performance.now(),gameSaved=0;
+setInterval(()=>{
+ const now=performance.now(),real=Math.min(1000,now-gameClock);gameClock=now;
+ if(!paused&&!document.hidden&&game.speed)game=advanceGame(game,real*game.speed);
+ if(now-gameSaved>1000){gameSaved=now;saveGame();}
+ refreshGame();
+},250);
+addEventListener('pagehide',saveGame);
+function openCommand(settlementId){
  if(manager.id!=='bunker'||transitioning)return;
- openSituationTerminal();tacticalTerminal?.showTrade(true);
+ openSituationTerminal();tacticalTerminal?.showCommand(true);if(settlementId)tacticalTerminal?.selectSettlement(settlementId);
 }
-function renderTruckButton(){
- const b=$('truck-runs');b.hidden=manager.id!=='bunker'||overview;
- const routed=trade.trucks.filter(t=>t.route).length;
- b.querySelector('small').textContent=`⚡ ${trade.cells} · 🥫 ${trade.food} · ${squadStatus(trade).soldiers} soldiers · ${routed?routed+' route'+(routed>1?'s':'')+' running':'no routes set'} · ${trade.evacuation?.rescued||0}/24 rescued`;
+function renderCommandButton(){
+ const b=$('open-command');b.hidden=manager.id!=='bunker'||overview;
+ const attacked=game.settlements.find(x=>x.status==='under_attack'),f=military(game),r=game.resources;
+ b.classList.toggle('alert',!!attacked);
+ const text=attacked?`⚠ ${attacked.name} under attack · fight in ${clock(attacked.attack.resolvesAt-game.time)}`:`Food ${r.food} · Metal ${r.metal} · Parts ${r.components} · Fuel ${r.fuel} · ${f.availableSoldiers}/${f.totalSoldiers} soldiers ready`;
+ const small=b.querySelector('small');if(small.textContent!==text)small.textContent=text;
 }
-$('truck-runs').onclick=openTrucks;
+// The situation room's wall map shows each settlement in its status colour; it is redrawn only when one changes.
+function syncWallSettlements(){
+ if(manager.id!=='bunker'||!manager.current?.setMapState)return;
+ const settlements=game.settlements.map(({id,name,status})=>({id,name,status})),key=JSON.stringify(settlements);
+ if(syncWallSettlements.area===manager.current&&syncWallSettlements.key===key)return;
+ syncWallSettlements.area=manager.current;syncWallSettlements.key=key;manager.current.setMapState({settlements});
+}
+$('open-command').onclick=()=>openCommand(game.settlements.find(x=>x.status==='under_attack')?.id);
 // Kestrel Falls runs from the moment the game opens, wherever you are (city-ops.mjs, stored in IndexedDB by
 // city-store.js). Every few seconds it catches up; in the command center its status and each new event show in a
 // strip (tap it for the map), and the wall map marks the city during contact. While the drone feed is open the
@@ -198,7 +216,7 @@ function closeSituationTerminal(){
 $('use-terminal').onclick=openSituationTerminal;
 // In person at the City store, standing at the table as the meeting starts (the standalone scene, not the live feed).
 $('join-meeting').onclick=async()=>{await travel('dev/city');manager.current?.setView?.('meeting-table',setPose);updateUI();};
-function interact(){if(paused||transitioning||terminalOpen||!currentInteraction)return;const action=currentInteraction;if(action.panel==='situation-map'){openSituationTerminal();return;}if(action.trucks){openTrucks();return;}if(action.destination)travel(action.destination,action.entry);else action.action?.();}
+function interact(){if(paused||transitioning||terminalOpen||!currentInteraction)return;const action=currentInteraction;if(action.panel==='situation-map'){openSituationTerminal();return;}if(action.command){openCommand();return;}if(action.destination)travel(action.destination,action.entry);else action.action?.();}
 $('interact').onclick=interact;
 const movementCodes=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
 addEventListener('keydown',e=>{
@@ -207,7 +225,7 @@ addEventListener('keydown',e=>{
  if(e.target instanceof HTMLInputElement)return;
  if(terminalOpen){if(e.code==='Escape'){e.preventDefault();closeSituationTerminal();}return;}
  if(e.code==='KeyM'&&manager.id==='bunker'&&!e.repeat){openSituationTerminal();return;}
- if(e.code==='KeyT'&&manager.id==='bunker'&&!e.repeat){openTrucks();return;}
+ if(e.code==='KeyT'&&manager.id==='bunker'&&!e.repeat){openCommand();return;}
  if(!overview&&!terminalOpen&&movementCodes.includes(e.code)){e.preventDefault();keys.add(e.code);}
  if(e.code==='Escape'){if(terminalOpen){closeSituationTerminal();return;}releaseLook();return;}
  if(e.code==='Tab'&&!overview&&!terminalOpen){e.preventDefault();if(!e.repeat)$('cursor-toggle').click();}
@@ -301,7 +319,7 @@ function renderQuickMenu(){
   heading('Weather');const weatherGrid=grid();if(manager.current?.weatherLabel){const note=document.createElement('p');note.textContent='Local conditions: '+manager.current.weatherLabel;content.append(note);}
   for(const value of (manager.current?.weatherLabel?[]:weatherOrder))add(weatherGrid,value[0].toUpperCase()+value.slice(1),()=>{setWeather(value);renderQuickMenu();},weather===value);
   heading('Location');const locations=grid();
-  for(const id of ['enter-bunker','enter-vehicle','walk-outside','join-meeting','truck-runs','use-terminal','leave-area','overview']){const source=$(id);if(!source.hidden&&!source.disabled)add(locations,source.textContent.replace(' · M',''),()=>{closeQuickMenu();source.click();});}
+  for(const id of ['enter-bunker','enter-vehicle','walk-outside','join-meeting','open-command','use-terminal','leave-area','overview']){const source=$(id);if(!source.hidden&&!source.disabled)add(locations,id==='open-command'?'Command desk':source.textContent.replace(' · M',''),()=>{closeQuickMenu();source.click();});}
  }
 }
 $('quick-menu-open').onclick=()=>{if(transitioning||terminalOpen)return;releaseLook();controlsOpen=true;renderQuickMenu();quickMenu.showModal();};
@@ -328,8 +346,8 @@ function frame(now){
   area.update?.(dt,{weather,position:walker,yaw,audio:soundOn&&audioSfx?{context:audio,output:audioSfx}:null,listener:{x:walker.x,z:walker.z,yaw}});
  }
  currentInteraction=overview?null:area.getInteraction?.(walker);
- // The operations workstation (east wall) dispatches the trucks.
- if(!currentInteraction&&!overview&&manager.id==='bunker'&&walker.x>1.7&&walker.z>-3.6&&walker.z<.4)currentInteraction={label:'Truck runs',trucks:true};$('interact').hidden=!currentInteraction||paused;if(currentInteraction)$('interact').textContent='E · '+currentInteraction.label;
+ // The operations workstation (east wall) opens the command desk.
+ if(!currentInteraction&&!overview&&manager.id==='bunker'&&walker.x>1.7&&walker.z>-3.6&&walker.z<.4)currentInteraction={label:'Command desk',command:true};$('interact').hidden=!currentInteraction||paused;if(currentInteraction)$('interact').textContent='E · '+currentInteraction.label;
  if(overview){camera.fov=48;camera.position.set(13+Math.sin(yaw)*distance,7+pitch*distance,4+Math.cos(yaw)*distance);camera.lookAt(13,2,4);}
  else{camera.fov=70;camera.position.set(walker.x,(area.heightAt?.(walker.x,walker.z)||0)+area.eyeHeight,walker.z);camera.lookAt(walker.x+Math.sin(yaw)*Math.cos(pitch),camera.position.y+Math.sin(pitch),walker.z+Math.cos(yaw)*Math.cos(pitch));}
  // A 5 cm near plane is needed on foot (the rifle sits close to the eye); from high up it wastes depth
@@ -359,7 +377,7 @@ if(at&&PLACES[at]){
  if(!manager.current)await travel('outside');
  else if(at==='snowfield'){overview=false;setPose(manager.current.spawn);updateUI();}
  else if(at==='map')openSituationTerminal();
- else if(at==='trucks')openTrucks();
+ else if(at==='command'||at==='trucks')openCommand();
  if(startView)manager.current?.setView?.(startView,setPose);
  updateUI();
 }else if(devParam&&devParam!=='menu'){

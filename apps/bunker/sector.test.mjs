@@ -40,3 +40,17 @@ test('scale labels match their pixel lengths without CSS clipping',async()=>{
   const {meters,pixels}=surveyScale(units);assert.ok(pixels<=100);assert.ok(pixels>0);assert.ok(Math.abs(pixels*units-meters)<1e-8);
  }
 });
+
+
+test('all eight settlements have bounded map locations and complete roads', async () => {
+  const { SETTLEMENTS } = await import('./protectorate.mjs');
+  const { SETTLEMENT_SITES, SECTOR, roadPoint } = await import('./sector.js');
+  for (const town of SETTLEMENTS) {
+    const p = SETTLEMENT_SITES[town.id];
+    assert.ok(p, town.name);
+    assert.ok(Math.abs(p.x-SECTOR.centerX)<SECTOR.width/2 && Math.abs(p.z-SECTOR.centerZ)<SECTOR.depth/2);
+    assert.deepEqual(roadPoint(p.road,0),[-25,-8]);
+    const end=roadPoint(p.road,1);
+    assert.ok(Math.hypot(end[0]-p.x,end[1]-p.z)<1e-8);
+  }
+});
