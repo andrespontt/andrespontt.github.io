@@ -15,6 +15,14 @@ export const ENEMY_TOWNS = [
  {id:'eastSouth',name:'REDHAVEN',x:184,z:130},
  {id:'eastDepot',name:'ASHGATE',x:286,z:125},
 ];
+// Outpost 07's two safe houses behind the river, each a playable scene (dev/scenarios/safehouse-*.js) reached from
+// its map card: Hollow Pine in the pines south-west of Frostford, Tinker's Loft in Drakenburg's Riverside district.
+export const SAFE_HOUSES = [
+ {id:'safeFrost',name:'HOLLOW PINE',short:'Hollow Pine',x:171,z:-18,place:'hollow-pine',type:'SAFE HOUSE · FARMHOUSE NEAR FROSTFORD',status:'Four rangers on watch · radio every 40 min',
+  description:"A woodcutter's log farmhouse in the pines south-west of Frostford, two kilometres past the North Crossing. Sgt. Halvorsen's rangers log every truck on the Frostford road. Helmet cam: walk the house and talk to the team."},
+ {id:'safeRiver',name:"TINKER'S LOFT",short:"Tinker's Loft",x:219,z:28,place:'tinker-loft',type:'SAFE HOUSE · DRAKENBURG, RIVERSIDE',status:'Four operatives · undercover',
+  description:"A flat above a shuttered clock shop in Drakenburg's Riverside district. Sgt. Okafor's cell watches the militia bar across the street and photographs the rail yard. Helmet cam: walk the flat and talk to the team."},
+];
 // Reuse Kestrel Falls' district spacing, streets, footprints and roof heights.
 export const ENEMY_DISTRICTS = CITY_DISTRICTS.map(d=>({...d,x:d.x-CITY.x+ENEMY_CITY.x,z:d.z-CITY.z+ENEMY_CITY.z}));
 export const ENEMY_BUILDINGS = CITY_BUILDINGS.map(b=>({...b,x:b.x-CITY.x+ENEMY_CITY.x,z:b.z-CITY.z+ENEMY_CITY.z}));
@@ -42,6 +50,7 @@ export const SITES = {
   city: { name: 'KESTREL FALLS', short: 'Kestrel Falls', x: 26, z: 23, color: '#ff8e72', type: 'VALLEY CITY · 18 DISTRICTS', distanceKm: 3, status: 'Army cordon · Corner Market 24', description: 'Eighteen districts spread across the eastern valley. The original market ward lies three kilometres down the mountain road. Soldiers hold Corner Market 24 in district 01; the drone and conflict marker remain over that block.' },
   echo: { name: 'UNKNOWN CONTACT', short: 'Echo 03', x: 22, z: 11, color: '#ff8e72', type: 'THERMAL RETURN', status: 'Three pulses · motion detected', description: 'An intermittent heat signature in the eastern ravine. Its source is unresolved.' },
 };
+for(const h of SAFE_HOUSES)SITES[h.id]={...h,color:'#9fe3b4'};
 for(const site of [{id:'enemyCapital',name:ENEMY_CITY.name,x:248,z:55},...ENEMY_TOWNS,...BRIDGES]) {
  const crossing=site.id.startsWith('bridge');
  SITES[site.id]={...site,short:site.name,color:crossing?'#e8c589':'#ff827d',type:crossing?'BORDER CROSSING':'ENEMY TERRITORY',status:crossing?'Contested river bridge':'Enemy controlled',description:crossing?'A strategic crossing of the Veyr river. The western bank faces the protectorate; the eastern bank leads into enemy territory.':site.id==='enemyCapital'?'Drakenburg: the eastern regional capital and main enemy stronghold. Dense industrial districts connect to four satellite towns.':'Enemy-held town in the eastern region, connected to Drakenburg and the river crossings.'};
@@ -54,7 +63,7 @@ export function elevation(x,z) {
 }
 export function routeTo(id) {
   const a=SITES.shelter,b=SITES[id]; if(!b||id==='shelter')return [];
-  if(id==='enemyCapital'||ENEMY_TOWNS.some(t=>t.id===id)||BRIDGES.some(t=>t.id===id))return easternRoute(b);
+  if(id==='enemyCapital'||[...ENEMY_TOWNS,...BRIDGES,...SAFE_HOUSES].some(t=>t.id===id))return easternRoute(b);
   return id==='city'?[[a.x,a.z],[-18,2],[-12,12],[0,19],[18,23],[b.x,b.z]]:id==='nomad'?[[a.x,a.z],[-18,2],[-17,-1],[b.x,b.z]]:
     id==='relay'?[[a.x,a.z],[-18,2],[-3,-9],[11,-14],[b.x,b.z]]:
     [[a.x,a.z],[-13,19],[0,16],[11,14],[b.x,b.z]];
@@ -140,6 +149,8 @@ export function surveyCanvas() {
       ctx.strokeStyle=city.enemy?'#b49a90':'#91aaa4';ctx.lineWidth=1;ctx.strokeRect(px,py,b.width*scale,b.depth*scale);
     }
   }
+  // Safe houses: a small green house behind the lines.
+  for(const h of SAFE_HOUSES){const [x,y]=project([h.x,h.z]);ctx.fillStyle='#9fe3b4';ctx.beginPath();ctx.moveTo(x-9,y-1);ctx.lineTo(x,y-10);ctx.lineTo(x+9,y-1);ctx.closePath();ctx.fill();ctx.fillRect(x-6,y-1,12,9);ctx.fillStyle='#1f3a2e';ctx.fillRect(x-2,y+2,4,6);label(h.name,h.x+4,h.z+1.2,'#c9f0d6',11);}
   label('HIGH COUNTRY / SNOW −24°C',-65,-44,'#324a53',14);
   for (const b of BUSINESSES) {
     const d=CITY_DISTRICTS[b.district-1], [x,y]=project([d.x+d.width/2,d.z+d.depth/2]);

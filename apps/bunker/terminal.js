@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { disposeScene } from './area-manager.mjs';
-import { SITES, WEATHER, SECTOR, CITY, CITY_DISTRICTS, CITY_BUILDINGS, ENEMY_BUILDINGS, ENEMY_DISTRICTS, BRIDGES, SETTLEMENT_SITES, elevation, routeTo, roadPoint, surveyCanvas, surveySpan, surveyScale } from './sector.js?v=room4';
+import { SITES, WEATHER, SECTOR, CITY, CITY_DISTRICTS, CITY_BUILDINGS, ENEMY_BUILDINGS, ENEMY_DISTRICTS, BRIDGES, SETTLEMENT_SITES, elevation, routeTo, roadPoint, surveyCanvas, surveySpan, surveyScale } from './sector.js?v=safe1';
 import { summary } from './city-ops.mjs';
 import { roadPosition, settlement } from './protectorate.mjs?v=protect3';
 import { createCommandDesk, describeUnit } from './command.js?v=protect3';
@@ -43,7 +43,7 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
     zoom=Math.min(7,surveySpan(aspect,tilted)/(Math.max(vertical,CITY.districtWidth*CITY.columns/aspect)*1.3));draw();
   };
   const markers={};for(const [id,s] of Object.entries(SITES)){
-    const b=document.createElement('button');b.className='ops-marker';b.dataset.site=id;b.style.setProperty('--pin',s.color);b.innerHTML=`<i>${id==='shelter'?'⌂':id==='nomad'?'▰':id==='relay'?'⌁':id==='city'||id==='enemyCapital'?'▣':id.startsWith('bridge')?'═':id.startsWith('east')?'◆':'?'}</i><span>${s.short}</span>`;b.setAttribute('aria-label','Inspect '+s.short);b.onclick=()=>{state.selected=id;showCommand(false);update();};$('ops-markers').append(b);markers[id]=b;
+    const b=document.createElement('button');b.className='ops-marker';b.dataset.site=id;b.style.setProperty('--pin',s.color);b.innerHTML=`<i>${id==='shelter'?'⌂':id==='nomad'?'▰':id==='relay'?'⌁':id==='city'||id==='enemyCapital'?'▣':id.startsWith('bridge')?'═':id.startsWith('east')?'◆':id.startsWith('safe')?'⌂':'?'}</i><span>${s.short}</span>`;if(id.startsWith('safe'))b.dataset.kind='safehouse';b.setAttribute('aria-label','Inspect '+s.short);b.onclick=()=>{state.selected=id;showCommand(false);update();};$('ops-markers').append(b);markers[id]=b;
   }
   // Protectorate settlements: their colour is their status; a tap opens their management card.
   const towns={};for(const [id,site] of Object.entries(SETTLEMENT_SITES)){
@@ -199,7 +199,7 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
   // icons, labels and map controls. Most important first: your own towns, then the outpost and the city, then
   // neutral towns. A label with no clear spot is hidden (its icon stays tappable); the selected marker always shows
   // its own. Sizes are read before the frame's writes, so layout is not forced.
-  const SIDES=['right','left','below','above','above-right','below-right','above-left','below-left'],RANK={under_attack:0,occupied:1,protected:2,shelter:3,city:4,neutral:5,relay:6,nomad:7,echo:8};
+  const SIDES=['right','left','below','above','above-right','below-right','above-left','below-left'],RANK={under_attack:0,occupied:1,protected:2,shelter:3,city:4,safeFrost:4,safeRiver:4,neutral:5,relay:6,nomad:7,echo:8};
   $('ops-markers').addEventListener('pointerover',()=>draw());
   $('ops-markers').addEventListener('pointerout',()=>draw());
   const labelled=()=>[...Object.values(markers),...Object.values(towns)];
@@ -272,9 +272,10 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
 
   function cityStatus(){return cityOp?summary(cityOp,Date.now()):SITES.city.status+' · Sleet · 1 °C';}
   function cityLog(){if(!cityOp)return SITES.city.description;const clock=at=>new Date(at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});return cityOp.log.slice(-3).reverse().map(e=>clock(e.at)+'  '+e.text).join('\n');}
-  function update(){const s=SITES[state.selected]||SITES.shelter;const city=state.selected==='city';const distance=Math.hypot(s.x-SITES.shelter.x,s.z-SITES.shelter.z)*50;
+  function update(){const s=SITES[state.selected]||SITES.shelter;const city=state.selected==='city',safehouse=state.selected.startsWith('safe');const distance=Math.hypot(s.x-SITES.shelter.x,s.z-SITES.shelter.z)*50;
     $('ops-type').textContent=s.type;$('ops-name').textContent=s.name;$('ops-status').textContent=city?cityStatus():s.status+(distance?' · '+(distance/1000).toFixed(1)+' km':'');$('ops-description').textContent=city?cityLog():s.description;$('ops-description').classList.toggle('ops-log',city);
-    $('ops-route').hidden=false;$('ops-drone').hidden=!city;
+    // City: the drone over the market. Safe houses: a team member's helmet camera, walking the house.
+    $('ops-route').hidden=false;$('ops-drone').hidden=!city&&!safehouse;$('ops-drone').textContent=safehouse?'▶ Helmet cam':'▶ Drone feed';
     $('ops-route').disabled=state.selected==='shelter';$('ops-route').textContent=state.route===state.selected?'Clear route':'Plot route';
     const [,vis]=WEATHER[state.weather]||WEATHER.blizzard;$('ops-weather').textContent='RIDGE: '+state.weather.toUpperCase()+' / '+vis+' m · CITY: SLEET / +1 °C';
     updateRoute();draw();onState?.({...state});
@@ -285,7 +286,7 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
   }
   root.classList.add('command-mode');
   $('ops-command-toggle').onclick=()=>showCommand(!root.classList.contains('command-mode'));
-  $('terminal-close').onclick=onClose;$('ops-drone').onclick=()=>onDrone?.();$('ops-fit').onclick=fit;$('ops-plus').onclick=()=>zoomAt(zoom*1.3);$('ops-minus').onclick=()=>zoomAt(zoom/1.3);
+  $('terminal-close').onclick=onClose;$('ops-drone').onclick=()=>onDrone?.(state.selected);$('ops-fit').onclick=fit;$('ops-plus').onclick=()=>zoomAt(zoom*1.3);$('ops-minus').onclick=()=>zoomAt(zoom/1.3);
   $('ops-relief').onclick=()=>{tilted=!tilted;$('ops-relief').setAttribute('aria-pressed',String(tilted));draw();};
   $('ops-storm').onclick=()=>{weatherVisible=!weatherVisible;storm.visible=weatherVisible;$('ops-storm').setAttribute('aria-pressed',String(weatherVisible));draw();};
   $('ops-focus').onclick=()=>{const s=SITES[state.selected]||SITES.shelter;target.set(s.x,elevation(s.x,s.z),s.z);draw();};

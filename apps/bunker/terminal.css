@@ -42,7 +42,7 @@
 .ops-marker[aria-pressed=true]{z-index:3}.ops-marker[aria-pressed=true] i{box-shadow:0 0 0 4px #14212e55,0 0 0 6px var(--pin)}.ops-marker[aria-pressed=true] span{color:var(--pin);border-color:var(--pin)}
 /* Label side, chosen in terminal.js so labels never cover each other, icons or map controls. */
 .ops-marker[data-label=left] span{left:auto;right:calc(100% + var(--label-gap))}.ops-marker[data-label=below] span{top:calc(100% + 3px);left:50%;transform:translateX(-50%)}.ops-marker[data-label=above] span{top:auto;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%)}.ops-marker[data-label=above-right] span{top:auto;bottom:100%;left:100%;transform:none}.ops-marker[data-label=below-right] span{top:100%;left:100%;transform:none}.ops-marker[data-label=above-left] span{top:auto;bottom:100%;left:auto;right:100%;transform:none}.ops-marker[data-label=below-left] span{top:100%;left:auto;right:100%;transform:none}.ops-marker[data-label=none] span{visibility:hidden}.ops-marker span em{font-style:normal}
-.ops-marker[data-site=city] i{border-radius:7px}
+.ops-marker[data-site=city] i{border-radius:7px}.ops-marker[data-kind=safehouse] i{border-style:dashed}
 .ops-marker.ops-alert i{animation:ops-alert 1.4s ease-in-out infinite}
 @keyframes ops-alert{0%,100%{box-shadow:0 0 0 0 #ff8e7299}50%{box-shadow:0 0 0 9px #ff8e7200}}
 .ops-town{--pin:var(--ops-grey);z-index:3}.ops-town i{border-radius:8px;font-size:17px}

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { AreaManager } from './area-manager.mjs';
-import { createTerminal } from './terminal.js?v=protect3';
+import { createTerminal } from './terminal.js?v=safe1';
 import { createGame, advance as advanceGame, act, military, clock, restoreGame } from './protectorate.mjs?v=protect3';
 
 const $=id=>document.getElementById(id);
@@ -8,8 +8,8 @@ const canvas=$('scene');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 const camera=new THREE.PerspectiveCamera(70,1,.05,240);
-const manager=new AreaManager({outside:()=>import('./areas/outside.js'),vehicle:()=>import('./areas/vehicle.js'),bunker:()=>import('./areas/bunker.js?v=room4'),dev:()=>import('./areas/dev.js')},{onDispose(){renderer.renderLists.dispose();}});
-const names={outside:'Snowfield / Outpost 07',vehicle:'Nomad / Crew compartment',bunker:'Bunker 07 / Situation room',dev:'Dev / Scenarios'};
+const manager=new AreaManager({outside:()=>import('./areas/outside.js'),vehicle:()=>import('./areas/vehicle.js'),bunker:()=>import('./areas/bunker.js?v=safe1'),dev:()=>import('./areas/dev.js?v=safe1')},{onDispose(){renderer.renderLists.dispose();}});
+const names={outside:'Snowfield / Outpost 07',vehicle:'Nomad / Crew compartment',bunker:'Bunker 07 / Situation room',dev:'Dev / Scenarios','dev/safehouse-pine':'Hollow Pine / Safe house','dev/safehouse-loft':"Tinker's Loft / Safe house"};
 let overview=true,paused=false,transitioning=false,terminalOpen=false,weather='blizzard',yaw=0,pitch=0,distance=38,drag=null,fallbackLook=false,last=performance.now(),diagnosticTime=0;
 const walker={x:0,z:0},keys=new Set(),fine=matchMedia('(pointer:fine)');
 let touchMoveX=0,touchMoveY=0,stickPointer=null;
@@ -19,7 +19,11 @@ let triggerHeld=false,fireCooldown=0;
 const params=new URLSearchParams(location.search),devParam=params.get('dev');
 // Places with their own address (?at=…). The City operation also lives in the dev menu as dev/city.
 // ?at=meeting is the City store at the table as the evacuation meeting begins (it then reads ?at=city&view=meeting-table).
-const PLACES={snowfield:'outside',nomad:'vehicle',bunker:'bunker',map:'bunker',command:'bunker',trucks:'bunker',city:'dev/city',meeting:'dev/city'};
+const PLACES={snowfield:'outside',nomad:'vehicle',bunker:'bunker',map:'bunker',command:'bunker',trucks:'bunker',city:'dev/city',meeting:'dev/city','hollow-pine':'dev/safehouse-pine','tinker-loft':'dev/safehouse-loft'};
+// Map sites with a live link (opened from the situation map, &from=map): the City's drone and the safe houses'
+// helmet cameras. Leaving one returns to the command center.
+const FEEDS={city:{place:'city',area:'dev/city',view:'drone',link:'Connecting to drone…'},safeFrost:{place:'hollow-pine',area:'dev/safehouse-pine',link:'Connecting to Hollow Pine…'},safeRiver:{place:'tinker-loft',area:'dev/safehouse-loft',link:"Connecting to Tinker's Loft…"}};
+const feedOf=area=>Object.entries(FEEDS).find(([,f])=>f.area===area);
 const isDev=id=>String(id).startsWith('dev/');
 // Dev pages expose internals for automated checks (no effect on the normal game).
 if(devParam!==null)globalThis.bunkerDebug={get manager(){return manager;},get camera(){return camera;}};
@@ -34,7 +38,7 @@ function placeOf(id){
  if(id==='outside')return overview?null:'snowfield';
  if(id==='vehicle')return 'nomad';
  if(id==='bunker')return terminalOpen?(tacticalTerminal?.commandOpen?'command':'map'):'bunker';
- if(id==='dev/city')return 'city';
+ const feed=feedOf(id);if(feed)return feed[1].place;
  return null;
 }
 function syncUrl(){
@@ -42,7 +46,7 @@ function syncUrl(){
  const place=placeOf(manager.id),view=manager.current.viewSlug?.();
  let next=devMenuOpen?'?dev':place?'?at='+place:isDev(manager.id)?'?dev='+manager.id.slice(4):'';
  if(view&&next&&!devMenuOpen)next+='&view='+view;
- if(droneFeed&&manager.id==='dev/city'&&!devMenuOpen)next+='&from=map';
+ if(droneFeed&&!devMenuOpen)next+='&from=map';
  if(location.search!==next)history.replaceState(null,'',location.pathname+next);
 }
 let devMenuOpen=false;
@@ -51,7 +55,7 @@ async function openDevMenu(){
  releaseLook();devMenuOpen=true;$('dev-menu').hidden=false;syncUrl();
  const list=$('dev-menu-list');
  try{
-  const {default:scenarios}=await import('./dev/scenarios/index.js');
+  const {default:scenarios}=await import('./dev/scenarios/index.js?v=safe1');
   list.replaceChildren(...scenarios.map(sc=>{devTitles['dev/'+sc.id]='Dev / '+sc.title;const b=document.createElement('button');b.className='dev-menu-item';b.setAttribute('aria-current',String(manager.id==='dev/'+sc.id));b.innerHTML='<b></b><span></span>';b.querySelector('b').textContent=sc.title;b.querySelector('span').textContent=sc.summary||'';b.onclick=()=>{closeDevMenu();travel('dev/'+sc.id);};return b;}));
   list.querySelector('button')?.focus({preventScroll:true});
  }catch(error){console.error(error);list.textContent='Scenarios could not load.';}
@@ -91,7 +95,7 @@ function updateUI(){
  document.body.classList.toggle('terminal-open',terminalOpen);
  $('situation-terminal').hidden=!terminalOpen;
  $('enter-vehicle').hidden=!overview;$('enter-bunker').hidden=!overview;
- $('walk-outside').hidden=!overview;$('leave-area').hidden=outside;$('leave-area').textContent=droneFeed&&manager.id==='dev/city'?'Return to command center':'Return outside';
+ $('walk-outside').hidden=!overview;$('leave-area').hidden=outside;$('leave-area').textContent=droneFeed?'Return to command center':'Return outside';
  $('overview').hidden=!outside||overview;
  const armed=!overview&&!!manager.current?.fire&&(manager.current.canFire?.()??true);$('fire').hidden=!armed;document.body.classList.toggle('has-weapon',armed);
  $('use-terminal').hidden=manager.id!=='bunker';renderCommandButton();$('join-meeting').hidden=!overview&&manager.id!=='bunker';$('weather-cycle').hidden=overview||!!manager.current?.weatherLabel;$('enter-dev').hidden=!overview&&!isDev(manager.id);$('enter-dev').textContent=isDev(manager.id)?'Scenarios menu':'Dev scenarios →';$('weather-cycle').textContent='Weather · '+weather[0].toUpperCase()+weather.slice(1)+' · N';$('cursor-toggle').hidden=overview;$('cabin-view').hidden=manager.id!=='vehicle';
@@ -104,11 +108,12 @@ async function travel(id,entry,{drone=false}={}){
  closeSituationTerminal();
  // Opening the drone feed from the command center: the load reads as the uplink connecting.
  $('transition').classList.toggle('drone-link',drone);
- transitioning=true;for(const b of document.querySelectorAll('#area-actions button'))b.disabled=true;releaseLook();$('transition').hidden=false;$('transition-label').textContent=drone?'Connecting to drone…':'Entering '+areaName(id)+'…';$('transition-error').hidden=true;
+ transitioning=true;for(const b of document.querySelectorAll('#area-actions button'))b.disabled=true;releaseLook();$('transition').hidden=false;$('transition-label').textContent=drone?feedOf(id)?.[1].link||'Connecting to drone…':'Entering '+areaName(id)+'…';$('transition-error').hidden=true;
  // Let the loading surface paint before procedural geometry is created.
  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
  try{
-  const changed=await manager.go(id,{linked:drone});
+  // Only the City feed is linked to a stored operation; the safe houses run on their own.
+  const changed=await manager.go(id,{linked:drone&&id==='dev/city'});
   if(changed){droneFeed=drone;pollCity.wall=null;if(id!=='bunker'&&tacticalTerminal){tacticalTerminal.dispose();tacticalTerminal=null;}overview=id==='outside'&&!entry;setPose(manager.current.entrySpawns?.[entry]||manager.current.spawn);if(overview){yaw=0;pitch=0;}paused=false;currentInteraction=null;if(id==='bunker')manager.current.setMapState?.({weather});updateUI();syncUrl();if(id==='bunker'&&!drone&&firstGame&&!openCommand.shown){openCommand.shown=true;setTimeout(openCommand);}}
   $('error').hidden=true;
  }catch(error){console.error(error);$('error').hidden=false;$('error-message').textContent='This area could not load. Your current area is preserved. Retry the entrance when ready.';}
@@ -116,7 +121,7 @@ async function travel(id,entry,{drone=false}={}){
 }
 $('enter-vehicle').onclick=()=>travel('vehicle');$('enter-dev').onclick=openDevMenu;$('dev-menu-close').onclick=closeDevMenu;$('enter-bunker').onclick=()=>travel('bunker');
 $('leave-area').onclick=async()=>{
- if(droneFeed&&manager.id==='dev/city'){await travel('bunker');openSituationTerminal();return;}
+ if(droneFeed){const site=feedOf(manager.id)?.[0];await travel('bunker');openSituationTerminal(site&&site!=='city'?{selected:site}:undefined);return;}
  travel('outside',manager.id==='bunker'?'bunker':manager.id==='vehicle'?'vehicle':undefined);};
 $('walk-outside').onclick=()=>{overview=false;setPose(manager.current.spawn);updateUI();lockLook();};
 $('overview').onclick=()=>{releaseLook();overview=true;yaw=0;pitch=0;distance=38;updateUI();};
@@ -135,8 +140,8 @@ function openSituationTerminal(focus){
   onCommand(){syncUrl();},
   onAction:command,
   onReset(){game=createGame();saveGame();refreshGame();},
-  // City marker → drone feed: load the operation and circle it from the air.
-  async onDrone(){closeSituationTerminal();await travel('dev/city',undefined,{drone:true});manager.current?.setView?.('drone',setPose);updateUI();}
+  // City marker → drone feed: load the operation and circle it from the air. Safe house → its helmet camera.
+  async onDrone(site='city'){const feed=FEEDS[site]||FEEDS.city;closeSituationTerminal();await travel(feed.area,undefined,{drone:true});if(feed.view)manager.current?.setView?.(feed.view,setPose);updateUI();}
  });
  tacticalTerminal.open({...manager.current.snapshot?.(),weather,...(focus?.selected?{selected:focus.selected}:{})});
  tacticalTerminal.showCommand(!focus?.selected);tacticalTerminal.setGame(game);
@@ -307,7 +312,7 @@ function renderQuickMenu(){
   const drone=tools.find(t=>t.label==='Hold drone orbit');if(drone)add(list,'Hold drone orbit',()=>{runTool(drone);renderQuickMenu();},drone.isActive?.());
   const hint=document.createElement('p');hint.textContent='Choose a view to return directly to the scene.';content.append(hint);
  }else if(quickSection==='scenario'){
-  heading(droneFeed?'Linked operation':'Operation mode');if(droneFeed){const note=document.createElement('p');note.textContent='Live feed follows the saved operation. Mode and restart controls are available in the standalone scenario.';content.append(note);}const list=grid();
+  const liveCity=droneFeed&&manager.id==='dev/city';heading(liveCity?'Linked operation':'Operation mode');if(liveCity){const note=document.createElement('p');note.textContent='Live feed follows the saved operation. Mode and restart controls are available in the standalone scenario.';content.append(note);}const list=grid();
   for(const tool of tools.filter(t=>!t.label.startsWith('View: ')&&!/Restart|Slow motion|Freeze|Hold drone/.test(t.label)))add(list,tool.label,()=>{runTool(tool);closeQuickMenu();},tool.isActive?.());
   heading('Scenario tools');const actions=grid();
   for(const tool of tools.filter(t=>/Restart|Slow motion|Freeze/.test(t.label)))add(actions,tool.label.replace(' on/off',''),()=>{runTool(tool);renderQuickMenu();},tool.isActive?.());
@@ -374,7 +379,7 @@ requestAnimationFrame(frame);
 pollCity();
 const at=params.get('at'),startView=params.get('view')||(at==='meeting'?'meeting-table':null);
 if(at&&PLACES[at]){
- await travel(PLACES[at],undefined,{drone:at==='city'&&params.get('from')==='map'});
+ await travel(PLACES[at],undefined,{drone:params.get('from')==='map'&&Object.values(FEEDS).some(f=>f.place===at)});
  if(!manager.current)await travel('outside');
  else if(at==='snowfield'){overview=false;setPose(manager.current.spawn);updateUI();}
  else if(at==='map')openSituationTerminal();

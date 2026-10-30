@@ -18,6 +18,8 @@ Each scenario loads on its own, and the address changes to `bunker.html?dev=<id>
 | File | What it shows | E does |
 |------|---------------|--------|
 | `city.js` | Night city and corner market: Patrol, Alert, Take cover, Firefight, and Intruders. Four camera views, cutaway overhead, solid walls and cover, line-of-sight combat, recurring intruder waves and operation status. | Next mode |
+| `safehouse-pine.js` | Hollow Pine safe house: log farmhouse near Frostford, four rangers (watch, radio, patrol round, asleep). Enemy patrol drives past; lights out, everyone to a window. | Nearest action (talk, door, hatch, fire, radio) |
+| `safehouse-loft.js` | Tinker's Loft safe house: flat above a clock shop in Drakenburg, four plain-clothes operatives, hidden radio room behind a bookcase, roof terrace. | Nearest action (talk, bookcase, blinds, chess, radio) |
 | `locomotion.js` | Soldier circling a track; idle/walk/run blend and clip rate follow ground speed | Next gait |
 | `start-stop.js` | Sprint between marks; position eased per leg, eased 180° turn | Next speed curve |
 | `aim.js` | Body yaw on a critically damped spring, two-bone IK arms on an aim line, laser | Raise / lower weapon (IK weight eases) |

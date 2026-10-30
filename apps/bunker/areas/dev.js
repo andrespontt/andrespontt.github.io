@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { disposeScene } from '../area-manager.mjs';
 import { soldierUrl } from '../crew.js';
 import { createCharacter, createLabel, createSoldier } from '../dev/kit.js';
-import scenarios from '../dev/scenarios/index.js';
+import scenarios from '../dev/scenarios/index.js?v=safe1';
 
 // Dev sandbox: one scenario per visit, chosen by the area variant ('dev/<id>').
 const PAD = 6.8;
@@ -36,7 +36,8 @@ export async function createArea(saved = {}, { variant, linked = false } = {}) {
   if (scenario.fog) { scene.fog = scenario.fog.length > 2 ? new THREE.Fog(...scenario.fog) : new THREE.FogExp2(scenario.fog[0], scenario.fog[1]); scene.background = new THREE.Color(scenario.fog[0]); }
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: '#33424a', roughness: 1 }));
   // Scenarios with their own ground (noPad) get the floor pushed well below it, so the two surfaces never fight.
-  floor.rotation.x = -Math.PI / 2; floor.position.y = scenario.noPad ? -.2 : 0; scene.add(floor);
+  // floorY lowers it further for scenes built above street level (the Tinker's Loft safe house).
+  floor.rotation.x = -Math.PI / 2; floor.position.y = scenario.noPad ? scenario.floorY ?? -.2 : 0; scene.add(floor);
   if(!scenario.noPad){const grid = new THREE.GridHelper(200, 200, '#4f6670', '#40525a'); grid.position.y = .005; scene.add(grid);}
   if (!scenario.noPad) {
     const pad = new THREE.Mesh(new THREE.CircleGeometry(PAD, 48), new THREE.MeshStandardMaterial({ color: '#26343a', roughness: 1 }));

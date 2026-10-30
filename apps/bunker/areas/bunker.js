@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { wallSurvey } from '../sector.js?v=room4';
+import { wallSurvey } from '../sector.js?v=safe1';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { soldierUrl, addCommandStaff, OPERATOR_STATIONS, COMMAND_GUARDS } from '../crew.js';
 

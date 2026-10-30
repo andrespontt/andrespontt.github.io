@@ -8,5 +8,7 @@ import balls from './balls.js';
 import rope from './rope.js';
 import easing from './easing-lanes.js';
 import city from './city.js';
+import safehousePine from './safehouse-pine.js';
+import safehouseLoft from './safehouse-loft.js';
 
-export default [city, locomotion, startStop, aim, jump, balls, rope, easing];
+export default [city, safehousePine, safehouseLoft, locomotion, startStop, aim, jump, balls, rope, easing];

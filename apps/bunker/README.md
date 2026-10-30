@@ -148,7 +148,7 @@ See [AREA-CONTRACT.md](AREA-CONTRACT.md) for adding another area.
 Run:
 
 ```
-node --test apps/bunker/area-manager.test.mjs apps/bunker/movement.test.mjs apps/bunker/areas/bunker-movement.test.mjs apps/bunker/protectorate.test.mjs
+node --test apps/bunker/area-manager.test.mjs apps/bunker/movement.test.mjs apps/bunker/areas/bunker-movement.test.mjs apps/bunker/protectorate.test.mjs apps/bunker/sector.test.mjs apps/bunker/dev/safehouse-plans.test.mjs
 ```
 
 Tests cover lazy loading, failed imports, overlapping transitions, restored state,
@@ -175,6 +175,8 @@ Every place has its own address, so a refresh returns there:
 | `?at=map` | Situation room with the map open |
 | `?at=command` | Situation room with the command desk open (`?at=trucks` also works) |
 | `?at=city` (`&view=drone`, `street`, `inside-store`…) | City operation, Kestrel Falls |
+| `?at=hollow-pine` (`&view=yard`, `across-the-road`, `cutaway`) | Hollow Pine safe house |
+| `?at=tinker-loft` (`&view=roof-terrace`, `across-the-street`, `cutaway`) | Tinker's Loft safe house |
 | `?dev=<id>`, `?dev` | Other dev scenarios, scenarios menu |
 
 The map in the bunker shows Kestrel Falls, the closest city (38 km SW, sleet rather than snow). Its card shows the
@@ -219,4 +221,32 @@ Campaign expansion: 500 starting soldiers; a 50,000 standing-force limit include
 The strategic city now has 18 districts (432 buildings), twice its previous area; the first-person market scenario is unchanged. Businesses tab: six properties, a starting treasury of 5,000, one-time purchases, and daily income at midnight. Saves migrate without resetting existing progress.
 
 
-The Veyr river marks the eastern border, with North, Central and South crossings. Beyond it lie Drakenburg (18 districts and 432 map buildings, using the same street and block pattern as Kestrel Falls) and Frostford, Ironhollow, Redhaven and Ashgate. Select their map markers for intelligence and bridge-based routes; East focuses this region. These are strategic survey locations, not additional playable city scenes.
+The Veyr river marks the eastern border, with North, Central and South crossings. Beyond it lie Drakenburg (18 districts and 432 map buildings, using the same street and block pattern as Kestrel Falls) and Frostford, Ironhollow, Redhaven and Ashgate. Select their map markers for intelligence and bridge-based routes; East focuses this region. These are strategic survey locations, not additional playable city scenes; the two safe houses below are the playable places behind the river.
+
+## Safe houses (behind the Veyr)
+
+Outpost 07 keeps two safe houses in enemy territory, each a playable zone like the City. Both show on the map as green
+house markers with a dashed ring; their card's **▶ Helmet cam** opens the house (`&from=map`), and **Return to command
+center** brings you back to the map with that card selected. They are also in the Dev scenarios menu.
+
+| | Hollow Pine | Tinker's Loft |
+|---|---|---|
+| Where | Log farmhouse in the pines south-west of Frostford, 2 km past the North Crossing | Flat above a shuttered clock shop in Drakenburg's Riverside district |
+| Team | Four rangers in uniform (Halvorsen, Dahl, Moss, Lund) | Four operatives in plain clothes, weapons out of sight (Okafor, Marek, Teo, Ilić) |
+| On duty | Window watch on the Frostford road, radio, a patrol round (warms his hands at the hearth), one asleep on the bunk | Window watch on the militia bar, the stairs to the shop, a patrol round (chess, the pigeons on the roof), the radio |
+| Weather | Snow, −18 °C | Freezing rain, +1 °C |
+| Things to do | Front door, cellar hatch, a log on the fire | Sliding bookcase to the hidden radio room, blinds, a chess move |
+| Views | Inside, Yard, Across the road, Cutaway | Inside, Roof terrace, Across the street (stake-out, look only), Cutaway |
+
+Walk up to a guard and press **E** to talk; each has a few lines about the house and the war. At the radio, **Radio
+check with Outpost 07** reads back the campaign from the command desk (day, soldiers ready, towns protected, under
+attack or occupied). Every minute or two an enemy patrol drives past (also **Patrol passing** in Scenario controls):
+the watcher calls it, the lamps go out, everyone takes a window and crouches (the sleeper gets up), the vehicle crawls
+past sweeping the house with its roof light, and after the all-clear they go back to their posts. With Sound on the
+engine is heard coming.
+
+Floor plans (walls with door and window openings, furniture, guard posts, patrol road) are plain data in
+`dev/safehouse-plans.js`; `dev/safehouse.js` runs the guards, the patrol, weather and talking; each house's look and
+lines are in `dev/scenarios/safehouse-pine.js` and `safehouse-loft.js`. Tests: `node --test
+apps/bunker/dev/safehouse-plans.test.mjs` (posts clear of furniture, every patrol leg and run to a window walkable, the
+door, hatch, bookcase and stairwell).

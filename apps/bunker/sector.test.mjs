@@ -68,3 +68,18 @@ test('eastern capital reuses the existing city block pattern',async()=>{
  const {CITY_BUILDINGS,ENEMY_BUILDINGS,CITY,ENEMY_CITY}=await import('./sector.js');
  assert.deepEqual(ENEMY_BUILDINGS.map(b=>({...b,x:b.x-ENEMY_CITY.x,z:b.z-ENEMY_CITY.z})).map(b=>({...b,x:+b.x.toFixed(6),z:+b.z.toFixed(6)})),CITY_BUILDINGS.map(b=>({...b,x:+(b.x-CITY.x).toFixed(6),z:+(b.z-CITY.z).toFixed(6)})));
 });
+
+test('two safe houses sit behind the river, each with a route over a bridge and its own address',async()=>{
+ const {borderX,BRIDGES,SAFE_HOUSES,SITES,ENEMY_DISTRICTS}=await import('./sector.js');
+ assert.equal(SAFE_HOUSES.length,2);
+ assert.equal(new Set(SAFE_HOUSES.map(h=>h.place)).size,2);
+ for(const h of SAFE_HOUSES){
+  assert.ok(h.x>borderX(h.z)+10,`${h.name} is east of the Veyr`);
+  assert.equal(SITES[h.id].name,h.name);
+  const route=routeTo(h.id);assert.deepEqual(route.at(-1),[h.x,h.z]);
+  assert.ok(BRIDGES.some(b=>route.some(p=>p[0]===b.x+10&&p[1]===b.z)),'crosses a bridge');
+ }
+ // Tinker's Loft is inside Drakenburg's Riverside district.
+ const loft=SAFE_HOUSES.find(h=>h.place==='tinker-loft'),riverside=ENEMY_DISTRICTS.find(d=>d.name==='Riverside');
+ assert.ok(loft.x>riverside.x&&loft.x<riverside.x+riverside.width&&loft.z>riverside.z&&loft.z<riverside.z+riverside.depth);
+});
