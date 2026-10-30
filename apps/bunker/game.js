@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { AreaManager } from './area-manager.mjs';
-import { createTerminal } from './terminal.js?v=protect1';
-import { createGame, advance as advanceGame, act, military, clock, restoreGame } from './protectorate.mjs';
+import { createTerminal } from './terminal.js?v=protect2';
+import { createGame, advance as advanceGame, act, military, clock, restoreGame } from './protectorate.mjs?v=protect2';
 
 const $=id=>document.getElementById(id);
 const canvas=$('scene');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 const camera=new THREE.PerspectiveCamera(70,1,.05,240);
-const manager=new AreaManager({outside:()=>import('./areas/outside.js'),vehicle:()=>import('./areas/vehicle.js'),bunker:()=>import('./areas/bunker.js?v=room3'),dev:()=>import('./areas/dev.js')},{onDispose(){renderer.renderLists.dispose();}});
+const manager=new AreaManager({outside:()=>import('./areas/outside.js'),vehicle:()=>import('./areas/vehicle.js'),bunker:()=>import('./areas/bunker.js?v=room4'),dev:()=>import('./areas/dev.js')},{onDispose(){renderer.renderLists.dispose();}});
 const names={outside:'Snowfield / Outpost 07',vehicle:'Nomad / Crew compartment',bunker:'Bunker 07 / Situation room',dev:'Dev / Scenarios'};
 let overview=true,paused=false,transitioning=false,terminalOpen=false,weather='blizzard',yaw=0,pitch=0,distance=38,drag=null,fallbackLook=false,last=performance.now(),diagnosticTime=0;
 const walker={x:0,z:0},keys=new Set(),fine=matchMedia('(pointer:fine)');

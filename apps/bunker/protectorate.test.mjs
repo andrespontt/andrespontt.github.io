@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, advance, act, reason, military, battle, winChance, settlement, trainable, roadPosition, objective, DAY, STEP, RULES, restoreGame, SETTLEMENTS } from './protectorate.mjs';
+import { createGame, advance, act, reason, military, battle, winChance, settlement, trainable, roadPosition, objective, DAY, STEP, RULES, restoreGame, SETTLEMENTS, nextBunkerIntake } from './protectorate.mjs';
 
 const START = RULES.start.soldiers;
 // Every soldier ever trained minus every soldier killed must be somewhere: bunker, garrison or road.
@@ -327,24 +327,32 @@ test('all five new towns accept agreements and replenish bulk volunteers; refine
 });
 
 
-test('bunker recruitment continues with every town occupied, caps and can be enlisted once', () => {
+test('bunker recruitment continues with every town occupied, arrives in groups, caps and can be enlisted once', () => {
   let s = peaceful(95);
   s.settlements.forEach(x => { x.status='occupied'; x.nextDeliveryTick=null; });
-  assert.equal(s.bunkerVolunteers,25);
+  assert.equal(s.bunkerVolunteers,50);
+  assert.equal(nextBunkerIntake(s),3*DAY);
+  s=advance(s,2*DAY);
+  assert.equal(s.bunkerVolunteers,50,'nothing before the intake day');
   s=advance(s,DAY);
-  assert.equal(s.bunkerVolunteers,35);
-  const order={type:'recruit-bunker',count:35};
+  assert.equal(s.bunkerVolunteers,100,'a group of 50 on day 4');
+  assert.equal(nextBunkerIntake(s),6*DAY);
+  s=act(s,{type:'recruit-bunker',count:50});
+  assert.equal(s.bunkerVolunteers,50); assert.equal(s.recruits,50);
+  const order={type:'recruit-bunker',count:50};
   const before=s;
   s=act(s,order);
-  assert.equal(before.bunkerVolunteers,35);
-  assert.equal(s.bunkerVolunteers,0); assert.equal(s.recruits,35);
-  assert.equal(act(s,order),s);
+  assert.equal(before.bunkerVolunteers,50);
+  assert.equal(s.bunkerVolunteers,0); assert.equal(s.recruits,100);
+  assert.equal(act(s,order),s,'an empty pool refuses');
   s=act(s,{type:'train'});
-  assert.equal(military(s).recruitsInTraining,35);
+  assert.equal(military(s).recruitsInTraining,100);
   s=advance(s,3*DAY);
-  assert.equal(s.stats.trained,35); assert.equal(s.bunkerVolunteers,30);
-  s=advance(s,20*DAY); assert.equal(s.bunkerVolunteers,100);
+  assert.equal(s.stats.trained,100); assert.equal(s.bunkerVolunteers,50);
+  s=advance(s,20*DAY); assert.equal(s.bunkerVolunteers,150);
+  const full=s.time; s=advance(s,3*DAY);
+  assert.ok(!s.log.some(e=>e.at>full&&e.text.includes('reached the bunker')),'a full pool stops logging intakes');
   const saved=JSON.parse(JSON.stringify(s)); delete saved.bunkerVolunteers;
-  const restored=restoreGame(saved); assert.equal(restored.bunkerVolunteers,25);
+  const restored=restoreGame(saved); assert.equal(restored.bunkerVolunteers,50);
   assert.deepEqual(restoreGame(restored),restored);
 });

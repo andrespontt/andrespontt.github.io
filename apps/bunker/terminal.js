@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { disposeScene } from './area-manager.mjs';
-import { SITES, WEATHER, SECTOR, CITY, CITY_DISTRICTS, CITY_BUILDINGS, SETTLEMENT_SITES, elevation, routeTo, roadPoint, surveyCanvas, surveySpan, surveyScale } from './sector.js?v=room3';
+import { SITES, WEATHER, SECTOR, CITY, CITY_DISTRICTS, CITY_BUILDINGS, SETTLEMENT_SITES, elevation, routeTo, roadPoint, surveyCanvas, surveySpan, surveyScale } from './sector.js?v=room4';
 import { summary } from './city-ops.mjs';
-import { roadPosition, settlement } from './protectorate.mjs';
-import { createCommandDesk, describeUnit } from './command.js';
+import { roadPosition, settlement } from './protectorate.mjs?v=protect2';
+import { createCommandDesk, describeUnit } from './command.js?v=protect2';
 
 // The situation terminal: the 3D sector map (terrain, Kestrel Falls, sites, settlements and the units moving
 // between them) beside the command desk (command.js), where the protectorate game is played.
@@ -37,7 +37,7 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
   const desk=createCommandDesk({stock:$('cmd-stock'),desk:$('ops-command'),overlay:$('cmd-overlay'),onAction:a=>onAction?.(a),onReset:()=>onReset?.(),onTrack:track});
   $('ops-city-view').onclick=()=>{
     target.set(CITY.x+CITY.districtWidth*1.5,0,CITY.z+CITY.districtDepth*1.5-5); // Leave room above the city for map controls.
-    const aspect=width/height,vertical=tilted?CITY.districtDepth*3*120/Math.hypot(120,75)+8:CITY.districtDepth*3;
+    const aspect=width/(height-mapTop()),vertical=tilted?CITY.districtDepth*3*120/Math.hypot(120,75)+8:CITY.districtDepth*3;
     zoom=Math.min(7,surveySpan(aspect,tilted)/(Math.max(vertical,CITY.districtWidth*3/aspect)*1.3));draw();
   };
   const markers={};for(const [id,s] of Object.entries(SITES)){
@@ -130,17 +130,18 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
   }
   function startLoop(){if(still.matches){animate(performance.now());draw();return;}if(!raf)raf=requestAnimationFrame(tick);}
   function project(x,z){return new THREE.Vector3(x,elevation(x,z)+.5,z).project(camera);}
-  const place=(el,x,z)=>{const p=project(x,z);el.style.left=(p.x*.5+.5)*width+'px';el.style.top=(-p.y*.5+.5)*height+'px';return p;};
+  const place=(el,x,z)=>{const p=project(x,z);el.px=(p.x*.5+.5)*width;el.py=(-p.y*.5+.5)*height;el.style.left=el.px+'px';el.style.top=el.py+'px';return p;};
   function cameraUpdate(){
-    // Frame the sector in its dedicated viewport at every screen size.
-    const aspect=width/height,span=surveySpan(aspect,tilted)/zoom;
-    camera.left=-span*aspect/2;camera.right=span*aspect/2;camera.top=span/2;camera.bottom=-span/2;
+    // Frame the sector in its dedicated viewport at every screen size, in the part below the map tools (on a phone
+    // they cover the top of a short map): the frustum gains `lift` above the framed area.
+    const top=mapTop(),aspect=width/(height-top),span=surveySpan(aspect,tilted)/zoom,lift=span*top/(height-top);
+    camera.left=-span*aspect/2;camera.right=span*aspect/2;camera.top=span/2+lift;camera.bottom=-span/2;
     camera.up.set(0,1,0);camera.position.copy(target).add(tilted?new THREE.Vector3(0,120,75):new THREE.Vector3(0,150,.001));camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();
   }
   function draw(){
-    if(!active||!renderer)return;cameraUpdate();renderer.render(scene,camera);
-    for(const [id,s] of Object.entries(SITES)){const b=markers[id],p=place(b,s.x,s.z);b.hidden=(id==='echo'&&!state.scanned)||Math.abs(p.x)>1.1||Math.abs(p.y)>1.1;b.classList.toggle('label-left',(p.x*.5+.5)*width>width*.68);b.setAttribute('aria-pressed',String(id===state.selected));}
-    placeTowns();placeUnits();
+    if(!active||!renderer)return;measureLabels();cameraUpdate();renderer.render(scene,camera);
+    for(const [id,s] of Object.entries(SITES)){const b=markers[id],p=place(b,s.x,s.z);b.hidden=(id==='echo'&&!state.scanned)||Math.abs(p.x)>1.1||Math.abs(p.y)>1.1;b.setAttribute('aria-pressed',String(id===state.selected));}
+    placeTowns();placeUnits();layoutLabels();
     $('ops-zoom-label').textContent=zoom.toFixed(1)+'×';
     const units=(camera.right-camera.left)/width,{meters,pixels}=surveyScale(units*50);
     $('ops-scale-bar').style.width=pixels+'px';$('ops-scale-text').textContent=meters>=1000?(meters/1000)+' km':meters+' m';
@@ -169,10 +170,45 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
     for(const [id,b] of Object.entries(towns)){
       const site=SETTLEMENT_SITES[id],x=game&&settlement(game,id),p=place(b,site.x,site.z);
       b.hidden=!x||Math.abs(p.x)>1.1||Math.abs(p.y)>1.1;if(!x)continue;
-      // Label under the icon only when it would run off the map (to the left it would cover Kestrel Falls).
-      b.dataset.status=x.status;b.classList.toggle('label-below',(p.x*.5+.5)*width+30+b.querySelector('span').offsetWidth>width-6);b.setAttribute('aria-pressed',String(desk.selected===id&&root.classList.contains('command-mode')));
-      const label=x.status==='protected'?`${x.name} · ${x.assignedSoldiers}/${x.recommendedGarrison}`:x.status==='under_attack'?`${x.name} · ATTACK`:`${x.name} · ${STATUS_LABEL[x.status]}`;
-      const span=b.querySelector('span');if(span.textContent!==label){span.textContent=label;b.setAttribute('aria-label',`${x.name}, ${x.kind}, ${x.status.replace('_',' ')}. Open its management card.`);}
+      b.dataset.status=x.status;b.setAttribute('aria-pressed',String(desk.selected===id&&root.classList.contains('command-mode')));
+      // Phones drop the part after the name (<em>) unless the town is selected: its colour already shows its status.
+      const suffix=x.status==='protected'?`${x.assignedSoldiers}/${x.recommendedGarrison}`:STATUS_LABEL[x.status],label=x.name+' · '+suffix;
+      const span=b.querySelector('span');if(span.textContent!==label){span.innerHTML=`${x.name}<em> · ${suffix}</em>`;b.setAttribute('aria-label',`${x.name}, ${x.kind}, ${x.status.replace('_',' ')}. Open its management card.`);}
+    }
+  }
+  // ── Map labels ───────────────────────────────────────────────────────────────────────────────────
+  // Each label sits right, left, below or above its icon, or off one of its corners: the first spot clear of other
+  // icons, labels and map controls. Most important first: your own towns, then the outpost and the city, then
+  // neutral towns. A label with no clear spot is hidden (its icon stays tappable); the selected marker always shows
+  // its own. Sizes are read before the frame's writes, so layout is not forced.
+  const SIDES=['right','left','below','above','above-right','below-right','above-left','below-left'],RANK={under_attack:0,occupied:1,protected:2,shelter:3,city:4,neutral:5,relay:6,nomad:7,echo:8};
+  const labelled=()=>[...Object.values(markers),...Object.values(towns)];
+  let overlays=[],labelGap=6,toolsBottom=0;const sizes=new Map();
+  function mapTop(){return Math.min(height*.25,toolsBottom);}
+  function measureLabels(){
+    const v=viewport.getBoundingClientRect(),tools=viewport.querySelector('.ops-tools').getBoundingClientRect();
+    toolsBottom=tools.height?tools.bottom-v.top+4:0;
+    overlays=[...viewport.querySelectorAll('.ops-tools,.ops-zoom,.ops-north,.ops-scale,.ops-help,.ops-selection,#ops-unit')].map(el=>el.getBoundingClientRect()).filter(r=>r.width).map(r=>({x:r.left-v.left,y:r.top-v.top,w:r.width,h:r.height}));
+    labelGap=parseFloat(getComputedStyle($('ops-markers')).getPropertyValue('--label-gap'))||6;
+    for(const b of labelled()){const s=b.lastElementChild;sizes.set(b,{r:b.offsetWidth/2,w:s.offsetWidth,h:s.offsetHeight});}
+  }
+  const overlap=(a,b)=>a.x<b.x+b.w+2&&b.x<a.x+a.w+2&&a.y<b.y+b.h+2&&b.y<a.y+a.h+2;
+  function labelBox({x,y,r,w,h},side){   // must match the [data-label] rules in terminal.css
+    const g=labelGap,[dx,dy]={right:[r+g,-h/2],left:[-r-g-w,-h/2],below:[-w/2,r+3],above:[-w/2,-r-3-h],
+      'above-right':[r,-r-h],'below-right':[r,r],'above-left':[-r-w,-r-h],'below-left':[-r-w,r]}[side];
+    return {x:x+dx,y:y+dy,w,h};
+  }
+  function layoutLabels(){
+    const list=labelled().filter(b=>!b.hidden&&sizes.get(b)?.r).map(b=>({b,x:b.px,y:b.py,...sizes.get(b),rank:b.getAttribute('aria-pressed')==='true'?-1:RANK[b.dataset.status||b.dataset.site]??9}));
+    const taken=[...overlays,...list.map(m=>({x:m.x-m.r,y:m.y-m.r,w:2*m.r,h:2*m.r,own:m.b}))];
+    for(const m of list.sort((a,b)=>a.rank-b.rank)){
+      let side='none';
+      if(m.w){
+        const boxes=SIDES.map(s=>[s,labelBox(m,s)]),inside=boxes.filter(([,r])=>r.x>=2&&r.y>=2&&r.x+r.w<=width-2&&r.y+r.h<=height-2);
+        const pick=inside.find(([,r])=>!taken.some(o=>o.own!==m.b&&overlap(o,r)))||(m.rank<0?inside[0]||boxes[0]:null);
+        if(pick){side=pick[0];taken.push(pick[1]);}
+      }
+      if(m.b.dataset.label!==side)m.b.dataset.label=side;
     }
   }
   const TRUCK='<svg viewBox="0 0 24 16" aria-hidden="true"><path d="M1 2h13v10H1zM14 5h5l4 4v3h-9z"/><circle cx="6" cy="13" r="2.2"/><circle cx="18" cy="13" r="2.2"/></svg>';
@@ -240,7 +276,7 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
   const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(viewport);
   return {
     // Live operation state for the Kestrel Falls card; the marker only pulses during contact.
-    setCity(op){cityOp=op;markers.city?.classList.toggle('ops-alert',op?.phase==='contact');markers.city.querySelector('span').textContent=op?.phase==='contact'?'Kestrel Falls · CONTACT':'Kestrel Falls · Cordon';const ring=scene?.getObjectByName('conflict-ring');if(ring)ring.material.color.set(op?.phase==='contact'?'#ff694c':'#94bcb2');if(state.selected==='city')update();else draw();},
+    setCity(op){cityOp=op;markers.city?.classList.toggle('ops-alert',op?.phase==='contact');markers.city.querySelector('span').innerHTML=op?.phase==='contact'?'Kestrel Falls<em> · CONTACT</em>':'Kestrel Falls<em> · Cordon</em>';const ring=scene?.getObjectByName('conflict-ring');if(ring)ring.material.color.set(op?.phase==='contact'?'#ff694c':'#94bcb2');if(state.selected==='city')update();else draw();},
     open(next){state={...state,...next};if(!SITES[state.selected])state.selected='shelter';if(state.route&&!SITES[state.route])state.route=null;root.hidden=false;active=true;init();resize();update();startLoop();canvas.focus({preventScroll:true});},
     close(){active=false;cancelAnimationFrame(raf);raf=0;root.hidden=true;pointers.clear();clearTimeout(scanTimer);scanTimer=null;root.classList.remove('ops-scanning');$('ops-scan').disabled=false;$('ops-scan').textContent=state.scanned?'Rescan sector':'Scan sector';},
     snapshot(){return {...state};},

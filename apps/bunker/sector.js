@@ -38,7 +38,8 @@ export function routeTo(id) {
 // Protectorate settlements (protectorate.mjs) and the roads their trucks and our soldiers drive, bunker first.
 export const SETTLEMENT_SITES = {
   orchard: { x: -22, z: 72, road: [[-25,-8],[-18,2],[-12,12],[-28,28],[-22,72]] },
-  quarry: { x: -62, z: -12, road: [[-25,-8],[-45,-4],[-62,-12]] },
+  // The quarry lies west of the valley, up a branch off the farm track (its road is as long as its 22 s trip).
+  quarry: { x: -70, z: 16, road: [[-25,-8],[-18,2],[-12,12],[-28,28],[-46,30],[-70,16]] },
   refinery: { x: 99, z: -24, road: [[-25,-8],[-18,2],[-3,-9],[31,-26],[52,-38],[99,-24]] },
   depot: { x: -58, z: 85, road: [[-25,-8],[-18,2],[-12,12],[-28,28],[-52,44],[-58,85]] },
   lakeside: { x: 103, z: 82, road: [[-25,-8],[-18,2],[-12,12],[0,19],[26,23],[90,23],[103,82]] },

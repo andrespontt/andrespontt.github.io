@@ -3,11 +3,12 @@
 // It only reads the game state and turns clicks into orders (onAction); protectorate.mjs decides what happens.
 // Panels are re-rendered from the state several times a second; morph() patches the DOM in place so buttons
 // keep focus and clicks are never lost to a redraw.
-import { RULES, DAY, RESOURCES, military, settlement, security, siege, winChance, riskLabel, trainable, travelTime, reason, objective, clock, dateLabel } from './protectorate.mjs';
+import { RULES, DAY, RESOURCES, military, settlement, security, siege, winChance, riskLabel, trainable, travelTime, reason, objective, clock, dateLabel, nextBunkerIntake } from './protectorate.mjs?v=protect2';
 
 const STATUS = { protected: 'PROTECTED', under_attack: 'UNDER ATTACK', occupied: 'OCCUPIED', neutral: 'NEUTRAL' };
 const TABS = [['overview', 'Overview', 'Brief'], ['settlements', 'Settlements', 'Towns'], ['military', 'Military', 'Military'], ['operations', 'Operations', 'Ops'], ['log', 'Event log', 'Log']];
 const KIND = { deploy: 'Garrison deployment', reinforce: 'Reinforcements', liberate: 'Liberation force', agreement: 'Agreement escort', return: 'Returning soldiers' };
+const GROUP = 50;   // orders move soldiers and volunteers in groups of this size (map markers are formations)
 const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
 const pct = v => Math.round(v * 100) + '%';
@@ -51,11 +52,15 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
   }
 
   // ── Quantity steppers ────────────────────────────────────────────────────────────────────────────
-  // Each stepper remembers its value by key; until touched it follows a sensible default.
+  // Each stepper remembers its value by key; until touched it follows a sensible default. −/+ move to the
+  // previous/next multiple of GROUP (never below one group, or below everything when less is on hand); All takes it all.
   const amount = (key, max, fallback) => max < 1 ? 0 : Math.max(1, Math.min(max, ui.qty[key] ?? fallback));
-  function stepper(key, max, fallback, label) {
+  const stepTo = (n, dir, max) => dir === 'all' ? max
+    : Math.min(max, Math.max(Math.min(GROUP, max), dir > 0 ? (Math.floor(n / GROUP) + 1) * GROUP : (Math.ceil(n / GROUP) - 1) * GROUP));
+  function stepper(key, max, fallback, label, unit = 'soldiers') {
     const n = amount(key, max, fallback);
-    return `<div class="cmd-stepper" role="group" aria-label="${esc(label)}"><button data-act="qty" data-key="${key}" data-delta="-50" data-max="${max}" aria-label="50 fewer soldiers"${n <= 1 ? ' disabled' : ''}>−50</button><output aria-live="polite">${n}</output><button data-act="qty" data-key="${key}" data-delta="50" data-max="${max}" aria-label="50 more soldiers"${n >= max ? ' disabled' : ''}>+50</button><button data-act="qty" data-key="${key}" data-delta="${max}" data-max="${max}" aria-label="Select all available"${n >= max ? ' disabled' : ''}>All</button></div>`;
+    const button = (dir, text, aria, off) => `<button data-act="qty" data-key="${key}" data-dir="${dir}" data-max="${max}" aria-label="${aria}"${off ? ' disabled' : ''}>${text}</button>`;
+    return `<div class="cmd-stepper" role="group" aria-label="${esc(label)}">${button(-1, '−' + GROUP, `${GROUP} fewer ${unit}`, n <= Math.min(GROUP, max))}<output aria-live="polite">${n}</output>${button(1, '+' + GROUP, `${GROUP} more ${unit}`, n >= max)}${button('all', 'All', `All ${max} ${unit}`, n >= max)}</div>`;
   }
   const order = (label, a, cls = '') => { const why = reason(game, a); return `<button class="cmd-btn ${cls}" data-act="${a.type}"${a.id ? ` data-id="${a.id}"` : ''}${a.count != null ? ` data-count="${a.count}"` : ''}${disabled(why)}>${label}</button>`; };
 
@@ -105,7 +110,7 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
     const rKey = 'recruit:' + x.id, rN = amount(rKey, x.availableVolunteers, x.availableVolunteers);
     const assign = { type: 'assign', id: x.id, count: gN }, recall = { type: 'recall', id: x.id, count: gN }, recruit = { type: 'recruit', id: x.id, count: rN };
     return `<div class="cmd-control"><span>Garrison</span>${stepper(gKey, gMax, gN, 'Soldiers')}${order(`+ Assign ${gN}`, assign, 'primary')}${order(`− Recall ${gN}`, recall)}</div>
-      <div class="cmd-control"><span>Volunteers</span>${stepper(rKey, x.availableVolunteers, rN, 'Volunteers')}${order(`Recruit ${rN}`, recruit)}</div>
+      <div class="cmd-control"><span>Volunteers</span>${stepper(rKey, x.availableVolunteers, rN, 'Volunteers', 'volunteers')}${order(`Recruit ${rN}`, recruit)}</div>
       ${hint(game.available ? '' : 'No soldiers available at the bunker to assign.')}`;
   }
   function settlementCard(x) {
@@ -151,21 +156,25 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
   function militaryPanel() {
     const f = military(game), total = Math.max(1, f.totalSoldiers);
     const bar = [['available', f.availableSoldiers], ['deployed', f.deployedSoldiers], ['transit', f.soldiersInTransit]].map(([k, v]) => v ? `<i class="seg-${k}" style="width:${v / total * 100}%" title="${k}: ${v}"></i>` : '').join('');
-    const pool = game.bunkerVolunteers ?? RULES.bunkerRecruitment.initial;
+    const intake = RULES.bunkerRecruitment, pool = game.bunkerVolunteers ?? intake.initial, nextIntake = nextBunkerIntake(game);
+    const bKey = 'recruit:bunker', bN = amount(bKey, pool, pool);
+    // Only protected towns can be recruited from; the rest are listed by why not.
+    const closed = Object.entries({ neutral: 'no agreement', under_attack: 'under attack', occupied: 'occupied' })
+      .map(([st, why]) => { const names = game.settlements.filter(x => x.status === st).map(x => x.name); return names.length ? `${names.join(', ')} (${why})` : ''; }).filter(Boolean);
     const canTrain = trainable(game), why = reason(game, { type: 'train' });
     return `<h4 class="cmd-h">Forces <span>${f.totalSoldiers} soldiers</span></h4>
       <div class="cmd-forcebar" aria-hidden="true">${bar}</div>
       <dl class="cmd-facts cmd-legend"><dt><i class="seg-available"></i>Available at the bunker</dt><dd>${f.availableSoldiers}</dd><dt><i class="seg-deployed"></i>Deployed in garrisons</dt><dd>${f.deployedSoldiers}</dd><dt><i class="seg-transit"></i>On the road</dt><dd>${f.soldiersInTransit}</dd><dt>Killed in action</dt><dd>${game.stats.killed}</dd></dl>
       <ul class="cmd-list compact">${game.settlements.filter(x => x.status === 'protected' || x.status === 'under_attack').map(x => `<li><i class="dot st-${x.status}"></i><span><b>${esc(x.name)}</b><small>${security(x)}</small></span><em>${x.assignedSoldiers}/${x.recommendedGarrison}</em><button class="cmd-link" data-act="select" data-id="${x.id}">Manage</button></li>`).join('')}</ul>
-      <p class="cmd-note">Command groups of soldiers: −50 / +50 adjusts the order; All selects the entire available pool. Map markers represent whole formations.</p><h4 class="cmd-h">Recruitment <span>${f.untrainedRecruits} untrained recruits</span></h4>
-      <article class="cmd-card"><h4 class="cmd-h">Bunker recruitment <span>${pool} / ${RULES.bunkerRecruitment.capacity}</span></h4>
-      <p class="cmd-note">Independent volunteers arrive even when all towns are occupied. +${RULES.bunkerRecruitment.perDay} per game day · next intake in ${clock(DAY - now % DAY)}. The pool holds ${RULES.bunkerRecruitment.capacity}; enlist volunteers to make room.</p>
-      ${order(`Enlist ${pool} volunteers`, { type: 'recruit-bunker', count: pool }, 'primary wide')}
-      <p class="cmd-note">Volunteers join your untrained recruits. Training still needs equipment and food.</p></article>
-      ${game.settlements.map(x => {
+      <p class="cmd-note">Orders move soldiers in groups of ${GROUP}: −${GROUP} / +${GROUP} adjust an order and All takes everyone available. Map markers are whole formations.</p><h4 class="cmd-h">Recruitment <span>${f.untrainedRecruits} untrained recruits</span></h4>
+      <article class="cmd-card"><div class="cmd-card-head"><div><small>OUTPOST 07 · INDEPENDENT VOLUNTEERS</small><h4>Bunker recruitment</h4></div><span class="cmd-chip">${pool} / ${intake.capacity}</span></div>
+      <p class="cmd-note">Drifters reach the bunker even when every town is occupied: +${intake.batch} every ${intake.everyDays} days. ${pool >= intake.capacity ? 'The pool is full: enlist volunteers to make room.' : `Next group ${dateLabel(nextIntake)} (in ${clock(nextIntake - now)}).`}</p>
+      ${pool ? `<div class="cmd-control recruit"><span><b>Outpost 07</b><small>${plural(pool, 'volunteer')} waiting</small></span>${stepper(bKey, pool, bN, 'Bunker volunteers', 'volunteers')}${order(`Enlist ${bN}`, { type: 'recruit-bunker', count: bN })}</div>` : '<p class="cmd-empty">No volunteers waiting at the bunker.</p>'}</article>
+      ${game.settlements.filter(x => x.status === 'protected').map(x => {
         const key = 'recruit:' + x.id, n = amount(key, x.availableVolunteers, x.availableVolunteers);
-        return `<div class="cmd-control recruit"><span><b>${esc(x.name)}</b><small>${x.status === 'protected' ? plural(x.availableVolunteers, 'volunteer') : x.status === 'neutral' ? 'No agreement' : STATUS[x.status]}</small></span>${stepper(key, x.availableVolunteers, n, 'Volunteers from ' + x.name)}${order(`Recruit ${n}`, { type: 'recruit', id: x.id, count: n })}</div>`;
+        return `<div class="cmd-control recruit"><span><b>${esc(x.name)}</b><small>${plural(x.availableVolunteers, 'volunteer')}</small></span>${stepper(key, x.availableVolunteers, n, 'Volunteers from ' + x.name, 'volunteers')}${order(`Recruit ${n}`, { type: 'recruit', id: x.id, count: n })}</div>`;
       }).join('')}
+      ${closed.length ? `<p class="cmd-note">Recruiting needs a protected town. Not recruiting: ${esc(closed.join(' · '))}.</p>` : ''}
       <h4 class="cmd-h">Military training center</h4>
       <dl class="cmd-facts"><dt>Training capacity</dt><dd>${f.trainingCapacity}</dd><dt>Currently training</dt><dd>${f.recruitsInTraining}</dd><dt>Untrained recruits</dt><dd>${f.untrainedRecruits}</dd></dl>
       ${game.training.map(b => { const total = RULES.trainingDays * DAY, k = b.elapsed / total; return `<div class="cmd-batch${b.waiting ? ' paused' : ''}"><div><b>${plural(b.count, 'recruit')}</b><span>${pct(k)}</span></div><span class="cmd-meter"><i style="width:${k * 100}%"></i></span><small>${b.waiting ? `Paused: needs ${b.count * RULES.trainingFood} food for the next day` : `Time remaining: ${days(total - b.elapsed)} (${clock(total - b.elapsed)})`}</small></div>`; }).join('')}
@@ -233,7 +242,7 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
     const b = e.target.closest('[data-act]');
     if (!b || b.disabled || !game) return;
     const { act, id } = b.dataset;
-    if (act === 'qty') { const max = Number(b.dataset.max), key = b.dataset.key, current = Number(b.parentElement.querySelector('output').textContent); ui.qty[key] = Math.max(1, Math.min(max, current + Number(b.dataset.delta))); render(); return; }
+    if (act === 'qty') { const { key, dir } = b.dataset, current = Number(b.parentElement.querySelector('output').textContent); ui.qty[key] = stepTo(current, dir === 'all' ? dir : Number(dir), Number(b.dataset.max)); render(); return; }
     if (act === 'tab') { ui.tab = b.dataset.tab; ui.confirmReset = false; render(); return; }
     if (act === 'select') { select(id); return; }
     if (act === 'focus') { onTrack?.({ settlement: id }); return; }
@@ -246,7 +255,7 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
     const a = { type: act, ...(id ? { id } : {}), ...(b.dataset.count ? { count: Number(b.dataset.count) } : {}) };
     onAction(a);
     // A spent stepper goes back to following its default.
-    for (const key of Object.keys(ui.qty)) if (key.endsWith(':' + id)) delete ui.qty[key];
+    for (const key of Object.keys(ui.qty)) if (key.endsWith(':' + (id ?? 'bunker'))) delete ui.qty[key];
   }
   function keys(e) {
     const tab = e.target.closest('[role=tab]');

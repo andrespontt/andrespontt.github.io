@@ -66,14 +66,20 @@ them (back after the same trip). Under-protecting is allowed but invites raids. 
 own supply truck every 2 days; you never dispatch it. Trucks are visible on the map: tap one for origin, cargo,
 destination and ETA. An attacked settlement holds its next truck; a truck already on the road always finishes.
 
+**Orders in groups.** Soldiers and volunteers are ordered in groups of 50: −50 / +50 step to the previous or next
+multiple of 50 and **All** takes everyone available (an odd remainder, such as 213 survivors, is still sent whole with
+All). Map markers are whole formations.
+
 **Recruit and train.** Recruit volunteers from protected settlements (pools refill by 50 every 2 days, daily at
-confidence ≥ 70%). Start training moves recruits into the training center (capacity 250): each is issued 3 metal and
+confidence ≥ 70%); the Military tab lists only the towns you can recruit from and names the others with the reason.
+Drifters also reach the bunker on their own, even with every town occupied: the bunker pool starts at 50 and gains
+50 every 3 days (days 4, 7, 10…), up to 150; **Enlist** turns them into recruits. Start training moves recruits into the training center (capacity 250): each is issued 3 metal and
 1 component and eats 2 food per training day; training takes 3 days and pauses without food. Soldiers eat 0.5 food
 a day each. Each departure from the bunker costs 100 fuel (with empty tanks soldiers march, 1.5× slower).
 
 **Attacks.** The first raid hits Greyvein on day 5 (450 hostiles). From day 7 a midnight check may raid a protected
 settlement: more likely when its garrison is below the recommended size, never twice within 2 days anywhere or
-4 days at the same place. A priority alert gives 40 s before the fight: **send reinforcements** (only those that
+4 days at the same place. Random raids grow by 50 hostiles every 8 days. A priority alert gives 40 s before the fight: **send reinforcements** (only those that
 arrive in time fight), **hold position**, or **order retreat** (about a fifth of the garrison is lost covering the
 withdrawal; the settlement is given up).
 
@@ -82,17 +88,20 @@ withdrawal; the settlement is given up).
 survivors fall back to the bunker. Deaths are permanent. A combat report shows the outcome.
 
 **Occupation and liberation.** An occupied settlement stops deliveries and recruiting, and its hostile garrison
-grows by one every 3 days. Launch a liberation force from the Operations tab (the desk shows success chance and
+grows by 50 every 3 days (up to 1,200). Launch a liberation force from the Operations tab (the desk shows success chance and
 risk). Success clears it; the survivors stay as its garrison and deliveries resume on the next cycle. Failure
 brings the survivors home and weakens the enemy for the next attempt.
 
-**Expansion.** Ironford talks once you have repelled an attack or liberated a settlement: send at least 3 soldiers
-to sign a protection agreement; they stay as its first garrison.
+**Expansion.** The six neutral towns talk once you have repelled an attack or liberated a settlement: send at least
+150 soldiers to sign a protection agreement; they stay as its first garrison. Ember Junction is the only town that
+supplies fuel.
 
 The rules are in `protectorate.mjs` (pure functions, seeded random events, fixed 250 ms steps, so the same
 orders give the same game); `command.js` renders the desk; `terminal.js` draws settlements, trucks and troop
-movements on the map. Saved in `localStorage` (`bunker-protectorate`, version 1); **New campaign** in the Log tab
-starts over. Tests: `node --test apps/bunker/protectorate.test.mjs` (soldier accounting, deliveries, training,
+movements on the map; a label that would cover another marker, label or map control moves to another side of its
+icon, or hides until its marker is selected. Saved in `localStorage` (`bunker-protectorate`, version 2); a version 1
+save (the original 10-soldier scale) is multiplied by 50, keeps its progress and gains the five new towns, neutral.
+**New campaign** in the Log tab starts over. Tests: `node --test apps/bunker/protectorate.test.mjs` (soldier accounting, deliveries, training,
 combat, occupation, liberation, agreements, and a full scripted playthrough).
 
 ## Areas
@@ -199,11 +208,8 @@ city operation's own simulation; the command desk's soldiers and resources are t
 The command survey covers **10 × 8 km**. Kestrel Falls has a 3 × 3 layout of nine named districts, each the
 size of the original 24-block neighborhood (216 blocks total). District 01 retains the market, drone and
 conflict marker; the other districts extend east and south. The City button fits all nine districts, and
-Fit sector restores the whole mountain/valley survey. Millbrook (south-west, farm track), Greyvein (past Relay 03)
-and Ironford (east end of the valley road) are drawn on the survey with their roads; the wall map shows them in
-their status colours. Buildings use one instanced draw call. This enlarges
+Fit sector restores the whole mountain/valley survey. The eight settlements are drawn on the survey with their roads,
+all starting at the bunker: Millbrook and Westhaven down the farm track (south-west), Stonebridge on a branch west
+of it, Greenhaven to the south, Greyvein and Ember Junction past Relay 03, Ironford and Lakewatch along the valley
+road east. The wall map shows them in their status colours. Buildings use one instanced draw call. This enlarges
 the strategic map and wall survey; the separate first-person combat scene still covers the market block.
-
-Regional scale: quantity controls adjust by 50 or select All. Map units represent formations, not individual soldiers. Version 1 saves migrate troop/resource quantities by 50 and retain campaign progress; the five new towns start neutral.
-
-Bunker recruitment: 25 initial volunteers, +10 at each game midnight, pool cap 100. Military → Bunker recruitment → Enlist transfers them to untrained recruits. Works with all towns occupied; normal training costs still apply. Existing saves receive the initial pool once.

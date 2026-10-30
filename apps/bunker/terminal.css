@@ -35,16 +35,17 @@
 .command-mode #ops-command{display:block}.command-mode .ops-selection,.command-mode .ops-help{display:none}
 
 /* Map markers: sites, settlements and moving units */
-#ops-markers{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.ops-marker{position:absolute;transform:translate(-18px,-18px);display:flex;align-items:center;gap:7px;padding:0;border:0!important;background:transparent!important;pointer-events:auto;touch-action:manipulation;color:#f6f4e9;min-width:36px;min-height:36px;z-index:2;white-space:nowrap}
+#ops-markers{position:absolute;inset:0;pointer-events:none;overflow:hidden;--label-gap:6px}
+.ops-marker{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;padding:0;border:0!important;background:transparent!important;pointer-events:auto;touch-action:manipulation;color:#f6f4e9;min-width:36px;min-height:36px;z-index:2;white-space:nowrap}
 .ops-marker i{display:grid;place-items:center;width:36px;height:36px;flex:none;border:2px solid var(--pin);border-radius:50%;font:19px Arial;font-style:normal;background:#172630;box-shadow:0 2px 12px #0006;color:var(--pin)}
-.ops-marker span{padding:5px 8px;border-radius:5px;background:#172630ed;border:1px solid #71828b;font:600 11px monospace;box-shadow:0 2px 8px #0002}
+.ops-marker span{position:absolute;top:50%;left:calc(100% + var(--label-gap));transform:translateY(-50%);padding:5px 8px;border-radius:5px;background:#172630ed;border:1px solid #71828b;font:600 11px monospace;box-shadow:0 2px 8px #0002}
 .ops-marker[aria-pressed=true]{z-index:3}.ops-marker[aria-pressed=true] i{box-shadow:0 0 0 4px #14212e55,0 0 0 6px var(--pin)}.ops-marker[aria-pressed=true] span{color:var(--pin);border-color:var(--pin)}
-.ops-marker.label-left{flex-direction:row-reverse;transform:translate(calc(-100% + 18px),-18px)}
+/* Label side, chosen in terminal.js so labels never cover each other, icons or map controls. */
+.ops-marker[data-label=left] span{left:auto;right:calc(100% + var(--label-gap))}.ops-marker[data-label=below] span{top:calc(100% + 3px);left:50%;transform:translateX(-50%)}.ops-marker[data-label=above] span{top:auto;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%)}.ops-marker[data-label=above-right] span{top:auto;bottom:100%;left:100%;transform:none}.ops-marker[data-label=below-right] span{top:100%;left:100%;transform:none}.ops-marker[data-label=above-left] span{top:auto;bottom:100%;left:auto;right:100%;transform:none}.ops-marker[data-label=below-left] span{top:100%;left:auto;right:100%;transform:none}.ops-marker[data-label=none] span{visibility:hidden}.ops-marker span em{font-style:normal}
 .ops-marker[data-site=city] i{border-radius:7px}
 .ops-marker.ops-alert i{animation:ops-alert 1.4s ease-in-out infinite}
 @keyframes ops-alert{0%,100%{box-shadow:0 0 0 0 #ff8e7299}50%{box-shadow:0 0 0 9px #ff8e7200}}
-.ops-town{--pin:var(--ops-grey);z-index:3}.ops-town.label-below{flex-direction:column;align-items:flex-end;gap:3px;transform:translate(calc(-100% + 18px),-18px)}.ops-town i{border-radius:8px;font-size:17px}
+.ops-town{--pin:var(--ops-grey);z-index:3}.ops-town i{border-radius:8px;font-size:17px}
 .ops-town[data-status=protected]{--pin:var(--ops-green)}.ops-town[data-status=occupied]{--pin:var(--ops-red)}.ops-town[data-status=neutral]{--pin:var(--ops-grey)}
 .ops-town[data-status=occupied] i{background:#3a1813}.ops-town[data-status=occupied] span{color:#ffb4a4;border-color:#ff6b5599}
 .ops-town[data-status=under_attack]{--pin:var(--ops-orange)}.ops-town[data-status=under_attack] i{animation:town-attack .9s steps(2,jump-none) infinite}.ops-town[data-status=under_attack] span{color:#ffd0b0;border-color:var(--ops-orange)}
@@ -168,12 +169,12 @@
  #situation-terminal .cmd-res{padding:5px 6px;border-left-width:2px;border-radius:6px}.cmd-res small{font-size:7px;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cmd-res b{font-size:17px}.cmd-res b i{font-size:11px}.cmd-res span{display:none}
  .cmd-clock{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;padding:4px 4px 4px 10px}.cmd-clock small{display:none}.cmd-clock b{font-size:13px}.cmd-speed{min-width:150px}#situation-terminal .cmd-speed button{min-height:36px}
  .ops-workspace{gap:8px;padding:0 8px 8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
- .command-mode .ops-workspace{grid-template-columns:1fr;grid-template-rows:minmax(190px,.8fr) minmax(260px,1.2fr)}
+ .command-mode .ops-workspace{grid-template-columns:1fr;grid-template-rows:minmax(220px,1fr) minmax(240px,1fr)}
  #ops-viewport,#ops-command{border-radius:10px}#ops-command{padding:12px}
  .ops-tools{top:8px;left:8px;gap:4px}#situation-terminal .ops-tools button{min-width:40px;min-height:40px;padding:5px}.ops-tools button span{display:none}
  .ops-north,.ops-zoom,.ops-scale,.ops-help{display:none}
  .ops-marker[data-site=nomad] span,.ops-marker[data-site=relay] span,.ops-marker[data-site=echo]:not([aria-pressed=true]) span{display:none}
- .ops-marker{transform:translate(-15px,-15px);gap:4px}.ops-town.label-below{transform:translate(calc(-100% + 15px),-15px)}.ops-marker.label-left{transform:translate(calc(-100% + 15px),-15px)}.ops-marker i{width:30px;height:30px;font-size:15px}.ops-marker span{font-size:9px;padding:3px 5px;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+ #ops-markers{--label-gap:4px}.ops-marker:not([aria-pressed=true]) span em{display:none}.ops-marker i{width:30px;height:30px;font-size:15px}.ops-marker span{font-size:9px;padding:3px 5px;max-width:110px;overflow:hidden;text-overflow:ellipsis}
  .ops-selection{left:8px;right:8px;bottom:8px;width:auto;max-width:none;padding:10px}.ops-selection #ops-description{display:none}.ops-selection h3{font-size:16px}
  #ops-notice{top:56px;max-width:90%;font-size:11px;padding:9px}
  #ops-unit{top:auto;bottom:8px;right:8px;width:calc(100% - 16px)}

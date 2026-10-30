@@ -16,7 +16,7 @@ const LOG_SIZE = 60, HISTORY_SIZE = 12;
 // Balancing constants. Times are game ms unless they say days.
 export const RULES = {
   start: { time: DAY / 4, soldiers: 500, trainingCapacity: 250, resources: { food: 5000, metal: 2500, components: 1000, fuel: 5000 } },
-  bunkerRecruitment: { initial: 25, perDay: 10, capacity: 100 },
+  bunkerRecruitment: { initial: 50, batch: 50, everyDays: 3, capacity: 150 },  // drifters who reach the bunker on their own
   trainingDays: 3,
   trainingFood: 2,                         // food per recruit per training day
   equipment: { metal: 3, components: 1 },  // issued per recruit when training starts
@@ -34,7 +34,8 @@ export const RULES = {
   defenseBonus: 1.25,                      // whoever holds the settlement fights from cover
   noise: [.8, 1.2],
   retreatLoss: .2,
-  occupationGrowthDays: 3, occupationCap: 1200,
+  occupationGrowthDays: 3, occupationGrowth: 50, occupationCap: 1200,   // occupiers dig in and send for more
+  raidGrowth: { everyDays: 8, enemies: 50 },  // random raids grow stronger as the campaign goes on
   agreementEscort: 150,                      // soldiers that go to sign a new agreement and stay as its garrison
 };
 
@@ -364,11 +365,19 @@ function train(s) {
   s.training = s.training.filter(b => !b.done);
 }
 
+// When the next group of volunteers reaches the bunker (game ms): every few days, at midnight.
+export function nextBunkerIntake(s) {
+  const every = RULES.bunkerRecruitment.everyDays * DAY;
+  return (Math.floor(s.time / every) + 1) * every;
+}
+
 function midnight(s) {
-  const pool = s.bunkerVolunteers ?? RULES.bunkerRecruitment.initial;
-  s.bunkerVolunteers = Math.min(RULES.bunkerRecruitment.capacity, pool + RULES.bunkerRecruitment.perDay);
-  if (s.bunkerVolunteers > pool) note(s, 'recruit', `${s.bunkerVolunteers - pool} volunteers reached the bunker. Recruitment pool: ${s.bunkerVolunteers}.`);
   const today = day(s.time), forces = military(s).totalSoldiers, need = Math.ceil(forces * RULES.upkeep);
+  const intake = RULES.bunkerRecruitment, pool = s.bunkerVolunteers ?? intake.initial;
+  if ((today - 1) % intake.everyDays === 0 && pool < intake.capacity) {
+    s.bunkerVolunteers = Math.min(intake.capacity, pool + intake.batch);
+    note(s, 'recruit', `${s.bunkerVolunteers - pool} volunteers reached the bunker. Recruitment pool: ${s.bunkerVolunteers}.`);
+  }
   if (need) {
     if (s.resources.food >= need) s.resources.food -= need;
     else { s.resources.food = 0; note(s, 'warn', `Rations short: ${troops(forces)} on half meals. Keep the food trucks coming.`); }
@@ -384,7 +393,7 @@ function midnight(s) {
     } else if (x.status === 'occupied') {
       x.daysOccupied++;
       if (x.daysOccupied % RULES.occupationGrowthDays === 0 && x.enemyForces < RULES.occupationCap) {
-        x.enemyForces = Math.min(RULES.occupationCap, x.enemyForces + RULES.volunteerBatch); note(s, 'warn', `Hostiles in ${x.name} reinforced: about ${x.enemyForces} now.`);
+        x.enemyForces = Math.min(RULES.occupationCap, x.enemyForces + RULES.occupationGrowth); note(s, 'warn', `Hostiles in ${x.name} reinforced: about ${x.enemyForces} now.`);
       }
     }
   }
@@ -409,7 +418,7 @@ function scheduleAttacks(s, today) {
     const g = x.assignedSoldiers, rec = x.recommendedGarrison;
     const weakness = g >= rec ? .6 : 1 + (1 - g / rec);
     if (random(s) < Math.min(.6, x.attackChance * weakness + pressure)) {
-      startAttack(s, x, integer(s, ...x.raid) + Math.floor(today / 8) * RULES.volunteerBatch); return;
+      startAttack(s, x, integer(s, ...x.raid) + Math.floor(today / RULES.raidGrowth.everyDays) * RULES.raidGrowth.enemies); return;
     }
   }
 }
