@@ -21,9 +21,9 @@ test('fit span contains terrain corners in portrait, square and landscape',async
  }
 });
 
-test('nine city districts contain nine original neighborhoods inside the expanded survey',()=>{
- assert.equal(CITY_DISTRICTS.length,9);assert.equal(CITY_BUILDINGS.length,24*9);
- assert.equal(SECTOR.width*SECTOR.metersPerUnit,10000);assert.equal(SECTOR.depth*SECTOR.metersPerUnit,8000);
+test('eighteen city districts double the original nine neighborhoods inside the expanded survey',()=>{
+ assert.equal(CITY_DISTRICTS.length,18);assert.equal(CITY_BUILDINGS.length,24*18);
+ assert.equal(SECTOR.width*SECTOR.metersPerUnit,20000);assert.equal(SECTOR.depth*SECTOR.metersPerUnit,11000);
  for(const d of CITY_DISTRICTS){
   const buildings=CITY_BUILDINGS.filter(b=>b.district===d.id);assert.equal(buildings.length,24);
   for(const b of buildings){assert.ok(b.x-b.width/2>=d.x&&b.x+b.width/2<=d.x+d.width);assert.ok(b.z-b.depth/2>=d.z&&b.z+b.depth/2<=d.z+d.depth);}
@@ -53,4 +53,18 @@ test('all eight settlements have bounded map locations and complete roads', asyn
     const end=roadPoint(p.road,1);
     assert.ok(Math.hypot(end[0]-p.x,end[1]-p.z)<1e-8);
   }
+});
+
+
+test('river border keeps existing settlements west and enemy city and towns east; routes use bridges',async()=>{
+ const {borderX,BRIDGES,ENEMY_TOWNS,ENEMY_BUILDINGS,SETTLEMENT_SITES}=await import('./sector.js');
+ assert.equal(BRIDGES.length,3);assert.equal(ENEMY_TOWNS.length,4);assert.equal(ENEMY_BUILDINGS.length,432);
+ for(const s of Object.values(SETTLEMENT_SITES))assert.ok(s.x<borderX(s.z)-5);
+ for(const b of ENEMY_BUILDINGS)assert.ok(b.x>borderX(b.z)+10);
+ for(const s of ENEMY_TOWNS){assert.ok(s.x>borderX(s.z)+10);const route=routeTo(s.id);assert.ok(BRIDGES.some(b=>route.some(p=>p[0]===b.x-10&&p[1]===b.z)&&route.some(p=>p[0]===b.x+10&&p[1]===b.z)));}
+});
+
+test('eastern capital reuses the existing city block pattern',async()=>{
+ const {CITY_BUILDINGS,ENEMY_BUILDINGS,CITY,ENEMY_CITY}=await import('./sector.js');
+ assert.deepEqual(ENEMY_BUILDINGS.map(b=>({...b,x:b.x-ENEMY_CITY.x,z:b.z-ENEMY_CITY.z})).map(b=>({...b,x:+b.x.toFixed(6),z:+b.z.toFixed(6)})),CITY_BUILDINGS.map(b=>({...b,x:+(b.x-CITY.x).toFixed(6),z:+(b.z-CITY.z).toFixed(6)})));
 });

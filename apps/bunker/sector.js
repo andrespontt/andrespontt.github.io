@@ -1,9 +1,28 @@
+import { BUSINESSES } from './protectorate.mjs?v=protect3';
 // Shared fictional survey: one coordinate system for the terminal and wall screen.
-export const SECTOR = { width: 200, depth: 160, centerX:20, centerZ:20, metersPerUnit: 50 };
-export const CITY = { x:15, z:13, districtWidth:24.6, districtDepth:19, columns:3, rows:3 };
-const districtNames=['Market Ward','North Quarter','Eastgate','Riverside','Civic Center','Foundry','Southbank','Rail Quarter','Southgate'];
+export const SECTOR = { width: 400, depth: 220, centerX:120, centerZ:50, metersPerUnit: 50 };
+export const CITY = { x:15, z:13, districtWidth:24.6, districtDepth:19, columns:3, rows:6 };
+const districtNames=['Market Ward','North Quarter','Eastgate','Riverside','Civic Center','Foundry','Southbank','Rail Quarter','Southgate','Freight Quarter','Canal Ward','University','Garden District','Newtown','Docklands','West End','East Meadows','Outer South'];
 export const CITY_DISTRICTS=districtNames.map((name,i)=>({id:i+1,name,x:CITY.x+(i%3)*CITY.districtWidth,z:CITY.z+Math.floor(i/3)*CITY.districtDepth,width:CITY.districtWidth,depth:CITY.districtDepth}));
 export const CITY_BUILDINGS=CITY_DISTRICTS.flatMap(d=>Array.from({length:24},(_,i)=>({district:d.id,x:d.x+2.45+(i%6)*3.9,z:d.z+2.6+Math.floor(i/6)*4.5,width:2.6,depth:2.8,height:1.1+(i%6+Math.floor(i/6)+d.id-1)%3*.6})));
+// The Veyr river divides the western protectorate from the eastern enemy region.
+export const borderX = z => 138 + Math.sin(z*.035)*5;
+export const BRIDGES = [-25,45,119].map((z,i)=>({id:'bridge'+i,name:['North Crossing','Central Crossing','South Crossing'][i],x:borderX(z),z}));
+export const ENEMY_CITY = {name:'DRAKENBURG',x:207,z:0,width:CITY.districtWidth*CITY.columns,depth:CITY.districtDepth*CITY.rows};
+export const ENEMY_TOWNS = [
+ {id:'eastNorth',name:'FROSTFORD',x:185,z:-34},
+ {id:'eastIron',name:'IRONHOLLOW',x:283,z:-25},
+ {id:'eastSouth',name:'REDHAVEN',x:184,z:130},
+ {id:'eastDepot',name:'ASHGATE',x:286,z:125},
+];
+// Reuse Kestrel Falls' district spacing, streets, footprints and roof heights.
+export const ENEMY_DISTRICTS = CITY_DISTRICTS.map(d=>({...d,x:d.x-CITY.x+ENEMY_CITY.x,z:d.z-CITY.z+ENEMY_CITY.z}));
+export const ENEMY_BUILDINGS = CITY_BUILDINGS.map(b=>({...b,x:b.x-CITY.x+ENEMY_CITY.x,z:b.z-CITY.z+ENEMY_CITY.z}));
+export function easternRoute(site) {
+ const bridge=BRIDGES.reduce((a,b)=>Math.abs(b.z-site.z)<Math.abs(a.z-site.z)?b:a);
+ const approach=[[-25,-8],[-18,2],[-12,12],[26,23],[115,23],[bridge.x-10,bridge.z]];
+ return site.id?.startsWith('bridge') ? [...approach,[site.x,site.z]] : [...approach,[bridge.x+10,bridge.z],[165,bridge.z],[site.x,site.z]];
+}
 export function surveyPoint(x,z,width=1600,height=1280){return [(x-SECTOR.centerX+SECTOR.width/2)/SECTOR.width*width,(z-SECTOR.centerZ+SECTOR.depth/2)/SECTOR.depth*height];}
 export function surveyScale(metersPerPixel, maxPixels = 100) {
   const limit=metersPerPixel*maxPixels, power=10**Math.floor(Math.log10(limit));
@@ -20,9 +39,13 @@ export const SITES = {
   nomad: { name: 'NOMAD', short: 'Nomad', x: -3, z: -9, color: '#b7e5e2', type: 'EXPEDITION CARRIER', status: 'Parked · intermittent radio', description: 'The carrier is sheltered below the western ridge. Follow the access road north.' },
   relay: { name: 'RELAY 03', short: 'Relay 03', x: 31, z: -26, color: '#b7e5e2', type: 'WEATHER STATION', status: 'Battery 18% · transmitting', description: 'A remote weather relay on the high ground. The eastern crossing is exposed to wind.' },
   // Nearby valley city, on the same geographic survey as the mountain bunker.
-  city: { name: 'KESTREL FALLS', short: 'Kestrel Falls', x: 26, z: 23, color: '#ff8e72', type: 'VALLEY CITY · 9 DISTRICTS', distanceKm: 3, status: 'Army cordon · Corner Market 24', description: 'Nine districts spread across the eastern valley. The original market ward lies three kilometres down the mountain road. Soldiers hold Corner Market 24 in district 01; the drone and conflict marker remain over that block.' },
+  city: { name: 'KESTREL FALLS', short: 'Kestrel Falls', x: 26, z: 23, color: '#ff8e72', type: 'VALLEY CITY · 18 DISTRICTS', distanceKm: 3, status: 'Army cordon · Corner Market 24', description: 'Eighteen districts spread across the eastern valley. The original market ward lies three kilometres down the mountain road. Soldiers hold Corner Market 24 in district 01; the drone and conflict marker remain over that block.' },
   echo: { name: 'UNKNOWN CONTACT', short: 'Echo 03', x: 22, z: 11, color: '#ff8e72', type: 'THERMAL RETURN', status: 'Three pulses · motion detected', description: 'An intermittent heat signature in the eastern ravine. Its source is unresolved.' },
 };
+for(const site of [{id:'enemyCapital',name:ENEMY_CITY.name,x:248,z:55},...ENEMY_TOWNS,...BRIDGES]) {
+ const crossing=site.id.startsWith('bridge');
+ SITES[site.id]={...site,short:site.name,color:crossing?'#e8c589':'#ff827d',type:crossing?'BORDER CROSSING':'ENEMY TERRITORY',status:crossing?'Contested river bridge':'Enemy controlled',description:crossing?'A strategic crossing of the Veyr river. The western bank faces the protectorate; the eastern bank leads into enemy territory.':site.id==='enemyCapital'?'Drakenburg: the eastern regional capital and main enemy stronghold. Dense industrial districts connect to four satellite towns.':'Enemy-held town in the eastern region, connected to Drakenburg and the river crossings.'};
+}
 export const WEATHER = { flurries: [5,160], snowfall: [24,90], blizzard: [78,35], whiteout: [120,12] };
 export function elevation(x,z) {
   const ridge=(cx,cz,sx,sz,h)=>h*Math.exp(-((x-cx)**2/sx**2+(z-cz)**2/sz**2));
@@ -31,6 +54,7 @@ export function elevation(x,z) {
 }
 export function routeTo(id) {
   const a=SITES.shelter,b=SITES[id]; if(!b||id==='shelter')return [];
+  if(id==='enemyCapital'||ENEMY_TOWNS.some(t=>t.id===id)||BRIDGES.some(t=>t.id===id))return easternRoute(b);
   return id==='city'?[[a.x,a.z],[-18,2],[-12,12],[0,19],[18,23],[b.x,b.z]]:id==='nomad'?[[a.x,a.z],[-18,2],[-17,-1],[b.x,b.z]]:
     id==='relay'?[[a.x,a.z],[-18,2],[-3,-9],[11,-14],[b.x,b.z]]:
     [[a.x,a.z],[-13,19],[0,16],[11,14],[b.x,b.z]];
@@ -61,7 +85,7 @@ const SETTLEMENT_STATUS_COLORS = { protected: '#8cdec0', under_attack: '#ff9a4a'
 let base;
 export function surveyCanvas() {
   if(base)return base;
-  const c=document.createElement('canvas');c.width=1600;c.height=1280;const ctx=c.getContext('2d');
+  const c=document.createElement('canvas');c.width=1600;c.height=Math.round(1600*SECTOR.depth/SECTOR.width);const ctx=c.getContext('2d');
   const im=ctx.createImageData(c.width,c.height);
   for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){
     const wx=x/c.width*SECTOR.width+SECTOR.centerX-SECTOR.width/2,wz=y/c.height*SECTOR.depth+SECTOR.centerZ-SECTOR.depth/2,h=elevation(wx,wz);
@@ -75,6 +99,7 @@ export function surveyCanvas() {
     const v=.72+shade*.42+contour*.45;
     const i=(y*c.width+x)*4;
     for(let channel=0;channel<3;channel++)im.data[i+channel]=(valley[channel]*(1-snow)+peak[channel]*snow)*v;
+    if(wx>borderX(wz)+3){im.data[i]*=1.17;im.data[i+1]*=.76;im.data[i+2]*=.78;}
     im.data[i+3]=255;
   }ctx.putImageData(im,0,0);
   const project=([x,z])=>surveyPoint(x,z,c.width,c.height);
@@ -89,19 +114,37 @@ export function surveyCanvas() {
   line(road,'#657170',8);line(road,'#c4b9a0',4);line(road,'#f3e0b6',1,[9,7]);
   ctx.strokeStyle='#253f4028';ctx.lineWidth=1;for(let x=0;x<=c.width;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,c.height);ctx.stroke();}for(let y=0;y<=c.height;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();}
   function label(text,x,z,color='#d4ddc7',size=17){ctx.fillStyle=color;ctx.font='600 '+size+'px monospace';ctx.fillText(text,...project([x,z]));}
+  const frontier=[];for(let z=-60;z<=160;z++)frontier.push([borderX(z),z]);
+  line(frontier,'#243f50',34);line(frontier,'#3e8196',24);line(frontier,'#9dd7da',2,[7,5]);
+  label('VEYR RIVER / BORDER',142,-49,'#bfe8eb',16);
+  label('EASTERN OCCUPIED REGION',185,-50,'#ffd0c4',20);
+  label('WESTERN PROTECTORATE',-15,-50,'#c4e4d7',16);
+  for(const b of BRIDGES){line([[115,23],[b.x-10,b.z]],'#c1b796',4);line([[b.x+10,b.z],[165,b.z],[248,55]],'#bd9080',4);line([[b.x-10,b.z],[b.x+10,b.z]],'#283136',12);line([[b.x-10,b.z],[b.x+10,b.z]],'#e7d3a5',7);label(b.name,b.x-13,b.z-4,'#ffe4a8',11);}
+  for(const t of ENEMY_TOWNS){line([[248,55],[t.x,t.z]],'#ba8b80',4);const [x,y]=project([t.x,t.z]);for(let i=0;i<20;i++){ctx.fillStyle=i%2?'#8a6963':'#b88977';ctx.fillRect(x-23+(i%5)*10,y-18+Math.floor(i/5)*10,7,7);}label(t.name,t.x-8,t.z+8,'#ffd0c4',13);}
   label('BLACK RIDGE',-48,-33,'#304c53',20);label('SUMMIT / 2180 m',-48,-29,'#304c53',13);
   label('KESTREL VALLEY',-5,83);label('EASTERN CUT',28,-43);label('VALLEY ACCESS ROAD',-31,27,'#d4ddc7',13);
-  // Wet asphalt throughout the city grid, with no snow on the streets or roofs.
-  const [cityX,cityY]=project([CITY.x,CITY.z]),scale=c.width/SECTOR.width;
-  ctx.fillStyle='#343c3b';ctx.fillRect(cityX,cityY,CITY.districtWidth*3*scale,CITY.districtDepth*3*scale);
-  ctx.fillStyle='#d3d9c4';ctx.font='600 17px monospace';ctx.fillText('KESTREL FALLS / 9 DISTRICTS / SLEET +1°C',cityX,cityY+CITY.districtDepth*3*scale+30);
-  label('HIGH COUNTRY / SNOW −24°C',-65,-44,'#324a53',14);
-  for(const d of CITY_DISTRICTS){
-    const [px,py]=project([d.x,d.z]);ctx.strokeStyle='#c4b9a0';ctx.lineWidth=3;ctx.strokeRect(px,py,d.width*scale,d.depth*scale);
+  // Both cities share the same street grid and centered building footprints.
+  const scale=c.width/SECTOR.width;
+  for(const city of [
+    {x:CITY.x,z:CITY.z,width:CITY.districtWidth*CITY.columns,depth:CITY.districtDepth*CITY.rows,districts:CITY_DISTRICTS,buildings:CITY_BUILDINGS,enemy:false,title:'KESTREL FALLS / 18 DISTRICTS / SLEET +1°C'},
+    {...ENEMY_CITY,districts:ENEMY_DISTRICTS,buildings:ENEMY_BUILDINGS,enemy:true,title:'DRAKENBURG / 18 DISTRICTS / ENEMY CAPITAL'}
+  ]) {
+    const [cx,cy]=project([city.x,city.z]);
+    ctx.fillStyle=city.enemy?'#403a3b':'#343c3b';ctx.fillRect(cx,cy,city.width*scale,city.depth*scale);
+    label(city.title,city.x,city.z+city.depth+7,city.enemy?'#ffd0c4':'#d3d9c4',17);
+    for(const d of city.districts){
+      const [px,py]=project([d.x,d.z]);ctx.strokeStyle=city.enemy?'#c7aaa0':'#c4b9a0';ctx.lineWidth=3;ctx.strokeRect(px,py,d.width*scale,d.depth*scale);
+    }
+    for(const b of city.buildings){
+      const [px,py]=project([b.x-b.width/2,b.z-b.depth/2]);ctx.fillStyle=city.enemy?(b.district%2?'#695552':'#75615b'):(b.district%2?'#405351':'#4b5350');ctx.fillRect(px,py,b.width*scale,b.depth*scale);
+      ctx.strokeStyle=city.enemy?'#b49a90':'#91aaa4';ctx.lineWidth=1;ctx.strokeRect(px,py,b.width*scale,b.depth*scale);
+    }
   }
-  for(const b of CITY_BUILDINGS){
-    const [px,py]=project([b.x-b.width/2,b.z-b.depth/2]);ctx.fillStyle=b.district%2?'#405351':'#4b5350';ctx.fillRect(px,py,b.width*scale,b.depth*scale);
-    ctx.strokeStyle='#91aaa4';ctx.lineWidth=1;ctx.strokeRect(px,py,b.width*scale,b.depth*scale);
+  label('HIGH COUNTRY / SNOW −24°C',-65,-44,'#324a53',14);
+  for (const b of BUSINESSES) {
+    const d=CITY_DISTRICTS[b.district-1], [x,y]=project([d.x+d.width/2,d.z+d.depth/2]);
+    ctx.fillStyle='#edc875';ctx.fillRect(x-6,y-6,12,12);
+    ctx.font='bold 11px monospace';ctx.fillText('$ '+b.name,x+9,y+4);
   }
   const [mx,my]=project([26,23]);ctx.fillStyle='#d99a68';ctx.fillRect(mx-12,my-12,24,24);
   ctx.strokeStyle='#e7af7e';ctx.setLineDash([8,5]);ctx.lineWidth=3;ctx.strokeRect(mx-34,my-32,68,64);ctx.setLineDash([]);
@@ -149,7 +192,7 @@ export function drawCityPlan(ctx,x,y,w,h,op=null){
   ctx.restore();
 }
 export function wallSurvey(state={}) {
-  const c=document.createElement('canvas');c.width=1600;c.height=1280;const ctx=c.getContext('2d');ctx.drawImage(surveyCanvas(),0,0);
+  const c=document.createElement('canvas');c.width=1600;c.height=Math.round(1600*SECTOR.depth/SECTOR.width);const ctx=c.getContext('2d');ctx.drawImage(surveyCanvas(),0,0);
   for(const d of CITY_DISTRICTS){const [x,y]=surveyPoint(d.x+.8,d.z+.2);ctx.fillStyle='#17282ee8';ctx.fillRect(x,y,182,22);ctx.fillStyle='#e4cf9e';ctx.font='bold 13px monospace';ctx.fillText(String(d.id).padStart(2,'0')+' / '+d.name.toUpperCase(),x+5,y+16);}
   const route=routeTo(state.route);if(route.length){ctx.strokeStyle='#ffcb70';ctx.lineWidth=7;ctx.setLineDash([14,10]);ctx.beginPath();route.forEach(([x,z],i)=>i?ctx.lineTo(...surveyPoint(x,z)):ctx.moveTo(...surveyPoint(x,z)));ctx.stroke();ctx.setLineDash([]);}
   // Kestrel Falls under attack: a red ring and a CONTACT tag on the wall map.

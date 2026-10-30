@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { AreaManager } from './area-manager.mjs';
-import { createTerminal } from './terminal.js?v=protect2';
-import { createGame, advance as advanceGame, act, military, clock, restoreGame } from './protectorate.mjs?v=protect2';
+import { createTerminal } from './terminal.js?v=protect3';
+import { createGame, advance as advanceGame, act, military, clock, restoreGame } from './protectorate.mjs?v=protect3';
 
 const $=id=>document.getElementById(id);
 const canvas=$('scene');
@@ -78,6 +78,7 @@ async function lockLook(){
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===canvas&&(terminalOpen||devMenuOpen||controlsOpen))document.exitPointerLock();syncCursor();});document.addEventListener('pointerlockerror',syncCursor);
 function setPose(spawn){walker.x=spawn.x;walker.z=spawn.z;yaw=spawn.yaw||0;pitch=spawn.pitch||0;}
 function updateUI(){
+ $('scenario-status').hidden=terminalOpen||!manager.current?.getStatus;
  if(manager.current?.wantsCursor?.()&&locked())releaseLook();
  const outside=manager.id==='outside';
  document.body.classList.toggle('inside',!overview);
@@ -222,7 +223,7 @@ const movementCodes=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLef
 addEventListener('keydown',e=>{
  if(controlsOpen){if(e.code==='Escape'){e.preventDefault();closeQuickMenu();}return;}
  if(devMenuOpen){if(e.code==='Escape'){e.preventDefault();closeDevMenu();}return;}
- if(e.target instanceof HTMLInputElement)return;
+ if(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement)return;
  if(terminalOpen){if(e.code==='Escape'){e.preventDefault();closeSituationTerminal();}return;}
  if(e.code==='KeyM'&&manager.id==='bunker'&&!e.repeat){openSituationTerminal();return;}
  if(e.code==='KeyT'&&manager.id==='bunker'&&!e.repeat){openCommand();return;}

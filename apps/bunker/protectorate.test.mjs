@@ -356,3 +356,42 @@ test('bunker recruitment continues with every town occupied, arrives in groups, 
   const restored=restoreGame(saved); assert.equal(restored.bunkerVolunteers,50);
   assert.deepEqual(restoreGame(restored),restored);
 });
+
+
+test('50,000 force cap reserves training slots across all deployments', () => {
+ let s=createGame(101); s.available=49900; s.recruits=1000;
+ s=act(s,{type:'train'}); assert.equal(military(s).recruitsInTraining,100);
+ assert.equal(trainable(s),0); assert.match(reason(s,{type:'train'}),/50,000/);
+ s=act(s,{type:'assign',id:'farm',count:200}); assert.equal(trainable(s),0);
+});
+test('business purchases debit once and pay income exactly at midnight', () => {
+ let s=createGame(102); s=act(s,{type:'buy-business',id:'bakery'});
+ assert.equal(s.money,3800); assert.deepEqual(s.businesses,['bakery']);
+ assert.equal(act(s,{type:'buy-business',id:'bakery'}),s);
+ assert.ok(reason(s,{type:'buy-business',id:'factory'}));
+ s=advance(s,DAY-s.time-STEP); assert.equal(s.money,3800);
+ s=advance(s,STEP); assert.equal(s.money,3920);
+ s=advance(s,DAY); assert.equal(s.money,4040);
+ assert.deepEqual(restoreGame(s),s);
+});
+test('neutral towns request unconditional protection and occupied towns can rebel', () => {
+ let s=createGame(103); s.firstAttackDone=true;
+ s.settlements.forEach(x=>{x.attackChance=0; x.status='neutral'; x.nextDeliveryTick=null;});
+ s=advance(s,14*DAY);
+ const town=s.settlements.find(x=>x.protectionRequested); assert.ok(town);
+ const money=s.money, soldiers=s.available;
+ s=act(s,{type:'accept-protection',id:town.id});
+ assert.equal(settlement(s,town.id).status,'protected'); assert.equal(s.money,money); assert.equal(s.available,soldiers);
+ assert.equal(s.proven,false);
+ const occupied=s.settlements.find(x=>x.id!==town.id);
+ occupied.status='occupied'; occupied.daysOccupied=16; occupied.enemyForces=100;
+ s=advance(s,DAY);
+ assert.equal(settlement(s,occupied.id).status,'neutral'); assert.equal(settlement(s,occupied.id).protectionRequested,true);
+ assert.equal(settlement(s,occupied.id).enemyForces,0);
+});
+test('v2 saves gain money without losing progress or repeating grants', () => {
+ const old=createGame(104); old.version=2; delete old.money; delete old.businesses;
+ old.available=123; const s=restoreGame(old);
+ assert.equal(s.available,123); assert.equal(s.money,5000); assert.deepEqual(s.businesses,[]);
+ s.money=100; assert.equal(restoreGame(s).money,100);
+});

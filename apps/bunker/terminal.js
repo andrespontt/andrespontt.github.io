@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { disposeScene } from './area-manager.mjs';
-import { SITES, WEATHER, SECTOR, CITY, CITY_DISTRICTS, CITY_BUILDINGS, SETTLEMENT_SITES, elevation, routeTo, roadPoint, surveyCanvas, surveySpan, surveyScale } from './sector.js?v=room4';
+import { SITES, WEATHER, SECTOR, CITY, CITY_DISTRICTS, CITY_BUILDINGS, ENEMY_BUILDINGS, ENEMY_DISTRICTS, BRIDGES, SETTLEMENT_SITES, elevation, routeTo, roadPoint, surveyCanvas, surveySpan, surveyScale } from './sector.js?v=room4';
 import { summary } from './city-ops.mjs';
-import { roadPosition, settlement } from './protectorate.mjs?v=protect2';
-import { createCommandDesk, describeUnit } from './command.js?v=protect2';
+import { roadPosition, settlement } from './protectorate.mjs?v=protect3';
+import { createCommandDesk, describeUnit } from './command.js?v=protect3';
 
 // The situation terminal: the 3D sector map (terrain, Kestrel Falls, sites, settlements and the units moving
 // between them) beside the command desk (command.js), where the protectorate game is played.
@@ -11,6 +11,7 @@ import { createCommandDesk, describeUnit } from './command.js?v=protect2';
 export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,onReset}) {
   let state={selected:'shelter',route:null,scanned:false,weather:'blizzard'},active=false,renderer,scene,camera,terrain,routeMesh,storm;
   let zoom=1,tilted=true,weatherVisible=false,target=new THREE.Vector3(SECTOR.centerX,0,SECTOR.centerZ),width=1,height=1,scanTimer=null;
+  const districtTags=[], touchMap=matchMedia('(hover: none)'), labelPointer={x:-9999,y:-9999};
   const pointers=new Map(),ray=new THREE.Raycaster(),ground=new THREE.Plane(new THREE.Vector3(0,1,0),0);
   // Living map: effects built in init() and moved by animate() while the terminal is open (≤30 fps).
   // With reduced motion the map draws them once, still.
@@ -20,7 +21,7 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
     <div class="cmd-stock" id="cmd-stock" aria-label="Resources and game clock"></div>
     <div class="ops-workspace">
       <div id="ops-viewport"><canvas id="ops-map" tabindex="0" aria-label="Regional map. Drag to move, pinch or scroll to zoom. Arrow keys pan, plus and minus zoom, Home fits the sector."></canvas><div id="ops-markers"></div><div class="ops-north">N<span>↑</span></div>
-        <div class="ops-tools"><button id="ops-command-toggle" aria-pressed="true" aria-controls="ops-command" aria-label="Command desk">▤ <span>Command</span></button><button id="ops-fit" title="Show the whole sector (Home)">⌖ <span>Fit sector</span></button><button id="ops-city-view" aria-label="Focus all nine city districts" title="Focus all nine city districts">▦ <span>City</span></button><button aria-label="Toggle terrain relief" id="ops-relief" aria-pressed="true">3D <span>Relief</span></button><button aria-label="Toggle weather overlay" id="ops-storm" aria-pressed="false">≋ <span>Weather</span></button></div>
+        <div class="ops-tools"><button id="ops-command-toggle" aria-pressed="true" aria-controls="ops-command" aria-label="Command desk">▤ <span>Command</span></button><button id="ops-fit" title="Show the whole sector (Home)">⌖ <span>Fit sector</span></button><button id="ops-east-view" aria-label="Focus enemy territory">East</button><button id="ops-city-view" aria-label="Focus all eighteen city districts" title="Focus all eighteen city districts">▦ <span>City</span></button><button aria-label="Toggle terrain relief" id="ops-relief" aria-pressed="true">3D <span>Relief</span></button><button aria-label="Toggle weather overlay" id="ops-storm" aria-pressed="false">≋ <span>Weather</span></button></div>
         <div class="ops-zoom"><button id="ops-plus" aria-label="Zoom in">+</button><output id="ops-zoom-label">1.0×</output><button id="ops-minus" aria-label="Zoom out">−</button></div>
         <div class="ops-scale"><span id="ops-scale-bar"></span><b id="ops-scale-text">500 m</b></div><div id="ops-notice" role="status" hidden></div>
         <div id="ops-unit" role="status" hidden><div class="ops-unit-head"><b id="ops-unit-title"></b><button id="ops-unit-close" aria-label="Stop tracking">×</button></div><dl id="ops-unit-rows"></dl></div>
@@ -35,13 +36,14 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
   // Game time between state updates, so units glide instead of jumping four times a second.
   const gameNow=()=>game?game.time+game.carry+Math.min(600,performance.now()-gameAt)*game.speed:0;
   const desk=createCommandDesk({stock:$('cmd-stock'),desk:$('ops-command'),overlay:$('cmd-overlay'),onAction:a=>onAction?.(a),onReset:()=>onReset?.(),onTrack:track});
+  $('ops-east-view').onclick=()=>{target.set(231,0,50);zoom=2;constrain();draw();};
   $('ops-city-view').onclick=()=>{
-    target.set(CITY.x+CITY.districtWidth*1.5,0,CITY.z+CITY.districtDepth*1.5-5); // Leave room above the city for map controls.
-    const aspect=width/(height-mapTop()),vertical=tilted?CITY.districtDepth*3*120/Math.hypot(120,75)+8:CITY.districtDepth*3;
-    zoom=Math.min(7,surveySpan(aspect,tilted)/(Math.max(vertical,CITY.districtWidth*3/aspect)*1.3));draw();
+    target.set(CITY.x+CITY.districtWidth*CITY.columns/2,0,CITY.z+CITY.districtDepth*CITY.rows/2-5); // Leave room above the city for map controls.
+    const aspect=width/(height-mapTop()),vertical=tilted?CITY.districtDepth*CITY.rows*120/Math.hypot(120,75)+8:CITY.districtDepth*CITY.rows;
+    zoom=Math.min(7,surveySpan(aspect,tilted)/(Math.max(vertical,CITY.districtWidth*CITY.columns/aspect)*1.3));draw();
   };
   const markers={};for(const [id,s] of Object.entries(SITES)){
-    const b=document.createElement('button');b.className='ops-marker';b.dataset.site=id;b.style.setProperty('--pin',s.color);b.innerHTML=`<i>${id==='shelter'?'⌂':id==='nomad'?'▰':id==='relay'?'⌁':id==='city'?'▣':'?'}</i><span>${s.short}</span>`;b.setAttribute('aria-label','Inspect '+s.short);b.onclick=()=>{state.selected=id;showCommand(false);update();};$('ops-markers').append(b);markers[id]=b;
+    const b=document.createElement('button');b.className='ops-marker';b.dataset.site=id;b.style.setProperty('--pin',s.color);b.innerHTML=`<i>${id==='shelter'?'⌂':id==='nomad'?'▰':id==='relay'?'⌁':id==='city'||id==='enemyCapital'?'▣':id.startsWith('bridge')?'═':id.startsWith('east')?'◆':'?'}</i><span>${s.short}</span>`;b.setAttribute('aria-label','Inspect '+s.short);b.onclick=()=>{state.selected=id;showCommand(false);update();};$('ops-markers').append(b);markers[id]=b;
   }
   // Protectorate settlements: their colour is their status; a tap opens their management card.
   const towns={};for(const [id,site] of Object.entries(SETTLEMENT_SITES)){
@@ -60,18 +62,21 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
     const cube=new THREE.BoxGeometry(1,1,1),cityMaterial=new THREE.MeshStandardMaterial({color:'#595e56',roughness:.55});
     scene.add(new THREE.HemisphereLight('#d9eff2','#33414b',2));
     const sun=new THREE.DirectionalLight('#fff1ce',2.2);sun.position.set(-40,70,30);scene.add(sun);
-    // All 216 city blocks share one draw call, keeping the larger survey light on phones.
+    // All city blocks share one draw call, keeping the larger survey light on phones.
     const blocks=new THREE.InstancedMesh(cube,cityMaterial,CITY_BUILDINGS.length),transform=new THREE.Object3D();
     for(const [i,b] of CITY_BUILDINGS.entries()){
       transform.scale.set(b.width,b.height,b.depth);transform.position.set(b.x,elevation(b.x,b.z)+b.height/2,b.z);transform.updateMatrix();blocks.setMatrixAt(i,transform.matrix);
     }
     blocks.instanceMatrix.needsUpdate=true;blocks.computeBoundingSphere();scene.add(blocks);
-    for(const d of CITY_DISTRICTS){
+    for(const d of [...CITY_DISTRICTS,...ENEMY_DISTRICTS]){
       const label=document.createElement('canvas');label.width=512;label.height=64;const ctx=label.getContext('2d');
       ctx.fillStyle='#15272fed';ctx.fillRect(0,0,512,64);ctx.fillStyle='#e5ce98';ctx.font='bold 28px monospace';ctx.textAlign='center';ctx.fillText(String(d.id).padStart(2,'0')+' / '+d.name.toUpperCase(),256,42);
       const texture=new THREE.CanvasTexture(label);texture.colorSpace=THREE.SRGBColorSpace;
-      const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthTest:false,depthWrite:false}));tag.scale.set(22,2.75,1);tag.position.set(d.x+d.width/2,elevation(d.x+d.width/2,d.z)+4,d.z+1);tag.renderOrder=2;scene.add(tag);
+      const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthTest:false,depthWrite:false}));tag.scale.set(15,1.875,1);tag.position.set(d.x+d.width/2,elevation(d.x+d.width/2,d.z)+4,d.z+1);tag.renderOrder=2;tag.visible=false;districtTags.push(tag);scene.add(tag);
     }
+    const enemyBlocks=new THREE.InstancedMesh(cube,new THREE.MeshStandardMaterial({color:'#806c64',roughness:.55}),ENEMY_BUILDINGS.length);
+    ENEMY_BUILDINGS.forEach((b,i)=>{transform.scale.set(b.width,b.height,b.depth);transform.position.set(b.x,elevation(b.x,b.z)+b.height/2,b.z);transform.updateMatrix();enemyBlocks.setMatrixAt(i,transform.matrix);});enemyBlocks.computeBoundingSphere();scene.add(enemyBlocks);
+    for(const b of BRIDGES){const deck=new THREE.Mesh(cube,new THREE.MeshStandardMaterial({color:'#ddc79c'}));deck.scale.set(20,.6,3);deck.position.set(b.x,elevation(b.x,b.z)+.8,b.z);scene.add(deck);}
     const bunker=new THREE.Mesh(cube,new THREE.MeshStandardMaterial({color:'#d9b67d',roughness:.8}));
     bunker.scale.set(3.4,1.6,2.4);bunker.position.set(SITES.shelter.x,elevation(SITES.shelter.x,SITES.shelter.z)+.3,SITES.shelter.z);scene.add(bunker);
     const entrance=new THREE.Mesh(cube,new THREE.MeshBasicMaterial({color:'#16242b'}));entrance.scale.set(1.8,1.2,.1);entrance.position.copy(bunker.position).add(new THREE.Vector3(0,0,1.25));scene.add(entrance);
@@ -139,6 +144,17 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
     camera.up.set(0,1,0);camera.position.copy(target).add(tilted?new THREE.Vector3(0,120,75):new THREE.Vector3(0,150,.001));camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();
   }
   function draw(){
+    // Reveal one nearby district only: pointer on desktop, viewing center on touch.
+    let nearest=null,best=Infinity;
+    const aim=touchMap.matches?{x:width/2,y:(height+mapTop())/2}:labelPointer;
+    for(const tag of districtTags){
+      tag.visible=false;
+      const p=tag.position.clone().project(camera),x=(p.x*.5+.5)*width,y=(-p.y*.5+.5)*height;
+      const distance=Math.hypot(x-aim.x,y-aim.y);
+      if(distance<best&&Math.abs(p.x)<1&&Math.abs(p.y)<1){best=distance;nearest=tag;}
+    }
+    if(nearest&&zoom>=1.5&&best<(touchMap.matches?65:45))nearest.visible=true;
+
     if(!active||!renderer)return;measureLabels();cameraUpdate();renderer.render(scene,camera);
     for(const [id,s] of Object.entries(SITES)){const b=markers[id],p=place(b,s.x,s.z);b.hidden=(id==='echo'&&!state.scanned)||Math.abs(p.x)>1.1||Math.abs(p.y)>1.1;b.setAttribute('aria-pressed',String(id===state.selected));}
     placeTowns();placeUnits();layoutLabels();
@@ -151,6 +167,8 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
   function constrain(){target.x=THREE.MathUtils.clamp(target.x,SECTOR.centerX-SECTOR.width/2,SECTOR.centerX+SECTOR.width/2);target.z=THREE.MathUtils.clamp(target.z,SECTOR.centerZ-SECTOR.depth/2,SECTOR.centerZ+SECTOR.depth/2);}
   function zoomAt(next,x=width/2+canvas.getBoundingClientRect().left,y=height/2+canvas.getBoundingClientRect().top){const before=groundAt(x,y);zoom=THREE.MathUtils.clamp(next,.7,7);cameraUpdate();const after=groundAt(x,y);if(before&&after)target.add(before.sub(after));constrain();draw();}
   function gesture(){const a=[...pointers.values()];if(!a.length)return null;return {x:a.reduce((s,p)=>s+p.x,0)/a.length,y:a.reduce((s,p)=>s+p.y,0)/a.length,d:a.length>1?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y):0};}
+  canvas.addEventListener('pointermove',e=>{const r=canvas.getBoundingClientRect();labelPointer.x=e.clientX-r.left;labelPointer.y=e.clientY-r.top;if(!pointers.size)draw();});
+  canvas.addEventListener('pointerleave',()=>{labelPointer.x=-9999;labelPointer.y=-9999;draw();});
   canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus({preventScroll:true});pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});canvas.setPointerCapture(e.pointerId);canvas.classList.add('dragging');});
   canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;e.preventDefault();const old=gesture();pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});const next=gesture();const a=groundAt(old.x,old.y),b=groundAt(next.x,next.y);if(a&&b)target.add(a.sub(b));constrain();cameraUpdate();if(old.d&&next.d)zoomAt(zoom*next.d/old.d,next.x,next.y);else draw();});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{pointers.delete(e.pointerId);if(!pointers.size)canvas.classList.remove('dragging');});
@@ -182,6 +200,8 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
   // neutral towns. A label with no clear spot is hidden (its icon stays tappable); the selected marker always shows
   // its own. Sizes are read before the frame's writes, so layout is not forced.
   const SIDES=['right','left','below','above','above-right','below-right','above-left','below-left'],RANK={under_attack:0,occupied:1,protected:2,shelter:3,city:4,neutral:5,relay:6,nomad:7,echo:8};
+  $('ops-markers').addEventListener('pointerover',()=>draw());
+  $('ops-markers').addEventListener('pointerout',()=>draw());
   const labelled=()=>[...Object.values(markers),...Object.values(towns)];
   let overlays=[],labelGap=6,toolsBottom=0;const sizes=new Map();
   function mapTop(){return Math.min(height*.25,toolsBottom);}
@@ -203,7 +223,8 @@ export function createTerminal(root,{onClose,onState,onDrone,onCommand,onAction,
     const taken=[...overlays,...list.map(m=>({x:m.x-m.r,y:m.y-m.r,w:2*m.r,h:2*m.r,own:m.b}))];
     for(const m of list.sort((a,b)=>a.rank-b.rank)){
       let side='none';
-      if(m.w){
+      const reveal=m.b.getAttribute('aria-pressed')==='true'||m.b.matches(':focus-visible')||(!touchMap.matches&&m.b.matches(':hover'));
+      if(m.w&&reveal){
         const boxes=SIDES.map(s=>[s,labelBox(m,s)]),inside=boxes.filter(([,r])=>r.x>=2&&r.y>=2&&r.x+r.w<=width-2&&r.y+r.h<=height-2);
         const pick=inside.find(([,r])=>!taken.some(o=>o.own!==m.b&&overlap(o,r)))||(m.rank<0?inside[0]||boxes[0]:null);
         if(pick){side=pick[0];taken.push(pick[1]);}

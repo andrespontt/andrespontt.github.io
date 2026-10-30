@@ -205,11 +205,18 @@ city operation's own simulation; the command desk's soldiers and resources are t
 
 ## Regional map
 
-The command survey covers **10 × 8 km**. Kestrel Falls has a 3 × 3 layout of nine named districts, each the
-size of the original 24-block neighborhood (216 blocks total). District 01 retains the market, drone and
-conflict marker; the other districts extend east and south. The City button fits all nine districts, and
+The command survey covers **20 × 11 km**. Kestrel Falls has a 3 × 6 layout of eighteen named districts, each the
+size of the original 24-block neighborhood (432 blocks total). District 01 retains the market, drone and
+conflict marker; the other districts extend east and south. The City button fits all eighteen districts, and
 Fit sector restores the whole mountain/valley survey. The eight settlements are drawn on the survey with their roads,
 all starting at the bunker: Millbrook and Westhaven down the farm track (south-west), Stonebridge on a branch west
 of it, Greenhaven to the south, Greyvein and Ember Junction past Relay 03, Ironford and Lakewatch along the valley
 road east. The wall map shows them in their status colours. Buildings use one instanced draw call. This enlarges
 the strategic map and wall survey; the separate first-person combat scene still covers the market block.
+
+Campaign expansion: 500 starting soldiers; a 50,000 standing-force limit includes deployed troops and reserved training slots. Neutral towns can request free protection from day 3. Occupied towns can rebel from day 5 of occupation and request protection after driving out their occupiers. Accept offers in Settlements.
+
+The strategic city now has 18 districts (432 buildings), twice its previous area; the first-person market scenario is unchanged. Businesses tab: six properties, a starting treasury of 5,000, one-time purchases, and daily income at midnight. Saves migrate without resetting existing progress.
+
+
+The Veyr river marks the eastern border, with North, Central and South crossings. Beyond it lie Drakenburg (18 districts and 432 map buildings, using the same street and block pattern as Kestrel Falls) and Frostford, Ironhollow, Redhaven and Ashgate. Select their map markers for intelligence and bridge-based routes; East focuses this region. These are strategic survey locations, not additional playable city scenes.

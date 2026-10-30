@@ -3,10 +3,10 @@
 // It only reads the game state and turns clicks into orders (onAction); protectorate.mjs decides what happens.
 // Panels are re-rendered from the state several times a second; morph() patches the DOM in place so buttons
 // keep focus and clicks are never lost to a redraw.
-import { RULES, DAY, RESOURCES, military, settlement, security, siege, winChance, riskLabel, trainable, travelTime, reason, objective, clock, dateLabel, nextBunkerIntake } from './protectorate.mjs?v=protect2';
+import { RULES, DAY, RESOURCES, BUSINESSES, businessIncome, military, settlement, security, siege, winChance, riskLabel, trainable, travelTime, reason, objective, clock, dateLabel, nextBunkerIntake } from './protectorate.mjs?v=protect3';
 
 const STATUS = { protected: 'PROTECTED', under_attack: 'UNDER ATTACK', occupied: 'OCCUPIED', neutral: 'NEUTRAL' };
-const TABS = [['overview', 'Overview', 'Brief'], ['settlements', 'Settlements', 'Towns'], ['military', 'Military', 'Military'], ['operations', 'Operations', 'Ops'], ['log', 'Event log', 'Log']];
+const TABS = [['overview', 'Overview', 'Brief'], ['settlements', 'Settlements', 'Towns'], ['military', 'Military', 'Military'], ['operations', 'Operations', 'Ops'], ['businesses', 'Businesses', 'City'], ['log', 'Event log', 'Log']];
 const KIND = { deploy: 'Garrison deployment', reinforce: 'Reinforcements', liberate: 'Liberation force', agreement: 'Agreement escort', return: 'Returning soldiers' };
 const GROUP = 50;   // orders move soldiers and volunteers in groups of this size (map markers are formations)
 const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -150,8 +150,11 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
       <h4 class="cmd-h">Incoming convoys</h4>${unitRows(convoyRows(), 'No trucks on the road. Protected settlements send one every two days.')}
       <h4 class="cmd-h">Military movements</h4>${unitRows(movementRows(), 'No soldiers on the road.')}`;
   }
+  function businessesPanel() {
+    return `<h4 class="cmd-h">Kestrel Falls · 18 districts</h4><p class="cmd-intro">Treasury: $${(game.money ?? RULES.startingMoney).toLocaleString()} · Income: $${businessIncome(game).toLocaleString()} / day. Purchase businesses once; revenue arrives at game midnight.</p>${BUSINESSES.map(b => `<article class="cmd-card"><h4>${esc(b.name)}</h4><p class="cmd-note">District ${b.district} · $${b.income}/day · pays back in ${Math.ceil(b.cost/b.income)} days</p>${order((game.businesses || []).includes(b.id) ? 'Owned' : `Purchase · $${b.cost.toLocaleString()}`, {type:'buy-business',id:b.id}, 'primary')}</article>`).join('')}`;
+  }
   function settlementsPanel() {
-    return `<p class="cmd-intro">Each settlement sends its own trucks while it is protected. Smaller garrisons are cheaper but invite raids; under-protecting is your call.</p>${game.settlements.map(settlementCard).join('')}`;
+    return `<p class="cmd-intro">Each settlement sends its own trucks while it is protected. Smaller garrisons are cheaper but invite raids; under-protecting is your call.</p>${game.settlements.filter(x=>x.status==='neutral' && x.protectionRequested).map(x=>`<article class="cmd-card"><h4>${esc(x.name)} requests protection</h4><p class="cmd-note">No money, escort or prior victory required.</p>${order('Accept free agreement',{type:'accept-protection',id:x.id},'primary')}</article>`).join('')}${game.settlements.map(settlementCard).join('')}`;
   }
   function militaryPanel() {
     const f = military(game), total = Math.max(1, f.totalSoldiers);
@@ -162,7 +165,7 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
     const closed = Object.entries({ neutral: 'no agreement', under_attack: 'under attack', occupied: 'occupied' })
       .map(([st, why]) => { const names = game.settlements.filter(x => x.status === st).map(x => x.name); return names.length ? `${names.join(', ')} (${why})` : ''; }).filter(Boolean);
     const canTrain = trainable(game), why = reason(game, { type: 'train' });
-    return `<h4 class="cmd-h">Forces <span>${f.totalSoldiers} soldiers</span></h4>
+    return `<h4 class="cmd-h">Forces <span>${f.totalSoldiers.toLocaleString()} / 50,000 soldiers</span></h4>
       <div class="cmd-forcebar" aria-hidden="true">${bar}</div>
       <dl class="cmd-facts cmd-legend"><dt><i class="seg-available"></i>Available at the bunker</dt><dd>${f.availableSoldiers}</dd><dt><i class="seg-deployed"></i>Deployed in garrisons</dt><dd>${f.deployedSoldiers}</dd><dt><i class="seg-transit"></i>On the road</dt><dd>${f.soldiersInTransit}</dd><dt>Killed in action</dt><dd>${game.stats.killed}</dd></dl>
       <ul class="cmd-list compact">${game.settlements.filter(x => x.status === 'protected' || x.status === 'under_attack').map(x => `<li><i class="dot st-${x.status}"></i><span><b>${esc(x.name)}</b><small>${security(x)}</small></span><em>${x.assignedSoldiers}/${x.recommendedGarrison}</em><button class="cmd-link" data-act="select" data-id="${x.id}">Manage</button></li>`).join('')}</ul>
@@ -217,7 +220,7 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
     const f = military(game), upkeep = Math.ceil(f.totalSoldiers * RULES.upkeep) + game.training.reduce((n, b) => n + b.count * RULES.trainingFood, 0);
     const res = (key, note, warn) => `<div class="cmd-res${warn ? ' warn' : ''}"><small>${RESOURCES[key]}</small><b>${game.resources[key]}</b><span>${note}</span></div>`;
     const flow = type => { const n = income(type); return n ? `+${n} / ${RULES.deliveryDays} days` : 'No supplier'; };
-    morph(stock, `${res('food', `${flow('food')} · −${upkeep}/day`, game.resources.food < upkeep * 2)}${res('metal', flow('metal'), game.resources.metal < RULES.equipment.metal)}${res('components', flow('components'), game.resources.components < RULES.equipment.components)}${res('fuel', `${RULES.sortieFuel} per sortie`, game.resources.fuel < RULES.sortieFuel)}
+    morph(stock, `<button class="cmd-res" data-act="tab" data-tab="businesses"><small>Money</small><b>$${(game.money ?? RULES.startingMoney).toLocaleString()}</b><span>+$${businessIncome(game)}/day</span></button>${res('food', `${flow('food')} · −${upkeep}/day`, game.resources.food < upkeep * 2)}${res('metal', flow('metal'), game.resources.metal < RULES.equipment.metal)}${res('components', flow('components'), game.resources.components < RULES.equipment.components)}${res('fuel', `${RULES.sortieFuel} per sortie`, game.resources.fuel < RULES.sortieFuel)}
       <button class="cmd-res cmd-forces" data-act="tab" data-tab="military" aria-label="Soldiers: ${f.availableSoldiers} available of ${f.totalSoldiers}. Open Military."><small>Soldiers</small><b>${f.availableSoldiers}<i>/${f.totalSoldiers}</i></b><span>available / total</span></button>
       <div class="cmd-clock"><small>Game clock</small><b>${dateLabel(now)}</b><div class="cmd-speed" role="group" aria-label="Game speed">${[[0, '❚❚', 'Pause'], [1, '1×', 'Normal speed'], [3, '3×', 'Fast speed']].map(([v, t, l]) => `<button data-act="speed" data-speed="${v}" aria-pressed="${game.speed === v}" aria-label="${l}">${t}</button>`).join('')}</div></div>`);
   }
@@ -225,7 +228,7 @@ export function createCommandDesk({ stock, desk, overlay, onAction, onTrack, onR
     if (!game) return;
     renderStock();
     const alerts = game.settlements.filter(x => x.status === 'under_attack').length;
-    const panel = { overview, settlements: settlementsPanel, military: militaryPanel, operations: operationsPanel, log: logPanel }[ui.tab]();
+    const panel = { overview, settlements: settlementsPanel, military: militaryPanel, operations: operationsPanel, businesses: businessesPanel, log: logPanel }[ui.tab]();
     morph(desk, `<div class="cmd-head"><div><small>OUTPOST 07 · PROTECTORATE COMMAND</small><h3>Command desk</h3></div><span class="cmd-live${game.speed ? '' : ' paused'}">${game.speed ? '● LIVE · ' + game.speed + '×' : '❚❚ PAUSED'}</span></div>
       <div class="cmd-tabs" role="tablist" aria-label="Command sections">${TABS.map(([id, long, short]) => `<button role="tab" id="cmd-tab-${id}" data-act="tab" data-tab="${id}" aria-selected="${ui.tab === id}" aria-controls="cmd-panel" tabindex="${ui.tab === id ? 0 : -1}"><span class="long">${long}</span><span class="short">${short}</span>${id === 'operations' && alerts ? `<b class="cmd-badge">${alerts}</b>` : ''}</button>`).join('')}</div>
       <section class="cmd-panel" id="cmd-panel" role="tabpanel" aria-labelledby="cmd-tab-${ui.tab}">${panel}</section>`);

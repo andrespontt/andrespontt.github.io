@@ -7,7 +7,7 @@
 // seeded generator kept in the state, so the same orders at the same times always play out the same way.
 // game.js saves the state and drives the clock; terminal.js and command.js only read it.
 
-export const VERSION = 2;
+export const VERSION = 3;
 export const DAY = 60_000;        // one game day = 60 s of real time at 1×
 export const STEP = 250;          // simulation step, in game ms
 export const SPEEDS = [0, 1, 3];  // pause, normal, fast
@@ -17,6 +17,8 @@ const LOG_SIZE = 60, HISTORY_SIZE = 12;
 export const RULES = {
   start: { time: DAY / 4, soldiers: 500, trainingCapacity: 250, resources: { food: 5000, metal: 2500, components: 1000, fuel: 5000 } },
   bunkerRecruitment: { initial: 50, batch: 50, everyDays: 3, capacity: 150 },  // drifters who reach the bunker on their own
+  soldierLimit: 50000,
+  startingMoney: 5000,
   trainingDays: 3,
   trainingFood: 2,                         // food per recruit per training day
   equipment: { metal: 3, components: 1 },  // issued per recruit when training starts
@@ -40,6 +42,16 @@ export const RULES = {
 };
 
 export const RESOURCES = { food: 'Food', metal: 'Metal', components: 'Components', fuel: 'Fuel' };
+
+export const BUSINESSES = [
+  {id:'bakery', name:'Market Bakery', district:1, cost:1200, income:120},
+  {id:'garage', name:'Eastgate Garage', district:3, cost:2200, income:240},
+  {id:'warehouse', name:'Riverside Warehouse', district:4, cost:3500, income:400},
+  {id:'clinic', name:'Southbank Pharmacy', district:7, cost:4500, income:540},
+  {id:'freight', name:'Freight Exchange', district:10, cost:6500, income:800},
+  {id:'factory', name:'Newtown Manufacturing', district:14, cost:10000, income:1300},
+];
+export const businessIncome = s => BUSINESSES.filter(b => (s.businesses || []).includes(b.id)).reduce((n,b) => n+b.income,0);
 
 // The eight settlements of the first scenario. travel: one-way trip from the bunker (game ms at 1×).
 export const SETTLEMENTS = [
@@ -71,7 +83,7 @@ const troops = n => plural(n, 'soldier');
 export function createGame(seed = Math.floor(Math.random() * 2 ** 32)) {
   const s = {
     version: VERSION, seed: seed >>> 0, time: RULES.start.time, carry: 0, speed: 1, nextId: 1,
-    resources: { ...RULES.start.resources },
+    resources: { ...RULES.start.resources }, money: RULES.startingMoney, businesses: [],
     available: RULES.start.soldiers, bunkerVolunteers: RULES.bunkerRecruitment.initial, recruits: 0, training: [], trainingCapacity: RULES.start.trainingCapacity,
     settlements: SETTLEMENTS.map(d => ({
       id: d.id, name: d.name, kind: d.kind, population: d.population, status: d.status,
@@ -93,7 +105,7 @@ export function createGame(seed = Math.floor(Math.random() * 2 ** 32)) {
 
 // Preserve campaign progress and active orders when upgrading the original small-unit save.
 export function restoreGame(saved) {
-  if (!saved || ![1, VERSION].includes(saved.version)) return null;
+  if (!saved || ![1, 2, VERSION].includes(saved.version)) return null;
   const s = structuredClone(saved);
   if (s.version === 1) {
     const scale = (o, keys) => { for (const k of keys) if (typeof o[k] === 'number') o[k] *= 50; };
@@ -112,6 +124,10 @@ export function restoreGame(saved) {
     s.version = VERSION;
     note(s, 'info', 'Regional command expanded: troop and supply quantities scaled 50 times. Five new settlements await agreements. Earlier logs retain original figures.');
   }
+  s.version = VERSION;
+  s.money ??= RULES.startingMoney;
+  s.businesses ??= [];
+  delete s.cityControl; // Retire obsolete prototype state without resetting the campaign.
   s.bunkerVolunteers ??= RULES.bunkerRecruitment.initial;
   s.stats.delivered.fuel ??= 0;
   for (const x of createGame(s.seed).settlements) if (!s.settlements.some(old => old.id === x.id)) s.settlements.push(x);
@@ -194,16 +210,21 @@ export const travelTime = (s, x) => Math.round(x.travel * (s.resources.fuel >= R
 // How many recruits could start training right now.
 export function trainable(s) {
   const room = s.trainingCapacity - military(s).recruitsInTraining;
-  return Math.max(0, Math.min(s.recruits, room, Math.floor(s.resources.metal / RULES.equipment.metal), Math.floor(s.resources.components / RULES.equipment.components)));
+  return Math.max(0, Math.min(s.recruits, RULES.soldierLimit - military(s).totalSoldiers - military(s).recruitsInTraining, room, Math.floor(s.resources.metal / RULES.equipment.metal), Math.floor(s.resources.components / RULES.equipment.components)));
 }
 
 // ── Player orders ───────────────────────────────────────────────────────────────────────────────────
 // Why an order cannot be given now ('' when it can). The interface uses it to disable buttons.
 export function reason(s, a) {
   const x = a.id ? settlement(s, a.id) : null, n = a.count;
-  if (a.id && !x) return 'Unknown settlement.';
+  if (a.id && !x && a.type !== 'buy-business') return 'Unknown settlement.';
   const needCount = () => !Number.isInteger(n) || n < 1 ? 'Choose how many.' : '';
   switch (a.type) {
+    case 'buy-business': {
+      const b = BUSINESSES.find(b => b.id === a.id);
+      return !b ? 'Unknown business.' : (s.businesses || []).includes(b.id) ? 'Already owned.' : (s.money ?? RULES.startingMoney) < b.cost ? 'Not enough money.' : '';
+    }
+    case 'accept-protection': return x.status === 'neutral' && x.protectionRequested ? '' : 'No request pending.';
     case 'speed': return SPEEDS.includes(a.speed) ? '' : 'Unknown speed.';
     case 'assign':
       if (needCount()) return needCount();
@@ -226,6 +247,7 @@ export function reason(s, a) {
       if (x.status !== 'protected') return 'Recruiting only in protected settlements.';
       return n > x.availableVolunteers ? `Only ${plural(x.availableVolunteers, 'volunteer')}.` : '';
     case 'train': {
+      if (military(s).totalSoldiers + military(s).recruitsInTraining >= RULES.soldierLimit) return 'Force limit reached: 50,000 soldiers including trainees.';
       if (!s.recruits) return 'No untrained recruits.';
       if (military(s).recruitsInTraining >= s.trainingCapacity) return 'Training center full.';
       return trainable(s) ? '' : `Each recruit needs ${RULES.equipment.metal} metal and ${RULES.equipment.components} component.`;
@@ -245,6 +267,17 @@ export function act(state, a) {
   if (reason(state, a)) return state;
   const s = structuredClone(state), x = a.id ? settlement(s, a.id) : null, n = a.count;
   switch (a.type) {
+    case 'buy-business': {
+      const b = BUSINESSES.find(b => b.id === a.id);
+      s.money = (s.money ?? RULES.startingMoney) - b.cost;
+      s.businesses = [...(s.businesses || []), b.id];
+      note(s, 'order', `${b.name} purchased for $${b.cost}. Income: $${b.income} per day.`);
+      break;
+    }
+    case 'accept-protection':
+      Object.assign(x, {status:'protected', protectionRequested:false, confidence:60, nextDeliveryTick:s.time+DAY/2});
+      note(s, 'info', `${x.name} voluntarily joined the protectorate. No payment or escort required.`);
+      break;
     case 'speed': s.speed = a.speed; break;
     case 'assign': {
       const kind = x.status === 'neutral' ? 'agreement' : x.status === 'under_attack' ? 'reinforce' : 'deploy';
@@ -372,6 +405,9 @@ export function nextBunkerIntake(s) {
 }
 
 function midnight(s) {
+  const earnings = businessIncome(s);
+  s.money = (s.money ?? RULES.startingMoney) + earnings;
+  if (earnings) note(s, 'delivery', `City businesses paid $${earnings}. Treasury: $${s.money}.`);
   const today = day(s.time), forces = military(s).totalSoldiers, need = Math.ceil(forces * RULES.upkeep);
   const intake = RULES.bunkerRecruitment, pool = s.bunkerVolunteers ?? intake.initial;
   if ((today - 1) % intake.everyDays === 0 && pool < intake.capacity) {
@@ -394,6 +430,23 @@ function midnight(s) {
       x.daysOccupied++;
       if (x.daysOccupied % RULES.occupationGrowthDays === 0 && x.enemyForces < RULES.occupationCap) {
         x.enemyForces = Math.min(RULES.occupationCap, x.enemyForces + RULES.occupationGrowth); note(s, 'warn', `Hostiles in ${x.name} reinforced: about ${x.enemyForces} now.`);
+      }
+    }
+  }
+  // Separate deterministic civic rolls keep military randomness stable and saves reproducible.
+  for (const [i,x] of s.settlements.entries()) {
+    const roll = ((Math.imul(today + i * 97, 1664525) + (s.seed >>> 0)) >>> 0) % 100;
+    if (x.status === 'neutral' && !x.protectionRequested && today >= 3 && (roll < 15 || today % 12 === i % 12)) {
+      x.protectionRequested = true;
+      note(s, 'info', `${x.name} requests protection voluntarily. Accept in Settlements; no money or soldiers required.`);
+    }
+    if (x.status === 'occupied' && x.daysOccupied >= 5 && (roll < 12 || x.daysOccupied >= 16)) {
+      const removed = Math.min(x.enemyForces, Math.max(100, Math.ceil(x.population / 40)));
+      x.enemyForces -= removed;
+      note(s, 'combat', `${x.name} rebels against its occupiers: ${removed} invaders driven out.`);
+      if (!x.enemyForces) {
+        Object.assign(x,{status:'neutral',attack:null,daysOccupied:0,protectionRequested:true});
+        note(s, 'info', `${x.name} won its independence and requests your protection, without conditions.`);
       }
     }
   }
