@@ -10,6 +10,9 @@ const PAD = 6.8;
 // Extra character models a scenario can request with `models: ['xbot']`.
 const MODELS = {
   xbot: { url: new URL('../assets/Xbot.glb', import.meta.url).href, options: { clips: { Idle: 'idle', Walk: 'walk', Run: 'run' }, flip: true } },
+  // Realistic civilians (Microsoft Rocketbox, see assets/README.md). They have no clips of their own and borrow
+  // the Xbot's idle/walk/run (see clipsFrom in kit.js).
+  delivery: { url: new URL('../assets/people/Delivery_Male_01.glb', import.meta.url).href, borrows: 'xbot', options: { clips: { Idle: 'idle', Walk: 'walk', Run: 'run' }, flip: true } },
 };
 
 // Stand far enough back that the scenario's width fits the screen (70° vertical FOV).
@@ -45,10 +48,12 @@ export async function createArea(saved = {}, { variant, linked = false } = {}) {
   }
 
   const loader = new GLTFLoader();
-  const [gltf, ...extras] = await Promise.all([loader.loadAsync(soldierUrl), ...(scenario.models || []).map(name => loader.loadAsync(MODELS[name].url))]);
-  const models = Object.fromEntries((scenario.models || []).map((name, i) => [name, extras[i]]));
+  // A model that borrows another's clips brings that model along.
+  const wanted = [...new Set((scenario.models || []).flatMap(name => [MODELS[name].borrows, name].filter(Boolean)))];
+  const [gltf, ...extras] = await Promise.all([loader.loadAsync(soldierUrl), ...wanted.map(name => loader.loadAsync(MODELS[name].url))]);
+  const models = Object.fromEntries(wanted.map((name, i) => [name, extras[i]]));
   // character('xbot', { tint }) -> same shape as soldier(): { model, mixer, actions, setSpeed }
-  const character = (name, options = {}) => createCharacter(models[name], { ...MODELS[name].options, ...options });
+  const character = (name, options = {}) => createCharacter(models[name], { ...MODELS[name].options, clipsFrom: models[MODELS[name].borrows] || null, ...options });
   let labels = [], group = null, instance = null;
   const label = (text, options) => { const m = createLabel(text, options); labels.push(m); return m; };
   const soldier = () => createSoldier(gltf);
@@ -70,7 +75,8 @@ export async function createArea(saved = {}, { variant, linked = false } = {}) {
   const home = () => views.find(view => view.label === scenario.defaultView) || views[0] || { ...viewPose(scenario), eye: scenario.eyeHeight || 1.7 };
   let currentView = home().label || 'Free camera';
   let selectedView = home(), orbitAngle = 0, orbitPaused = false;
-  const goTo = (view, setPose) => { selectedView = view; orbitAngle = 0; currentView = view.label || 'Free camera'; area.eyeHeight = view.eye ?? 1.7; area.walkSpeed = area.eyeHeight > 4 ? 9 : 4; setPose(view); };
+  // A view can put you on another floor of a multi-storey scene (instance.onView, instance.heightAt).
+  const goTo = (view, setPose) => { selectedView = view; orbitAngle = 0; currentView = view.label || 'Free camera'; area.eyeHeight = view.eye ?? 1.7; area.walkSpeed = area.eyeHeight > 4 ? 9 : 4; instance?.onView?.(view); setPose(view); };
   const area = {
     scene, title: 'Dev / ' + scenario.title, eyeHeight: home().eye ?? 1.7, walkSpeed: (home().eye ?? 1.7) > 4 ? 9 : 4,
     spawn: home(),
@@ -92,6 +98,8 @@ export async function createArea(saved = {}, { variant, linked = false } = {}) {
     viewSlug: () => views.length ? currentView.toLowerCase().replace(/[^a-z0-9]+/g, '-') : null,
     setView(slug, setPose) { const view = views.find(v => v.label.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug); if (view) goTo(view, setPose); },
     weatherLabel: scenario.weatherLabel,
+    // On foot, the scenario can raise or lower you (stairs, a street below); raised and orbiting cameras ignore it.
+    heightAt: (x, z) => area.eyeHeight < 4 && !selectedView.orbit ? instance?.heightAt?.(x, z) ?? 0 : 0,
     move(p, dx, dz) { if(selectedView.orbit)return; if(instance?.move && area.eyeHeight < 4){instance.move(p,dx,dz);return;} p.x = THREE.MathUtils.clamp(p.x + dx, -90, 90); p.z = THREE.MathUtils.clamp(p.z + dz, -90, 90); },
     update(dt, env = {}) {
       if (instance) {

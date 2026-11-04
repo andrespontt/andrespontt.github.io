@@ -8,6 +8,9 @@ const dir = new THREE.Vector3(), bend = new THREE.Vector3(), elbow = new THREE.V
 export const bone = (root, name) => root.getObjectByName('mixamorig' + name);
 
 // Rotate `boneObj` so the direction to its child points at a world-space target.
+// Bones flagged userData.keepTwist (rigs without Mixamo bone axes, e.g. the converted Rocketbox people) turn from
+// their current pose; rebuilding them from the rest axis would roll them about the limb and twist the mesh.
+const turn = new THREE.Quaternion();
 export function aimBone(boneObj, child, targetWorld) {
   if (!boneObj?.parent || !child) return false;
   boneObj.parent.updateWorldMatrix(true, false);
@@ -16,7 +19,8 @@ export function aimBone(boneObj, child, targetWorld) {
   local.sub(boneObj.position);
   const axis = child.position.clone().normalize();
   if (local.lengthSq() < 1e-10 || axis.lengthSq() < 1e-10) return false;
-  boneObj.quaternion.setFromUnitVectors(axis, local.normalize());
+  if (boneObj.userData.keepTwist) boneObj.quaternion.premultiply(turn.setFromUnitVectors(axis.applyQuaternion(boneObj.quaternion), local.normalize()));
+  else boneObj.quaternion.setFromUnitVectors(axis, local.normalize());
   boneObj.updateWorldMatrix(false, true);
   return true;
 }

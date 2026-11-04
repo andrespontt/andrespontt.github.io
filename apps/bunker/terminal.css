@@ -182,6 +182,17 @@
  .cmd-stats b{font-size:18px}.cmd-log li{grid-template-columns:1fr;gap:0}
  #situation-terminal .cmd-btn{min-height:44px}#situation-terminal .cmd-stepper button{min-height:44px;min-width:42px}
 }
+/* Short landscape screens need a single resource row and compact desk tabs. */
+@media(max-height:500px) and (min-width:701px){
+ .ops-top{min-height:44px;padding:4px max(12px,env(safe-area-inset-right)) 4px max(12px,env(safe-area-inset-left))}.ops-title h2{font-size:17px}.ops-weather{display:none}.ops-close{margin-left:auto}
+ .cmd-stock{grid-template-columns:repeat(6,minmax(0,1fr)) 174px;gap:4px;padding:4px 12px 6px}
+ #situation-terminal .cmd-res{padding:4px 6px!important;border-radius:5px}.cmd-res small{font-size:8px;letter-spacing:0}.cmd-res b{font-size:16px}.cmd-res b i{font-size:10px}.cmd-res span{display:none}
+ .cmd-clock{grid-column:auto;flex-direction:column;gap:2px;padding:4px}.cmd-clock small{display:none}.cmd-clock b{font-size:10px}.cmd-speed{min-width:0;width:100%}#situation-terminal .cmd-speed button{min-height:44px;padding:2px}
+ .ops-workspace{gap:8px;padding:0 12px max(8px,env(safe-area-inset-bottom))}.command-mode .ops-workspace{grid-template-columns:minmax(0,1fr) 292px}
+ #ops-command{padding:8px}.cmd-head{display:none}.cmd-tabs{grid-template-columns:repeat(3,minmax(0,1fr));top:-8px;gap:2px;margin-bottom:8px}#situation-terminal .cmd-tabs button{min-height:44px}.cmd-tabs .long{display:none}.cmd-tabs .short{display:inline}
+ .ops-tools{top:6px;left:6px;gap:3px}#situation-terminal .ops-tools button{min-width:44px;min-height:44px;padding:5px}.ops-tools button span{display:none}.ops-north{display:none}
+ .ops-marker i{width:28px;height:28px;font-size:14px}.ops-marker span{font-size:9px}
+}
 @media(prefers-reduced-motion:reduce){.ops-scanning #ops-viewport:after{animation:none;background:#c2d7df15}.ops-marker.ops-alert i,.ops-town i,.cmd-chip,.cmd-dialog small{animation:none!important}}
 
 /* While the terminal is open the 3D game's own controls step aside. */

@@ -94,3 +94,50 @@ body.hurt:before{content:"";position:fixed;inset:0;z-index:3;pointer-events:none
 #open-command{border-color:#d9b47a!important;color:#fff0cc!important}#open-command small{display:block;margin-top:4px;font:11px monospace;color:#a9c3b4}#open-command.alert{border-color:#ff8a5c!important;background:#3a1d17e6!important;animation:command-alert 1.2s ease-in-out infinite}#open-command.alert small{color:#ffc3a8}
 @keyframes command-alert{50%{box-shadow:0 0 0 6px #ff8a5c33}}@media(prefers-reduced-motion:reduce){#open-command.alert{animation:none}}
 body[data-area=bunker] #area-toolbox{top:340px}
+
+/* Field interface. Legacy action sources stay in the DOM for shared handlers;
+   the field menu is the only navigation surface on desktop and touch. */
+:root{--field-bg:#101c20;--field-ink:#edf0e6;--field-muted:#a7b8b5;--field-line:#94b6aa3b;--field-accent:#e6c18a;--field-alert:#ffaf89;--field-edge:20px;--field-mono:'Consolas','Courier New',monospace}
+body>header,body>footer,#area-actions,#area-toolbox,#scenario-status,#cabin-status,#scene-caption,#weather-panel,#debug-toggle,#city-strip{display:none!important}
+#play-hud{position:fixed;top:calc(var(--field-edge) + env(safe-area-inset-top));left:max(var(--field-edge),env(safe-area-inset-left));z-index:8;width:min(310px,calc(100vw - 128px))}
+#hud-status{display:flex;flex-direction:column;gap:5px;width:100%;padding:12px 15px;text-align:left;background:#101c20e8;border:1px solid var(--field-line);border-left:2px solid var(--field-accent);border-radius:3px;box-shadow:0 4px 24px #0002;color:var(--field-ink)}
+.hud-kicker{font:9px/1.3 var(--field-mono);letter-spacing:1.8px;color:var(--field-muted)}
+#hud-location{font:600 16px/1.25 'Segoe UI',Arial,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+#hud-situation{font:10px/1.4 var(--field-mono);color:var(--field-accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;text-transform:uppercase}
+#hud-status.contact{border-left-color:var(--field-alert)}#hud-status.contact #hud-situation{color:var(--field-alert)}
+#quick-menu-open,.inside #quick-menu-open{display:block;top:calc(var(--field-edge) + env(safe-area-inset-top));right:max(var(--field-edge),env(safe-area-inset-right));min-height:44px;padding:12px 14px;background:#101c20ef;border:1px solid var(--field-line);border-radius:3px;font:12px var(--field-mono);color:var(--field-ink)}
+.menu-key{margin-left:10px;padding:2px 5px;border:1px solid var(--field-line);color:var(--field-muted);font-size:10px}
+body #fps-counter,.inside #fps-counter{display:block!important;top:auto;bottom:calc(10px + env(safe-area-inset-bottom));right:max(var(--field-edge),env(safe-area-inset-right));z-index:5;padding:3px 5px;background:#0b161bb3;color:#bdcdc6;font:10px var(--field-mono)}
+#hud-hint{position:fixed;top:calc(116px + env(safe-area-inset-top));left:max(var(--field-edge),env(safe-area-inset-left));max-width:calc(100vw - 40px);padding:8px 10px;background:#101c20df;color:var(--field-muted);font:11px/1.5 var(--field-mono);pointer-events:none;z-index:5}
+body #interact,body.inside[data-area] #interact{left:auto;right:max(var(--field-edge),env(safe-area-inset-right));bottom:calc(186px + env(safe-area-inset-bottom));transform:none;max-width:min(290px,calc(100vw - 188px));min-height:48px;padding:12px 16px;text-align:left;font:12px/1.4 var(--field-mono);background:#142727f2;border:1px solid var(--field-accent);border-radius:3px;color:#ffe3b5}
+body #ammo{left:auto;right:max(var(--field-edge),env(safe-area-inset-right));bottom:calc(134px + env(safe-area-inset-bottom));transform:none;min-width:84px;min-height:44px;font:12px var(--field-mono);background:#101c20ed;border-color:var(--field-line)}
+body #fire,body.inside[data-area] #fire{right:max(var(--field-edge),env(safe-area-inset-right));bottom:calc(40px + env(safe-area-inset-bottom));width:80px;height:80px;font:600 12px var(--field-mono)}
+#movement-stick{background:#101c204d;border-color:#bdcec044}#movement-knob{background:#bdcec055;border-color:#bdcec088}
+body #scene-dialogue,body:has(#interact:not([hidden])) #scene-dialogue{left:max(var(--field-edge),env(safe-area-inset-left));top:calc(116px + env(safe-area-inset-top));bottom:auto;transform:none;width:min(380px,calc(100vw - 40px));padding:12px 15px;border-color:var(--field-accent);background:#101c20ed}
+#scene-dialogue p{font:14px/1.5 'Segoe UI',Arial,sans-serif}body:has(#scene-dialogue:not([hidden])) #hud-hint{display:none}
+#quick-menu{width:min(480px,calc(100vw - 32px));max-height:calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:24px;background:var(--field-bg);color:var(--field-ink);border:1px solid var(--field-line);border-top:2px solid var(--field-accent);border-radius:6px;box-shadow:0 24px 100px #0008;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#526e64 transparent}
+#quick-menu::backdrop{background:#030b10bd;backdrop-filter:blur(5px)}
+#quick-menu .eyebrow,.dev-menu-panel .eyebrow{font:9px var(--field-mono);letter-spacing:2px;color:var(--field-accent)}
+.quick-head h2{font:500 27px/1.2 'Segoe UI',Arial,sans-serif;margin:7px 0 0;letter-spacing:-.5px}
+#quick-menu-close,#dev-menu-close,#debug-close{min-width:44px;min-height:44px;border-color:var(--field-line);color:var(--field-muted)}
+#quick-menu .quick-note{max-width:none;margin:14px 0 18px;font:11px/1.5 var(--field-mono);color:var(--field-muted)}
+.quick-tabs{gap:0;border-bottom:1px solid var(--field-line);margin-bottom:20px}
+.quick-tabs button{min-height:44px;border:0;border-bottom:2px solid transparent;border-radius:0;font:12px var(--field-mono);color:var(--field-muted);background:none}
+.quick-tabs button[aria-pressed=true]{background:#acc8ae0b;border-bottom-color:var(--field-accent);color:var(--field-ink)}
+#quick-menu h3{margin:20px 0 10px;font:10px/1.4 var(--field-mono);letter-spacing:1.4px;color:var(--field-accent)}
+#quick-menu-content p{max-width:none;margin:8px 0;color:var(--field-muted);font:13px/1.6 'Segoe UI',Arial,sans-serif}
+#quick-menu-content .field-summary{font-size:15px;color:var(--field-ink)}
+#quick-menu-content .field-stats{border-left:2px solid var(--field-line);padding-left:12px;font:11px/1.7 var(--field-mono)}
+#quick-menu-content .field-controls{font:11px/1.8 var(--field-mono)}
+.quick-grid{gap:8px}.quick-grid:empty{display:none}.quick-grid button{min-height:48px;padding:12px;text-align:left;font:12px/1.4 var(--field-mono);border-color:var(--field-line);border-radius:3px;background:#d2e7d707;color:var(--field-ink)}
+.quick-grid button[aria-pressed=true]{border-color:#a9c3b4;background:#a9c3b41c;color:#e4ecd5}
+#quick-menu-resume{min-height:48px;margin-top:24px;background:var(--field-accent);border:0;border-radius:3px;color:#182320;font:600 13px var(--field-mono)}
+#quick-menu button:hover,#hud-status:hover,#quick-menu-open:hover{filter:brightness(1.15)}
+.dev-menu-panel{background:var(--field-bg);border:1px solid var(--field-line);border-top:2px solid var(--field-accent);border-radius:6px;padding:24px;max-height:calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+.dev-menu-item{min-height:60px;border-color:var(--field-line);border-radius:3px;background:#d2e7d707}.dev-menu-item b{color:var(--field-accent)}
+#debug-panel{top:calc(116px + env(safe-area-inset-top));background:var(--field-bg);border-color:var(--field-line);border-radius:3px}
+body:has(#quick-menu[open]) :is(#play-hud,#quick-menu-open,#hud-hint,#movement-stick,#interact,#fire,#ammo,#scene-dialogue,#debug-panel),body:has(#dev-menu:not([hidden])) :is(#play-hud,#quick-menu-open,#hud-hint,#movement-stick,#interact,#fire,#ammo,#scene-dialogue,#debug-panel),body:has(#situation-terminal:not([hidden])) :is(#play-hud,#quick-menu-open,#hud-hint,#movement-stick,#interact,#fire,#ammo,#scene-dialogue,#debug-panel,#fps-counter){visibility:hidden}
+body:has(#quick-menu[open]):after,body:has(#dev-menu:not([hidden])):after,body:has(#situation-terminal:not([hidden])):after{display:none}
+@media(max-width:600px){:root{--field-edge:12px}#play-hud{width:calc(100vw - 112px)}#hud-status{padding:10px 12px;gap:4px}#hud-location{font-size:14px}.hud-kicker{font-size:8px;letter-spacing:1.3px}#hud-situation{font-size:9px}.menu-key{display:none}#hud-hint{top:calc(102px + env(safe-area-inset-top));font-size:10px}body #scene-dialogue,body:has(#interact:not([hidden])) #scene-dialogue{top:calc(102px + env(safe-area-inset-top));width:calc(100vw - 24px)}#quick-menu{padding:18px;width:calc(100vw - 24px)}body #interact,body.inside[data-area] #interact{font-size:11px;padding:10px 12px}#debug-panel{top:calc(102px + env(safe-area-inset-top))}}
+@media(max-height:500px){#quick-menu{max-height:calc(100dvh - 16px);padding:16px}.quick-head h2{font-size:22px}#quick-menu .quick-note{margin:6px 0}.quick-tabs{margin-bottom:8px}#hud-hint{display:none}#play-hud{width:240px}body #scene-dialogue,body:has(#interact:not([hidden])) #scene-dialogue{width:300px;top:110px}}
+@media(prefers-reduced-motion:reduce){#play-hud *,#quick-menu *,#dev-menu *{animation:none;transition:none}}

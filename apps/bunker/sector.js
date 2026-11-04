@@ -16,12 +16,12 @@ export const ENEMY_TOWNS = [
  {id:'eastDepot',name:'ASHGATE',x:286,z:125},
 ];
 // Outpost 07's two safe houses behind the river, each a playable scene (dev/scenarios/safehouse-*.js) reached from
-// its map card: Hollow Pine in the pines south-west of Frostford, Tinker's Loft in Drakenburg's Riverside district.
+// its map card: Hollow Pine in the pines south-west of Frostford, Veyr Transport in Drakenburg's Riverside district.
 export const SAFE_HOUSES = [
  {id:'safeFrost',name:'HOLLOW PINE',short:'Hollow Pine',x:171,z:-18,place:'hollow-pine',type:'SAFE HOUSE · FARMHOUSE NEAR FROSTFORD',status:'Four rangers on watch · radio every 40 min',
   description:"A woodcutter's log farmhouse in the pines south-west of Frostford, two kilometres past the North Crossing. Sgt. Halvorsen's rangers log every truck on the Frostford road. Helmet cam: walk the house and talk to the team."},
- {id:'safeRiver',name:"TINKER'S LOFT",short:"Tinker's Loft",x:219,z:28,place:'tinker-loft',type:'SAFE HOUSE · DRAKENBURG, RIVERSIDE',status:'Four operatives · undercover',
-  description:"A flat above a shuttered clock shop in Drakenburg's Riverside district. Sgt. Okafor's cell watches the militia bar across the street and photographs the rail yard. Helmet cam: walk the flat and talk to the team."},
+ {id:'safeRiver',name:"VEYR TRANSPORT",short:"Veyr Transport",x:219,z:28,place:'tinker-loft',type:'SAFE HOUSE · DRAKENBURG, RIVERSIDE',status:'Appointments only · rear staff on watch',
+  description:"An unassuming transport office in Drakenburg. Visits by arrangement. Beyond the staff door are rear dispatch, stairs to basement operations and guards on interior posts. Helmet cam: enter the office."},
 ];
 // Reuse Kestrel Falls' district spacing, streets, footprints and roof heights.
 export const ENEMY_DISTRICTS = CITY_DISTRICTS.map(d=>({...d,x:d.x-CITY.x+ENEMY_CITY.x,z:d.z-CITY.z+ENEMY_CITY.z}));

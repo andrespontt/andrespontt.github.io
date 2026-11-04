@@ -96,7 +96,7 @@ function build(kit, { random, group, setSolid, glowMap, say }) {
     for (const y of [.45, .95]) { box(x0, y - .05, 10.35, x1, y + .05, 10.45, timber); box(x0, y + .05, 10.35, x1, y + .09, 10.45, snow); }
     for (let x = x0; x <= x1 + .01; x += Math.max(.5, (x1 - x0) / Math.round((x1 - x0) / 2.4))) cylinder(x, 0, 10.4, .07, 1.15, darkTimber);
   }
-  // Woodpile against the east wall, a chopping stump, the outhouse and an old truck under snow.
+  // Woodpile against the north wall, a chopping stump, the outhouse and an old truck under snow.
   const logEnds = tex(512, 208, g => {
     g.fillStyle = '#2a1e15'; g.fillRect(0, 0, 512, 208);
     for (let y = 14; y < 208; y += 26) for (let x = 14 + (y / 26 % 2) * 12; x < 512; x += 26) {
@@ -105,11 +105,11 @@ function build(kit, { random, group, setSolid, glowMap, say }) {
     }
   });
   const pile = F('woodpile'), bark = mat('#4b3a2a');
-  box(...pile, [new THREE.MeshStandardMaterial({ map: logEnds, roughness: 1 }), bark, snow, bark, bark, bark]);
-  box(pile[0] - .05, pile[4], pile[2] - .1, pile[3] + .15, pile[4] + .4, pile[5] + .1, timber); // lean-to cover
-  const stump = F('stump');
-  cylinder((stump[0] + stump[3]) / 2, 0, (stump[2] + stump[5]) / 2, .27, .55, mat('#5a4430'));
-  const axe = new THREE.Group(); axe.position.set(7.5, .55, 2.5); axe.rotation.set(.5, .6, 0); group.add(axe);
+  box(...pile, [bark, bark, snow, bark, bark, new THREE.MeshStandardMaterial({ map: logEnds, roughness: 1 })]);
+  box(pile[0] - .1, pile[4], pile[2] - .15, pile[3] + .1, pile[4] + .08, pile[5] + .05, timber); // lean-to cover
+  const stump = F('stump'), sx = (stump[0] + stump[3]) / 2, sz = (stump[2] + stump[5]) / 2;
+  cylinder(sx, 0, sz, .27, .55, mat('#5a4430'));
+  const axe = new THREE.Group(); axe.position.set(sx + .05, .55, sz); axe.rotation.set(.5, .6, 0); group.add(axe);
   box(-.025, 0, -.025, .025, .7, .025, mat('#8b6b48'), axe); box(-.03, .58, -.14, .03, .74, .06, iron, axe);
   const out = F('outhouse');
   box(...out, mat('#5b4634'));
@@ -125,32 +125,37 @@ function build(kit, { random, group, setSolid, glowMap, say }) {
   const [sx0, sz0, sx1, sz1] = P.shell;
   // Stone footing (not under the porch, where the deck meets the sill).
   for (const [x0, z0, x1, z1] of [[sx0 - .08, sz0 - .08, sx1 + .08, sz0], [sx0 - .08, sz1, -3.6, sz1 + .08], [-.4, sz1, sx1 + .08, sz1 + .08], [sx0 - .08, sz0, sx0, sz1], [sx1, sz0, sx1 + .08, sz1]]) box(x0, 0, z0, x1, .3, z1, stone);
-  floor([-5.7, -4.2, 5.7, 4.2], [P.hatch], planks);
+  floor([-5.7, -4.2, 10.7, 4.2], [P.hatch], planks);
   box(-2.6, 0, 4.2, -1.5, .035, 4.5, darkTimber); // threshold
   walls(P, inside, outside);
   const trim = mat('#2f4a3a', .8), glass = new THREE.MeshStandardMaterial({ color: '#8aa3ad', transparent: true, opacity: .28, roughness: .1, metalness: .3, depthWrite: false, emissive: '#ffb25e', emissiveIntensity: .3 });
   windows(P, trim, glass);
-  // Green shutters folded back beside every outside window.
+  // Green shutters folded back beside every outside window, except the guest room's: those stay shut and barred.
   for (const w of P.walls) if (w.outside) for (const [a, b, sill, head] of w.openings) {
     if (sill <= 0) continue;
     const face = w.at + w.outside * (w.thick / 2 + .03);
+    if (w.at === 10.85) {
+      box(face - .02, sill - .05, a - .05, face + .02, head + .05, (a + b) / 2 - .005, trim); box(face - .02, sill - .05, (a + b) / 2 + .005, face + .02, head + .05, b + .05, trim);
+      box(face, (sill + head) / 2 - .05, a - .15, face + .05, (sill + head) / 2 + .05, b + .15, iron);
+      continue;
+    }
     for (const [u0, u1] of [[a - .56, a - .06], [b + .06, b + .56]]) {
       if (w.axis === 'x') box(u0, sill, face - .02, u1, head, face + .02, trim); else box(face - .02, sill, u0, face + .02, head, u1, trim);
     }
   }
   // Ceiling boards and beams, and the snow-loaded gable roof (all hidden in the cutaway view).
-  hide(worldBox(-5.7, 2.7, -4.2, 5.7, 2.78, 4.2, ceiling));
-  for (const x of [-4, -1.5, 3.3]) hide(box(x - .1, 2.5, -4.2, x + .1, 2.7, 4.2, darkTimber));
-  const pitch = Math.atan2(1.83, 4.95), slope = Math.hypot(1.83, 4.95);
+  hide(worldBox(-5.7, 2.7, -4.2, 10.7, 2.78, 4.2, ceiling));
+  for (const x of [-4, -1.5, 3.3, 8.3]) hide(box(x - .1, 2.5, -4.2, x + .1, 2.7, 4.2, darkTimber));
+  const pitch = Math.atan2(1.83, 4.95), slope = Math.hypot(1.83, 4.95), roofX0 = sx0 - .45, roofX1 = sx1 + .45;
   for (const side of [1, -1]) {
     const roof = new THREE.Mesh(kit.cube, [timber, timber, snow, timber, timber, timber]);
-    roof.scale.set(12.9, .18, slope); roof.position.set(0, 3.535, side * 2.475); roof.rotation.x = side * pitch; group.add(hide(roof));
+    roof.scale.set(roofX1 - roofX0, .18, slope); roof.position.set((roofX0 + roofX1) / 2, 3.535, side * 2.475); roof.rotation.x = side * pitch; group.add(hide(roof));
     const gable = new THREE.Shape([new THREE.Vector2(-4.5, 2.7), new THREE.Vector2(4.5, 2.7), new THREE.Vector2(0, 4.35)]);
     const end = new THREE.Mesh(new THREE.ShapeGeometry(gable), new THREE.MeshStandardMaterial({ map: outside.map, roughness: .95, side: THREE.DoubleSide }));
-    end.rotation.y = Math.PI / 2; end.position.x = side * 5.99; group.add(hide(end));
+    end.rotation.y = Math.PI / 2; end.position.x = side > 0 ? sx1 - .01 : sx0 + .01; group.add(hide(end));
   }
-  hide(box(-6.45, 4.36, -.14, 6.45, 4.52, .14, snow));
-  for (const z of [-4.96, 4.96]) { const icicles = new THREE.Group(); icicles.position.z = z; group.add(hide(icicles)); for (let x = -6.2; x < 6.3; x += .27 + random() * .3) { const c = new THREE.Mesh(new THREE.ConeGeometry(.025, .14 + random() * .22, 5), mat('#d8e8f0', .2, .1)); c.rotation.x = Math.PI; c.position.set(x, 2.52, 0); icicles.add(c); } }
+  hide(box(roofX0, 4.36, -.14, roofX1, 4.52, .14, snow));
+  for (const z of [-4.96, 4.96]) { const icicles = new THREE.Group(); icicles.position.z = z; group.add(hide(icicles)); for (let x = roofX0 + .25; x < roofX1 - .15; x += .27 + random() * .3) { const c = new THREE.Mesh(new THREE.ConeGeometry(.025, .14 + random() * .22, 5), mat('#d8e8f0', .2, .1)); c.rotation.x = Math.PI; c.position.set(x, 2.52, 0); icicles.add(c); } }
   // Chimney with smoke drifting east; less of it once the fire is banked.
   const ch = F('chimney'); box(...ch, stone); box(ch[0] - .06, ch[4], ch[2] - .06, ch[3] + .06, ch[4] + .12, ch[5] + .06, darkTimber);
   const smokeMaterial = new THREE.SpriteMaterial({ map: glowMap, color: '#9aa6ad', transparent: true, opacity: .25, depthWrite: false });
@@ -267,6 +272,50 @@ function build(kit, { random, group, setSolid, glowMap, say }) {
   let hatchOpen = 0, hatchWant = 0;
   const hatchBox = [hx0, 0, hz0, hx1, .9, hz1]; // open: keeps you out of the hole
 
+  // --- Interrogation room: bare boards, a table, a driver tied to his chair, a bulb on a flex ---------------------
+  const qt = F('askTable'), qc = F('askChair');
+  box(qt[0], .7, qt[2], qt[3], .76, qt[5], timber);
+  for (const [x, z] of [[qt[0] + .06, qt[2] + .06], [qt[3] - .12, qt[2] + .06], [qt[0] + .06, qt[5] - .12], [qt[3] - .12, qt[5] - .12]]) box(x, 0, z, x + .06, .7, z + .06, darkTimber);
+  box(qc[0], .42, qc[2], qc[3], .47, qc[5], timber); box(qc[0], .47, qc[5] - .05, qc[3], .98, qc[5], timber);
+  for (const [x, z] of [[qc[0], qc[2]], [qc[3] - .04, qc[2]], [qc[0], qc[5] - .04], [qc[3] - .04, qc[5] - .04]]) box(x, 0, z, x + .04, .42, z + .04, darkTimber);
+  const rope = new THREE.Mesh(new THREE.TorusGeometry(.07, .015, 6, 14), mat('#a08b62')); rope.position.set((qc[0] + qc[3]) / 2, .62, qc[5] + .02); group.add(rope);
+  // A reel-to-reel recorder on the table, turning while he talks; his papers and a cup of water.
+  box(8.72, .76, -2.78, 9.05, .86, -2.4, mat('#3a3d38', .6, .3));
+  const reels = [8.8, 8.97].map(x => { const r = cylinder(x, .86, -2.6, .065, .875, mat('#8a8f92', .4, .6), group, 14); return r; });
+  box(7.92, .76, -2.62, 8.24, .768, -2.36, mat('#b7a27a')); box(7.95, .768, -2.6, 8.21, .772, -2.38, mat('#e4dccb'));
+  const cup = cylinder(7.86, .76, -2.15, .035, .86, new THREE.MeshStandardMaterial({ color: '#a9c2c9', transparent: true, opacity: .6, roughness: .1 }));
+  const pail = F('bucket'); cylinder((pail[0] + pail[3]) / 2, 0, (pail[2] + pail[5]) / 2, .18, .4, mat('#6f7375', .4, .5));
+  // What he has given up so far, sketched and pinned to the wall.
+  picture(sketch(512, 320, g => {
+    g.strokeStyle = '#3a3428'; g.lineWidth = 3; g.strokeRect(80, 70, 180, 120); g.strokeRect(300, 90, 120, 80); g.beginPath(); g.moveTo(20, 250); g.lineTo(492, 230); g.stroke();
+    g.fillStyle = '#2f2a22'; g.font = 'bold 22px monospace'; g.fillText('FROSTFORD DEPOT', 140, 40); g.font = '16px monospace'; g.fillText('FUEL', 150, 135); g.fillText('GARAGE', 320, 135); g.fillText('ROAD TO N. CROSSING', 150, 285);
+    g.fillStyle = '#9b2a20'; g.font = 'bold 18px monospace'; g.fillText('0615 THU 0530?', 90, 215); g.fillText('2 GUARDS', 310, 75);
+  }), 1.3, .8, 8.4, 1.55, -4.19);
+  const flex = new THREE.Group(); flex.position.set(8.4, 2.7, -2.35); group.add(flex);
+  box(-.006, -.8, -.006, .006, 0, .006, mat('#151515'), flex);
+  const bareBulb = new THREE.MeshBasicMaterial({ color: '#fff3d4' }); const bulbMesh = new THREE.Mesh(new THREE.SphereGeometry(.05, 10, 8), bareBulb); bulbMesh.position.y = -.84; flex.add(bulbMesh);
+  const askLight = new THREE.PointLight('#fff0d0', 4.5, 7, 1.6); askLight.position.y = -.9; flex.add(askLight);
+
+  // --- Guest room: Ilse Varga's, behind barred shutters ------------------------------------------------------------
+  const gbed = F('guestBed');
+  box(gbed[0], .2, gbed[2], gbed[3], .38, gbed[5], timber); box(gbed[0] + .04, .38, gbed[2] + .04, gbed[3] - .04, .52, gbed[5] - .04, mat('#d9d2c2'));
+  box(gbed[3] - .08, 0, gbed[2], gbed[3], 1.15, gbed[5], darkTimber); box(gbed[0], 0, gbed[2], gbed[0] + .08, .7, gbed[5], darkTimber);
+  const quilt = new THREE.MeshStandardMaterial({ map: tex(256, 256, g => { for (let i = 0; i < 64; i++) { g.fillStyle = ['#7a3a32', '#c9b48a', '#3e5a64', '#8a6a3a', '#5a6a4a', '#d8cfbd'][(i * 7 + Math.floor(i / 8)) % 6]; g.fillRect((i % 8) * 32, Math.floor(i / 8) * 32, 32, 32); g.strokeStyle = '#2a201a55'; g.strokeRect((i % 8) * 32 + 1, Math.floor(i / 8) * 32 + 1, 30, 30); } }), roughness: 1 });
+  box(gbed[0] + .1, .52, gbed[2] + .06, gbed[3] - .5, .58, gbed[5] - .06, quilt);
+  box(gbed[3] - .48, .52, gbed[2] + .18, gbed[3] - .12, .64, gbed[5] - .18, mat('#e6e1d6'));
+  const ns = F('nightstand'); box(...ns, timber);
+  box(ns[0] + .05, ns[4], ns[2] + .08, ns[0] + .28, ns[4] + .05, ns[2] + .3, mat('#6a2a24')); // her book
+  cylinder(ns[3] - .2, ns[4], (ns[2] + ns[5]) / 2 + .1, .03, ns[4] + .14, mat('#efe6cf'));
+  const flameMaterial = new THREE.MeshBasicMaterial({ color: '#ffcf7a' }); const candleFlame = new THREE.Mesh(new THREE.ConeGeometry(.015, .05, 6), flameMaterial); candleFlame.position.set(ns[3] - .2, ns[4] + .17, (ns[2] + ns[5]) / 2 + .1); group.add(candleFlame);
+  const candle = new THREE.PointLight('#ffb766', 2.2, 5.5, 1.7); candle.position.set(ns[3] - .2, ns[4] + .3, (ns[2] + ns[5]) / 2 + .1); group.add(candle);
+  const ws = F('washstand'); box(ws[0], 0, ws[2], ws[3], ws[4], ws[5], timber);
+  cylinder((ws[0] + ws[3]) / 2, ws[4], (ws[2] + ws[5]) / 2, .17, ws[4] + .06, mat('#d8d6cf', .3)); cylinder((ws[0] + ws[3]) / 2 + .02, ws[4], ws[5] - .12, .06, ws[4] + .22, mat('#d8d6cf', .3));
+  picture(tex(64, 96, g => { g.fillStyle = '#8a7a5a'; g.fillRect(0, 0, 64, 96); g.fillStyle = '#b9c4c8'; g.fillRect(5, 5, 54, 86); }), .4, .6, 6.01, 1.55, (ws[2] + ws[5]) / 2, Math.PI / 2); // small mirror
+  const wd = F('wardrobe'); box(...wd, mat('#4a3324')); box((wd[0] + wd[3]) / 2 - .005, .1, wd[2] - .01, (wd[0] + wd[3]) / 2 + .005, wd[4] - .1, wd[2], darkTimber);
+  for (const x of [(wd[0] + wd[3]) / 2 - .08, (wd[0] + wd[3]) / 2 + .06]) box(x, 1, wd[2] - .03, x + .02, 1.12, wd[2], iron);
+  const sc = F('suitcase'); box(...sc, mat('#6b4a2e', .7)); box(sc[0] + .3, sc[4], (sc[2] + sc[5]) / 2 - .02, sc[3] - .3, sc[4] + .06, (sc[2] + sc[5]) / 2 + .02, darkTimber);
+  box(7.1, .021, 1.5, 9.1, .026, 3.3, mat('#4d5e6b'));
+
   const fireBase = 9;
   return {
     cutaway,
@@ -275,8 +324,11 @@ function build(kit, { random, group, setSolid, glowMap, say }) {
       { light: fireLight, on: fireBase, out: 3.2, flicker: t => (1 + Math.sin(t * 13) * .08 + Math.sin(t * 7.3) * .06) * (1 + flare * .9) },
       { light: lantern, on: 4.5, out: 0, bulb: lanternGlass, color: new THREE.Color('#ffd28a') },
       { light: deskLamp, on: 2.6, out: .2, bulb: lampBulb, color: new THREE.Color('#e8ffd0') },
+      { light: askLight, on: 4.5, out: .7, bulb: bareBulb, color: new THREE.Color('#fff3d4') },
+      { light: candle, on: 2.2, out: 0, bulb: flameMaterial, color: new THREE.Color('#ffcf7a'), flicker: t => 1 + Math.sin(t * 17) * .1 + Math.sin(t * 5.3) * .06 },
     ],
     interactions: [
+      { at: [7.86, -2.15], r: .9, label: () => 'Give the prisoner a drink of water', action() { say('PRISONER', '…Thank you. It\'s Rask. Corporal Rask.', 4.5); } },
       { at: [-2.05, 4.35], r: 1.5, label: () => doorWant ? 'Close the front door' : 'Open the front door', action() { doorWant = doorWant ? 0 : 1; } },
       { at: [-4.6, -.75], r: 1.25, label: () => 'Put a log on the fire', action() { flare = 1; say('PVT MOSS', 'Small fire, remember. Dry birch, and not much of it.', 4); } },
       { at: [(hx0 + hx1) / 2, (hz0 + hz1) / 2], r: 1.25, label: () => hatchWant ? 'Close the cellar hatch' : 'Open the cellar hatch', action() { hatchWant = hatchWant ? 0 : 1; if (hatchWant) say('CELLAR', 'Spare radio set, two days of batteries and the codebook in a biscuit tin.', 4.5); } },
@@ -296,6 +348,10 @@ function build(kit, { random, group, setSolid, glowMap, say }) {
       setSolid('door', doorOpen > .5 ? P.door.open : P.door.closed);
       hatchOpen = THREE.MathUtils.damp(hatchOpen, hatchWant, 5, dt); hatch.rotation.z = hatchOpen * 1.78;
       setSolid('hatch', hatchOpen > .2 ? hatchBox : null);
+      // The bulb swings a little on its flex; the recorder's reels turn; the candle gutters.
+      flex.rotation.set(Math.sin(t * .7) * .04, 0, Math.sin(t * .9) * .05);
+      for (const [i, r] of reels.entries()) r.rotation.y = t * (i ? 2.1 : 1.6);
+      candleFlame.scale.y = 1 + Math.sin(t * 17) * .2;
     },
   };
 }
@@ -303,7 +359,7 @@ function build(kit, { random, group, setSolid, glowMap, say }) {
 export default safehouse({
   id: 'safehouse-pine',
   title: 'Hollow Pine safe house',
-  summary: 'Outpost 07 rangers in a log farmhouse behind enemy lines near Frostford. Talk to the guards, check the radio, and go dark when a patrol drives by.',
+  summary: 'Outpost 07 rangers in a log farmhouse behind enemy lines near Frostford, with a prisoner under questioning and a defector waiting to cross. Talk to everyone, check the radio, go dark when a patrol drives by.',
   plan: P, build, seed: 23,
   weatherLabel: 'Snow · −18 °C',
   fog: ['#1a2731', 16, 58],
@@ -316,14 +372,16 @@ export default safehouse({
     { label: 'Yard', x: 5.5, z: 8.6, yaw: -2.57, pitch: -.04, eye: 1.7 },
     // On the far verge of the road: where a patrol passes between you and the house.
     { label: 'Across the road', x: -3, z: 16.8, yaw: 2.96, pitch: .02, eye: 1.7 },
-    { label: 'Cutaway', x: 0, z: 12.5, yaw: Math.PI, pitch: -.98, eye: 16 },
+    { label: 'Interrogation room', x: 6.5, z: -3.7, yaw: .8, pitch: -.18, eye: 1.7 },
+    { label: 'Guest room', x: 8.4, z: 2.6, yaw: 2.57, pitch: -.15, eye: 1.7 },
+    { label: 'Cutaway', x: 2.5, z: 14, yaw: Math.PI, pitch: -.98, eye: 18 },
   ],
   callsign: 'Hollow Pine',
   alertCall: 'Headlights on the Frostford road. Lights out, take your windows.',
   clearCall: 'They\'re past. Lights back on, low. Back to it.',
   hush: 'Not now. Down, and not a sound.',
   text: {
-    routine: 'Four rangers behind the Veyr. Halvorsen logs the Frostford road, Dahl keeps the radio schedule, Moss walks the rounds, Lund is off watch.',
+    routine: 'Six rangers behind the Veyr. A Frostford driver is being questioned in the east wing; next door, behind barred shutters, the clerk who copied the convoy timetables waits for the crossing.',
     warning: 'Engine on the Frostford road. Lights out, everyone to a window.',
     road: 'Enemy patrol on the road, searchlight on the house. Nobody moves.',
     gone: 'The patrol has passed. Waiting for the road to go quiet.',
@@ -346,7 +404,38 @@ export default safehouse({
       'Lund sleeps through anything except the word "coffee".',
     ],
     lund: ['Mm… wake me if they come up the drive.', '…two more hours…', 'Is it my watch? It\'s not my watch.'],
+    sorensen: [
+      'He says he is a driver. Drivers don\'t usually carry the convoy schedule in their boot.',
+      'We hand him over at the North Crossing when the ice holds. Until then he talks to me, and only to me.',
+      'Don\'t give him anything. Not your name, not the date, not a cigarette.',
+    ],
+    rask: [
+      'I drive trucks. That is all I do.',
+      'Frostford will notice I am missing. They count the trucks too.',
+      'The woman through that wall. Is she one of yours? …I heard her crying last night.',
+    ],
+    brandt: [
+      'Miss Varga stays in this room until the crossing. Nobody comes in without me.',
+      'She brought the timetables out in her coat lining. They would hang her in the square for it.',
+      'The shutters stay closed. Always. Even in daylight.',
+    ],
+    varga: [
+      'You\'re from the outpost? Then it\'s true. You\'re really taking me across.',
+      'Eight months I copied the timetables. One page a night, sewn into the lining of this coat.',
+      'There\'s a man through that wall. One of theirs. Does he know who I am?',
+    ],
   },
+  // Stand in the interrogation room and you hear the questioning go on.
+  scenes: [{ room: P.rooms.interrogation, lines: [
+    ['LT SORENSEN', 'When does the fuel bowser leave Frostford?'],
+    ['PRISONER', 'I drive what they tell me to drive. Nobody tells me when.'],
+    ['LT SORENSEN', 'You had the schedule in your boot.'],
+    ['PRISONER', 'Then you already know. Why ask me?'],
+    ['LT SORENSEN', 'Because I want to hear you lie about it.'],
+    ['PRISONER', '…Six-fifteen. Thursdays, half past five.'],
+    ['LT SORENSEN', 'Thank you, Corporal. Water?'],
+    ['PRISONER', '…Yes.'],
+  ] }],
   chatter: [
     '…Kestrel Falls cordon reports quiet. Next schedule on the hour…',
     '…Relay Zero Three, battery low, going dark until morning…',

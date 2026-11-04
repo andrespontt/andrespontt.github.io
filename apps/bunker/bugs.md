@@ -66,7 +66,7 @@ Implementation started 2026-10-26. Original review evidence below is retained; F
 - **Suggested fix:** submit a final snapshot and release the lease in an ordered/atomic store operation, ensuring an older in-flight report cannot overwrite it.
 - **Proposed check:** leave immediately after an event, before the next heartbeat, then inspect the stored counters.
 
-### 9. R key starts a reload while Pause is active — P2 / very small
+### 9. [FIXED] R key starts a reload while Pause is active — P2 / very small
 - **Code:** `game.js:184`, KeyR handler, versus the guarded `#ammo` click handler around line 194; `areas/dev.js`, `reload()`.
 - **Evidence:** keyboard reload checks neither `paused` nor `transitioning`; the area only checks its separate `frozen` flag. Mouse/touch reload does check Pause.
 - **Impact:** keyboard and touch controls behave differently; pressing R while paused can start a reload and play its sound, with progress deferred until resume.
@@ -87,7 +87,7 @@ Implementation started 2026-10-26. Original review evidence below is retained; F
 - **Suggested fix:** separate mode selection/reset from spawning, so joining initializes the requested wave exactly once.
 - **Proposed check:** instrument the call count for joining saved wave 3; `startWave()` should execute once.
 
-### 12. Legacy dev links apply the camera without refreshing its UI — P2 / very small
+### 12. [FIXED] Legacy dev links apply the camera without refreshing its UI — P2 / very small
 - **Code:** `game.js`, startup branches at the end of the file.
 - **Evidence:** the `?at=...` branch calls `updateUI()` after `setView()`. The `?dev=...&view=...` branch calls `setView()` without that refresh. `travel()` already rendered UI for the default first-person view.
 - **Impact:** a legacy city Drone/Overhead link can retain the first-person Fire button/crosshair until another action refreshes UI; the address can also retain the default view written during travel.
@@ -151,3 +151,5 @@ This is a focused quick-win review, not a claim that these are all defects. Exac
 - 6: Fixed-weather areas hide the cycle control, ignore N, and show local conditions instead of outpost weather presets. Syntax check passes.
 
 - 7: A renewed lease preserves counter baselines for the same session. Expiry/reconnect regression test passes.
+
+- Follow-up browser verification: 9 now ignores R while paused (26 / 30 unchanged); 12 now preserves the drone URL and hides weapon controls through reload. See playtest-2026-11-03.md for the responsive terminal fix and validation.
